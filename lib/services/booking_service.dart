@@ -19,10 +19,10 @@ class BookingService {
         .where('customerId', isEqualTo: customerId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return BookingModel.fromMap(doc.id, doc.data());
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return BookingModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 
   Stream<List<BookingModel>> getVendorBookings(String vendorId) {
@@ -31,10 +31,10 @@ class BookingService {
         .where('vendorId', isEqualTo: vendorId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return BookingModel.fromMap(doc.id, doc.data());
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return BookingModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 
   Stream<List<BookingModel>> getVendorBookingsByStatus({
@@ -47,10 +47,10 @@ class BookingService {
         .where('status', isEqualTo: enumToString(status))
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return BookingModel.fromMap(doc.id, doc.data());
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return BookingModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 
   Future<void> confirmBooking(String bookingId) async {
@@ -81,10 +81,7 @@ class BookingService {
     await _firestore
         .collection(FirestoreCollections.bookings)
         .doc(bookingId)
-        .update({
-      'status': enumToString(status),
-      'updatedAt': Timestamp.now(),
-    });
+        .update({'status': enumToString(status), 'updatedAt': Timestamp.now()});
   }
 
   Future<void> deleteBooking(String bookingId) async {

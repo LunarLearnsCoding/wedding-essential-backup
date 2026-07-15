@@ -33,10 +33,7 @@ class ChecklistService {
     await _firestore
         .collection(FirestoreCollections.checklistTasks)
         .doc(taskId)
-        .update({
-      'isCompleted': isCompleted,
-      'updatedAt': Timestamp.now(),
-    });
+        .update({'isCompleted': isCompleted, 'updatedAt': Timestamp.now()});
   }
 
   Stream<List<ChecklistTaskModel>> getTasksByCustomer(String customerId) {
@@ -45,9 +42,9 @@ class ChecklistService {
         .where('customerId', isEqualTo: customerId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return ChecklistTaskModel.fromMap(doc.id, doc.data());
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return ChecklistTaskModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 }

@@ -8,8 +8,8 @@ import 'admin_inquiries_screen.dart';
 import 'admin_reviews_screen.dart';
 import 'admin_services_screen.dart';
 import 'admin_settings_screen.dart';
-import 'admin_users_screen.dart';
-import 'admin_vendors_screen.dart';
+import 'admin_customer_screen.dart';
+import 'admin_vendor_screen.dart';
 import 'widgets/admin_info_card.dart';
 import 'widgets/admin_shell.dart';
 import 'widgets/admin_stat_card.dart';
@@ -137,10 +137,10 @@ class _AdminOverview extends StatelessWidget {
               final crossAxisCount = width >= 1100
                   ? 4
                   : width >= 760
-                      ? 3
-                      : width >= 520
-                          ? 2
-                          : 1;
+                  ? 3
+                  : width >= 520
+                  ? 2
+                  : 1;
 
               return GridView.count(
                 shrinkWrap: true,
@@ -373,18 +373,12 @@ class _AdminTips extends StatelessWidget {
           SizedBox(height: 14),
           Text(
             'users, vendors, services, bookings, inquiries, reviews, blogs',
-            style: TextStyle(
-              color: AdminAppColors.textSecondary,
-              height: 1.5,
-            ),
+            style: TextStyle(color: AdminAppColors.textSecondary, height: 1.5),
           ),
           SizedBox(height: 12),
           Text(
             'Keep the field names status, createdAt, isApproved, isActive, totalAmount, role, name, email and title consistent for best results.',
-            style: TextStyle(
-              color: AdminAppColors.textSecondary,
-              height: 1.5,
-            ),
+            style: TextStyle(color: AdminAppColors.textSecondary, height: 1.5),
           ),
         ],
       ),

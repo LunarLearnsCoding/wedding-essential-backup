@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminService {
   AdminService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -31,7 +31,8 @@ class AdminService {
         final isCompleted = status == 'completed' || status == 'paid';
         if (!isCompleted) continue;
 
-        final rawAmount = data['totalAmount'] ?? data['amount'] ?? data['price'];
+        final rawAmount =
+            data['totalAmount'] ?? data['amount'] ?? data['price'];
         if (rawAmount is num) {
           total += rawAmount.toDouble();
         } else if (rawAmount is String) {
@@ -48,8 +49,9 @@ class AdminService {
     bool descending = true,
     int? limit,
   }) {
-    Query<Map<String, dynamic>> query = _collection(collection)
-        .orderBy(orderBy, descending: descending);
+    Query<Map<String, dynamic>> query = _collection(
+      collection,
+    ).orderBy(orderBy, descending: descending);
 
     if (limit != null) {
       query = query.limit(limit);
@@ -70,28 +72,57 @@ class AdminService {
     String id,
     Map<String, dynamic> data,
   ) {
-    return _collection(collection).doc(id).update({
-      ...data,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    return _collection(
+      collection,
+    ).doc(id).update({...data, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
   Future<void> deleteDocument(String collection, String id) {
     return _collection(collection).doc(id).delete();
   }
 
-  Future<void> approveVendor(String vendorId) {
-    return updateDocument('vendors', vendorId, {
-      'status': 'approved',
+  Future<void> approveVendor(String vendorId) async {
+    final batch = _firestore.batch();
+
+    final vendorRef = _firestore.collection('vendors').doc(vendorId);
+
+    final userRef = _firestore.collection('users').doc(vendorId);
+
+    batch.set(vendorRef, {
       'isApproved': true,
-    });
+      'approvalStatus': 'approved',
+      'approvedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    batch.set(userRef, {
+      'status': 'active',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await batch.commit();
   }
 
-  Future<void> rejectVendor(String vendorId) {
-    return updateDocument('vendors', vendorId, {
-      'status': 'rejected',
+  Future<void> rejectVendor(String vendorId) async {
+    final batch = _firestore.batch();
+
+    final vendorRef = _firestore.collection('vendors').doc(vendorId);
+
+    final userRef = _firestore.collection('users').doc(vendorId);
+
+    batch.set(vendorRef, {
       'isApproved': false,
-    });
+      'approvalStatus': 'rejected',
+      'rejectedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    batch.set(userRef, {
+      'status': 'rejected',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await batch.commit();
   }
 
   Future<void> suspendUser(String userId) {

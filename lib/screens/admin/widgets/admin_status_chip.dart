@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/admin_app_colors.dart';
 
 class AdminStatusChip extends StatelessWidget {
-  const AdminStatusChip({
-    super.key,
-    required this.label,
-  });
+  const AdminStatusChip({super.key, required this.label});
 
   final String label;
 

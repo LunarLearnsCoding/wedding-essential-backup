@@ -10,10 +10,7 @@ import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
 class AdminBlogsScreen extends StatefulWidget {
-  const AdminBlogsScreen({
-    super.key,
-    required this.service,
-  });
+  const AdminBlogsScreen({super.key, required this.service});
 
   final AdminService service;
 
@@ -51,7 +48,9 @@ class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
               final docs = snapshot.data?.docs ?? [];
               final blogs = docs
                   .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where((item) => AdminHelpers.matchesSearch(item.data, _search))
+                  .where(
+                    (item) => AdminHelpers.matchesSearch(item.data, _search),
+                  )
                   .toList();
 
               if (blogs.isEmpty) {
@@ -76,10 +75,20 @@ class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
                     'description',
                     'content',
                   ], fallback: 'No description');
-                  final category = item.stringValue(['category'], fallback: 'Planning');
-                  final author = item.stringValue(['author', 'authorName'], fallback: 'Admin');
-                  final status = item.stringValue(['status'], fallback: 'draft');
-                  final createdAt = item.dateValue(['createdAt', 'publishedAt']);
+                  final category = item.stringValue([
+                    'category',
+                  ], fallback: 'Planning');
+                  final author = item.stringValue([
+                    'author',
+                    'authorName',
+                  ], fallback: 'Admin');
+                  final status = item.stringValue([
+                    'status',
+                  ], fallback: 'draft');
+                  final createdAt = item.dateValue([
+                    'createdAt',
+                    'publishedAt',
+                  ]);
 
                   return AdminRecordCard(
                     leadingIcon: Icons.article_outlined,
@@ -87,7 +96,10 @@ class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
                     subtitle: excerpt,
                     trailing: AdminStatusChip(label: status),
                     meta: [
-                      AdminMetaPill(icon: Icons.category_outlined, label: category),
+                      AdminMetaPill(
+                        icon: Icons.category_outlined,
+                        label: category,
+                      ),
                       AdminMetaPill(icon: Icons.person_outline, label: author),
                       AdminMetaPill(
                         icon: Icons.calendar_today_outlined,
@@ -110,12 +122,16 @@ class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
                           final confirmed = await AdminHelpers.confirm(
                             context,
                             title: 'Delete blog?',
-                            message: 'This will permanently delete this blog post.',
+                            message:
+                                'This will permanently delete this blog post.',
                             confirmText: 'Delete',
                           );
                           if (!confirmed) return;
                           try {
-                            await widget.service.deleteDocument('blogs', item.id);
+                            await widget.service.deleteDocument(
+                              'blogs',
+                              item.id,
+                            );
                             if (!mounted) return;
                             AdminHelpers.showSnack(context, 'Blog deleted');
                           } catch (error) {

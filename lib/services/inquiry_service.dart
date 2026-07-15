@@ -5,32 +5,24 @@ import '../models/app_enums.dart';
 import '../models/inquiry_model.dart';
 
 class InquiryService {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Future<void> createInquiry(
-    InquiryModel inquiry,
-  ) async {
+  Future<void> createInquiry(InquiryModel inquiry) async {
     await _firestore
         .collection(FirestoreCollections.inquiries)
         .add(inquiry.toMap());
   }
 
-  Stream<List<InquiryModel>> getVendorInquiries(
-    String vendorId,
-  ) {
+  Stream<List<InquiryModel>> getVendorInquiries(String vendorId) {
     return _firestore
         .collection(FirestoreCollections.inquiries)
         .where('vendorId', isEqualTo: vendorId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return InquiryModel.fromMap(
-          doc.id,
-          doc.data(),
-        );
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return InquiryModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 
   Future<void> updateInquiryStatus({
@@ -40,14 +32,10 @@ class InquiryService {
     await _firestore
         .collection(FirestoreCollections.inquiries)
         .doc(inquiryId)
-        .update({
-      'status': enumToString(status),
-    });
+        .update({'status': enumToString(status)});
   }
 
-  Future<void> deleteInquiry(
-    String inquiryId,
-  ) async {
+  Future<void> deleteInquiry(String inquiryId) async {
     await _firestore
         .collection(FirestoreCollections.inquiries)
         .doc(inquiryId)

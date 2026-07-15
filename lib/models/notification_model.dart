@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 
-enum NotificationType {
-  booking,
-  inquiry,
- guest,
-  checklist,
-  payment,
-}
+enum NotificationType { booking, inquiry, guest, checklist, payment }
 
 class NotificationModel {
   final String id;
@@ -27,19 +22,25 @@ class NotificationModel {
     required this.isRead,
   });
 
-  factory NotificationModel.fromMap(
-      String id,
-      Map<String, dynamic> map) {
+  factory NotificationModel.fromMap(String id, Map<String, dynamic> map) {
     return NotificationModel(
       id: id,
       title: map['title'] ?? '',
       message: map['message'] ?? '',
-      type: map['type'] ?? '',
-      isRead: map['isRead'] ?? false,
-      createdAt:
-          (map['createdAt'] as Timestamp?)?.toDate() ??
-              DateTime.now(),
+      type: _notificationTypeFromValue(map['type']),
+      isRead: boolFromFirestore(map['isRead']),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'message': message,
+      'type': type.name,
+      'isRead': isRead,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
   }
 
   IconData get icon {
@@ -98,4 +99,12 @@ class NotificationModel {
         return Colors.green;
     }
   }
+}
+
+NotificationType _notificationTypeFromValue(dynamic value) {
+  final normalized = value.toString().toLowerCase().trim();
+  return NotificationType.values.firstWhere(
+    (type) => type.name == normalized,
+    orElse: () => NotificationType.inquiry,
+  );
 }

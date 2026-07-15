@@ -46,8 +46,7 @@ class NotificationsScreen extends StatelessWidget {
       NotificationModel(
         id: 'notif_yesterday_2',
         title: 'Task Due Soon',
-        message:
-            '"Book photographer & videographer" is due in 3 days.',
+        message: '"Book photographer & videographer" is due in 3 days.',
         createdAt: DateTime.now().subtract(const Duration(days: 1)),
         type: NotificationType.checklist,
         isRead: true,
@@ -58,8 +57,7 @@ class NotificationsScreen extends StatelessWidget {
       NotificationModel(
         id: 'notif_earlier_1',
         title: 'Payment Reminder',
-        message:
-            'Your remaining balance for Saveur Catering is due soon.',
+        message: 'Your remaining balance for Saveur Catering is due soon.',
         createdAt: DateTime.now().subtract(const Duration(days: 3)),
         type: NotificationType.payment,
         isRead: true,
@@ -88,11 +86,7 @@ class NotificationsScreen extends StatelessWidget {
                 TextButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Marked all as read',
-                        ),
-                      ),
+                      const SnackBar(content: Text('Marked all as read')),
                     );
                   },
                   child: const Text(
@@ -113,8 +107,7 @@ class NotificationsScreen extends StatelessWidget {
             const SizedBox(height: 12),
 
             ...today.map(
-              (notification) =>
-                  NotificationCard(notification: notification),
+              (notification) => NotificationCard(notification: notification),
             ),
 
             const SizedBox(height: 18),
@@ -124,8 +117,7 @@ class NotificationsScreen extends StatelessWidget {
             const SizedBox(height: 12),
 
             ...yesterday.map(
-              (notification) =>
-                  NotificationCard(notification: notification),
+              (notification) => NotificationCard(notification: notification),
             ),
 
             const SizedBox(height: 18),
@@ -135,8 +127,7 @@ class NotificationsScreen extends StatelessWidget {
             const SizedBox(height: 12),
 
             ...earlier.map(
-              (notification) =>
-                  NotificationCard(notification: notification),
+              (notification) => NotificationCard(notification: notification),
             ),
           ],
         ),
@@ -150,8 +141,7 @@ class NotificationsScreen extends StatelessWidget {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const CustomerDashboardScreen(),
+                  builder: (_) => const CustomerDashboardScreen(),
                 ),
               );
               break;
@@ -159,10 +149,7 @@ class NotificationsScreen extends StatelessWidget {
             case 1:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const BrowseServicesScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const BrowseServicesScreen()),
               );
               break;
 
@@ -173,8 +160,7 @@ class NotificationsScreen extends StatelessWidget {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      const CustomerProfileScreen(),
+                  builder: (_) => const CustomerProfileScreen(),
                 ),
               );
               break;

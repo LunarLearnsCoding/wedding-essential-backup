@@ -10,10 +10,7 @@ import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
 class AdminServicesScreen extends StatefulWidget {
-  const AdminServicesScreen({
-    super.key,
-    required this.service,
-  });
+  const AdminServicesScreen({super.key, required this.service});
 
   final AdminService service;
 
@@ -51,7 +48,9 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
               final docs = snapshot.data?.docs ?? [];
               final services = docs
                   .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where((item) => AdminHelpers.matchesSearch(item.data, _search))
+                  .where(
+                    (item) => AdminHelpers.matchesSearch(item.data, _search),
+                  )
                   .toList();
 
               if (services.isEmpty) {
@@ -81,12 +80,15 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
                     'category',
                     'serviceCategory',
                   ], fallback: 'General');
-                  final price = item.numberValue(['price', 'startingPrice', 'amount']);
+                  final price = item.numberValue([
+                    'price',
+                    'startingPrice',
+                    'amount',
+                  ]);
                   final isActive = item.boolValue(['isActive'], fallback: true);
-                  final status = item.stringValue(
-                    ['status'],
-                    fallback: isActive ? 'active' : 'inactive',
-                  );
+                  final status = item.stringValue([
+                    'status',
+                  ], fallback: isActive ? 'active' : 'inactive');
                   final createdAt = item.dateValue(['createdAt']);
 
                   return AdminRecordCard(
@@ -95,7 +97,10 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
                     subtitle: vendor,
                     trailing: AdminStatusChip(label: status),
                     meta: [
-                      AdminMetaPill(icon: Icons.category_outlined, label: category),
+                      AdminMetaPill(
+                        icon: Icons.category_outlined,
+                        label: category,
+                      ),
                       AdminMetaPill(
                         icon: Icons.payments_outlined,
                         label: AdminFormatters.currency(price),
@@ -139,12 +144,16 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
                           final confirmed = await AdminHelpers.confirm(
                             context,
                             title: 'Delete service?',
-                            message: 'This will permanently delete this service listing.',
+                            message:
+                                'This will permanently delete this service listing.',
                             confirmText: 'Delete',
                           );
                           if (!confirmed) return;
                           try {
-                            await widget.service.deleteDocument('services', item.id);
+                            await widget.service.deleteDocument(
+                              'services',
+                              item.id,
+                            );
                             if (!mounted) return;
                             AdminHelpers.showSnack(context, 'Service deleted');
                           } catch (error) {

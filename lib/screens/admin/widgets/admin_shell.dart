@@ -46,9 +46,7 @@ class AdminShell extends StatelessWidget {
                   selectedIndex: selectedIndex,
                   onSelected: onSelected,
                 ),
-                Expanded(
-                  child: _PageFrame(page: page),
-                ),
+                Expanded(child: _PageFrame(page: page)),
               ],
             ),
           );
@@ -82,10 +80,7 @@ class AdminShell extends StatelessWidget {
 }
 
 class _PageFrame extends StatelessWidget {
-  const _PageFrame({
-    required this.page,
-    this.showHeader = true,
-  });
+  const _PageFrame({required this.page, this.showHeader = true});
 
   final AdminPanelPage page;
   final bool showHeader;
@@ -184,9 +179,7 @@ class _Sidebar extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: const BoxDecoration(
         color: AdminAppColors.surface,
-        border: Border(
-          right: BorderSide(color: AdminAppColors.border),
-        ),
+        border: Border(right: BorderSide(color: AdminAppColors.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,10 +195,7 @@ class _Sidebar extends StatelessWidget {
                 CircleAvatar(
                   radius: 23,
                   backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.favorite,
-                    color: AdminAppColors.secondary,
-                  ),
+                  child: Icon(Icons.favorite, color: AdminAppColors.secondary),
                 ),
                 SizedBox(width: 12),
                 Expanded(
@@ -224,10 +214,7 @@ class _Sidebar extends StatelessWidget {
                       SizedBox(height: 2),
                       Text(
                         'Admin Panel',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],
                   ),
@@ -290,10 +277,7 @@ class _MobileDrawer extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(8, 10, 8, 20),
             child: Text(
               'Wedding Essentials Admin',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
             ),
           );
         }
@@ -326,7 +310,9 @@ class _NavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AdminAppColors.primary.withAlpha(22) : Colors.transparent,
+      color: selected
+          ? AdminAppColors.primary.withAlpha(22)
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),

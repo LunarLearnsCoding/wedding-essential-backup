@@ -10,10 +10,7 @@ import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
 class AdminInquiriesScreen extends StatefulWidget {
-  const AdminInquiriesScreen({
-    super.key,
-    required this.service,
-  });
+  const AdminInquiriesScreen({super.key, required this.service});
 
   final AdminService service;
 
@@ -51,7 +48,9 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
               final docs = snapshot.data?.docs ?? [];
               final inquiries = docs
                   .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where((item) => AdminHelpers.matchesSearch(item.data, _search))
+                  .where(
+                    (item) => AdminHelpers.matchesSearch(item.data, _search),
+                  )
                   .toList();
 
               if (inquiries.isEmpty) {
@@ -88,7 +87,9 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
                     'description',
                     'note',
                   ], fallback: 'No message provided');
-                  final status = item.stringValue(['status'], fallback: 'pending');
+                  final status = item.stringValue([
+                    'status',
+                  ], fallback: 'pending');
                   final createdAt = item.dateValue(['createdAt']);
 
                   return AdminRecordCard(
@@ -97,8 +98,14 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
                     subtitle: message,
                     trailing: AdminStatusChip(label: status),
                     meta: [
-                      AdminMetaPill(icon: Icons.person_outline, label: customer),
-                      AdminMetaPill(icon: Icons.storefront_outlined, label: vendor),
+                      AdminMetaPill(
+                        icon: Icons.person_outline,
+                        label: customer,
+                      ),
+                      AdminMetaPill(
+                        icon: Icons.storefront_outlined,
+                        label: vendor,
+                      ),
                       AdminMetaPill(
                         icon: Icons.calendar_today_outlined,
                         label: AdminFormatters.dateTime(createdAt),

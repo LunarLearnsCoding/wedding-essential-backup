@@ -9,9 +9,7 @@ class BlogService {
   // BLOGS
 
   Future<void> addBlog(BlogModel blog) async {
-    await _firestore
-        .collection(FirestoreCollections.blogs)
-        .add(blog.toMap());
+    await _firestore.collection(FirestoreCollections.blogs).add(blog.toMap());
   }
 
   Future<void> updateBlog(BlogModel blog) async {
@@ -34,10 +32,10 @@ class BlogService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return BlogModel.fromMap(doc.id, doc.data());
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return BlogModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 
   Future<BlogModel?> getBlogById(String blogId) async {
@@ -55,38 +53,29 @@ class BlogService {
 
   // COMMENTS
 
-  Future<void> addComment(
-    BlogCommentModel comment,
-  ) async {
+  Future<void> addComment(BlogCommentModel comment) async {
     await _firestore
         .collection(FirestoreCollections.blogComments)
         .add(comment.toMap());
   }
 
-  Future<void> deleteComment(
-    String commentId,
-  ) async {
+  Future<void> deleteComment(String commentId) async {
     await _firestore
         .collection(FirestoreCollections.blogComments)
         .doc(commentId)
         .delete();
   }
 
-  Stream<List<BlogCommentModel>> getCommentsByBlog(
-    String blogId,
-  ) {
+  Stream<List<BlogCommentModel>> getCommentsByBlog(String blogId) {
     return _firestore
         .collection(FirestoreCollections.blogComments)
         .where('blogId', isEqualTo: blogId)
         .orderBy('createdAt')
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return BlogCommentModel.fromMap(
-          doc.id,
-          doc.data(),
-        );
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return BlogCommentModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 }

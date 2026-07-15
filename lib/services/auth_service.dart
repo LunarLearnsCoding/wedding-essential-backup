@@ -13,8 +13,7 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
-  Stream<User?> get authStateChanges =>
-      _auth.authStateChanges();
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   // CUSTOMER REGISTER
   Future<UserCredential> registerCustomer({
@@ -24,21 +23,20 @@ class AuthService {
     required String phone,
     String? address,
   }) async {
-    final credential =
-        await _auth.createUserWithEmailAndPassword(
+    final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
 
     final uid = credential.user!.uid;
-
+    final now = DateTime.now();
     final user = UserModel(
       id: uid,
       name: name,
       email: email,
       phone: phone,
       role: UserRole.customer,
-      createdAt: DateTime.now(),
+      createdAt: now,
     );
 
     final customer = CustomerModel(
@@ -49,19 +47,22 @@ class AuthService {
       role: UserRole.customer,
       address: address,
       weddingDate: null,
-      createdAt: DateTime.now(),
+      createdAt: now,
     );
 
-    await _firestore
-        .collection(FirestoreCollections.users)
-        .doc(uid)
-        .set(user.toMap());
+    final batch = _firestore.batch();
 
-    await _firestore
+    final userRef = _firestore.collection(FirestoreCollections.users).doc(uid);
+
+    final customerRef = _firestore
         .collection(FirestoreCollections.customers)
-        .doc(uid)
-        .set(customer.toMap());
+        .doc(uid);
 
+    batch.set(userRef, {...user.toMap(), 'status': 'active'});
+
+    batch.set(customerRef, {...customer.toMap(), 'status': 'active'});
+
+    await batch.commit();
     return credential;
   }
 
@@ -75,13 +76,13 @@ class AuthService {
     required String category,
     required List<String> locations,
   }) async {
-    final credential =
-        await _auth.createUserWithEmailAndPassword(
+    final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
 
     final uid = credential.user!.uid;
+    final now = DateTime.now();
 
     final user = UserModel(
       id: uid,
@@ -89,7 +90,7 @@ class AuthService {
       email: email,
       phone: phone,
       role: UserRole.vendor,
-      createdAt: DateTime.now(),
+      createdAt: now,
     );
 
     final vendor = VendorModel(
@@ -103,20 +104,25 @@ class AuthService {
       locations: locations,
       bio: '',
       isApproved: false,
+      approvalStatus: 'pending',
       averageRating: 0,
       totalReviews: 0,
-      createdAt: DateTime.now(),
+      createdAt: now,
     );
 
-    await _firestore
-        .collection(FirestoreCollections.users)
-        .doc(uid)
-        .set(user.toMap());
+    final batch = _firestore.batch();
 
-    await _firestore
+    final userRef = _firestore.collection(FirestoreCollections.users).doc(uid);
+
+    final vendorRef = _firestore
         .collection(FirestoreCollections.vendors)
-        .doc(uid)
-        .set(vendor.toMap());
+        .doc(uid);
+
+    batch.set(userRef, {...user.toMap(), 'status': 'pending'});
+
+    batch.set(vendorRef, {...vendor.toMap(), 'isActive': true});
+
+    await batch.commit();
 
     return credential;
   }
@@ -139,9 +145,7 @@ class AuthService {
 
   // RESET PASSWORD
   Future<void> resetPassword(String email) async {
-    await _auth.sendPasswordResetEmail(
-      email: email,
-    );
+    await _auth.sendPasswordResetEmail(email: email);
   }
 
   // GET USER ROLE

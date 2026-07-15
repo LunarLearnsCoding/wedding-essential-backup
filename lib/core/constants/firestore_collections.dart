@@ -7,6 +7,7 @@ class FirestoreCollections {
   static const String reviews = 'reviews';
   static const String blogs = 'blogs';
   static const String blogComments = 'blogComments';
+  static const String favorites = 'favorites';
   static const String guests = 'guests';
   static const String checklistTasks = 'checklistTasks';
   static const String inquiries = 'inquiries';

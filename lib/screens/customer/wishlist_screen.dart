@@ -5,8 +5,6 @@ class WishlistScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Wishlist')),
-    );
+    return const Scaffold(body: Center(child: Text('Wishlist')));
   }
 }

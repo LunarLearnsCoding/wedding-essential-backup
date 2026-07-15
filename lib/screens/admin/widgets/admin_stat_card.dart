@@ -31,8 +31,8 @@ class AdminStatCard extends StatelessWidget {
         final valueText = value == null
             ? '—'
             : value is double
-                ? value.toStringAsFixed(0)
-                : value.toString();
+            ? value.toStringAsFixed(0)
+            : value.toString();
 
         return Container(
           padding: const EdgeInsets.all(18),

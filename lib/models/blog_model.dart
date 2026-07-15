@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 
 class BlogModel {
   final String id;
@@ -29,8 +30,8 @@ class BlogModel {
       imageUrl: map['imageUrl'] ?? '',
       authorId: map['authorId'] ?? '',
       authorName: map['authorName'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
+      updatedAt: dateTimeFromFirestore(map['updatedAt']),
     );
   }
 
@@ -71,7 +72,7 @@ class BlogCommentModel {
       userId: map['userId'] ?? '',
       userName: map['userName'] ?? '',
       comment: map['comment'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
     );
   }
 

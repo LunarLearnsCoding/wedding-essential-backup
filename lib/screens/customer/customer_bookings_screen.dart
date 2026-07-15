@@ -1,24 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../providers/booking_provider.dart';
+import '../../models/booking_model.dart';
+import '../../models/app_enums.dart';
 
 class CustomerBookingsScreen extends StatelessWidget {
   const CustomerBookingsScreen({super.key});
-
-  Stream<QuerySnapshot<Map<String, dynamic>>> _bookingsStream() {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      return const Stream.empty();
-    }
-
-    return FirebaseFirestore.instance
-        .collection('bookings')
-        .where('customerId', isEqualTo: user.uid)
-        .snapshots();
-  }
 
   Future<void> _cancelBooking(BuildContext context, String bookingId) async {
     final confirm = await showDialog<bool>(
@@ -50,89 +42,51 @@ class CustomerBookingsScreen extends StatelessWidget {
           .collection('bookings')
           .doc(bookingId)
           .update({
-        'status': 'cancelled',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'status': 'cancelled',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Booking cancelled'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Booking cancelled')));
     } catch (error) {
       if (!context.mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to cancel booking: $error'),
-        ),
+        SnackBar(content: Text('Failed to cancel booking: $error')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final bookings = context.watch<BookingProvider>().bookings;
 
-    if (user == null) {
+    if (bookings.isEmpty) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(
-          title: const Text('My Bookings'),
-        ),
-        body: const Center(
-          child: Text('Please login to view your bookings.'),
-        ),
+        appBar: AppBar(title: const Text('My Bookings')),
+        body: const _EmptyBookingsView(),
       );
     }
 
+    final sortedBookings = List<BookingModel>.from(bookings)
+      ..sort((a, b) => b.eventDate.compareTo(a.eventDate));
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('My Bookings'),
-      ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: _bookingsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          final bookings = snapshot.data?.docs ?? [];
-
-          if (bookings.isEmpty) {
-            return const _EmptyBookingsView();
-          }
-
-          bookings.sort((a, b) {
-            final aDate = _dateFromValue(a.data()['requestedDateTime']);
-            final bDate = _dateFromValue(b.data()['requestedDateTime']);
-
-            if (aDate == null && bDate == null) return 0;
-            if (aDate == null) return 1;
-            if (bDate == null) return -1;
-
-            return bDate.compareTo(aDate);
-          });
-
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-            itemCount: bookings.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 14),
-            itemBuilder: (context, index) {
-              final bookingDoc = bookings[index];
-              final data = bookingDoc.data();
-
-              return _BookingCard(
-                bookingId: bookingDoc.id,
-                bookingData: data,
-                onCancel: () => _cancelBooking(context, bookingDoc.id),
-              );
-            },
+      appBar: AppBar(title: const Text('My Bookings')),
+      body: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+        itemCount: sortedBookings.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 14),
+        itemBuilder: (context, index) {
+          final booking = sortedBookings[index];
+          return _BookingCard(
+            booking: booking,
+            onCancel: () => _cancelBooking(context, booking.id),
           );
         },
       ),
@@ -177,10 +131,7 @@ class _EmptyBookingsView extends StatelessWidget {
             const Text(
               'Your booking requests will appear here once you book a wedding service.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, height: 1.5),
             ),
           ],
         ),
@@ -190,49 +141,32 @@ class _EmptyBookingsView extends StatelessWidget {
 }
 
 class _BookingCard extends StatelessWidget {
-  final String bookingId;
-  final Map<String, dynamic> bookingData;
+  final BookingModel booking;
   final VoidCallback onCancel;
 
-  const _BookingCard({
-    required this.bookingId,
-    required this.bookingData,
-    required this.onCancel,
-  });
+  const _BookingCard({required this.booking, required this.onCancel});
 
   @override
   Widget build(BuildContext context) {
-    final serviceName = _stringValue(
-      bookingData,
-      'serviceName',
-      fallback: 'Wedding Service',
-    );
+    final serviceName = booking.serviceName.isNotEmpty
+        ? booking.serviceName
+        : 'Wedding Service';
+    final vendorName = booking.vendorName.isNotEmpty
+        ? booking.vendorName
+        : 'Vendor';
 
-    final vendorName = _stringValue(
-      bookingData,
-      'vendorName',
-      fallback: 'Vendor',
-    );
+    final requestedDate = DateFormat('MMM dd, yyyy').format(booking.eventDate);
+    final requestedTime = DateFormat('hh:mm a').format(booking.eventDate);
+    final statusString = enumToString(booking.status).toLowerCase();
 
-    final requestedDate = _stringValue(bookingData, 'requestedDate');
-    final requestedTime = _stringValue(bookingData, 'requestedTime');
-    final status = _stringValue(
-      bookingData,
-      'status',
-      fallback: 'pending',
-    ).toLowerCase();
-
-    final note = _stringValue(bookingData, 'note');
-    final price = _doubleValue(bookingData, 'price');
+    final price = booking.servicePrice;
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppColors.border,
-        ),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.035),
@@ -287,7 +221,7 @@ class _BookingCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _StatusBadge(status: status),
+              _StatusBadge(status: statusString),
             ],
           ),
 
@@ -299,7 +233,7 @@ class _BookingCard extends StatelessWidget {
                 child: _MiniInfoBox(
                   icon: Icons.calendar_month_outlined,
                   title: 'Date',
-                  value: requestedDate.isEmpty ? 'Not set' : requestedDate,
+                  value: requestedDate,
                 ),
               ),
               const SizedBox(width: 10),
@@ -307,7 +241,7 @@ class _BookingCard extends StatelessWidget {
                 child: _MiniInfoBox(
                   icon: Icons.access_time_outlined,
                   title: 'Time',
-                  value: requestedTime.isEmpty ? 'Not set' : requestedTime,
+                  value: requestedTime,
                 ),
               ),
             ],
@@ -318,29 +252,12 @@ class _BookingCard extends StatelessWidget {
           _MiniInfoBox(
             icon: Icons.payments_outlined,
             title: 'Estimated Price',
-            value: price <= 0 ? 'Not provided' : 'Rs. ${price.toStringAsFixed(0)}',
+            value: price <= 0
+                ? 'Not provided'
+                : 'Rs. ${price.toStringAsFixed(0)}',
           ),
 
-          if (note.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            const Text(
-              'Your Note',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              note,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-          ],
-
-          if (status == 'pending') ...[
+          if (statusString == 'pending') ...[
             const SizedBox(height: 18),
             SizedBox(
               height: 46,
@@ -383,17 +300,11 @@ class _MiniInfoBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.border,
-        ),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 19,
-            color: AppColors.primary,
-          ),
+          Icon(icon, size: 19, color: AppColors.primary),
           const SizedBox(width: 9),
           Expanded(
             child: Column(
@@ -430,9 +341,7 @@ class _MiniInfoBox extends StatelessWidget {
 class _StatusBadge extends StatelessWidget {
   final String status;
 
-  const _StatusBadge({
-    required this.status,
-  });
+  const _StatusBadge({required this.status});
 
   @override
   Widget build(BuildContext context) {
@@ -479,40 +388,4 @@ class _StatusBadge extends StatelessWidget {
       ),
     );
   }
-}
-
-String _stringValue(
-  Map<String, dynamic> data,
-  String key, {
-  String fallback = '',
-}) {
-  final value = data[key];
-
-  if (value == null) return fallback;
-
-  final text = value.toString().trim();
-
-  if (text.isEmpty) return fallback;
-
-  return text;
-}
-
-double _doubleValue(Map<String, dynamic> data, String key) {
-  final value = data[key];
-
-  if (value is num) return value.toDouble();
-
-  return double.tryParse(value.toString()) ?? 0;
-}
-
-DateTime? _dateFromValue(dynamic value) {
-  if (value is Timestamp) {
-    return value.toDate();
-  }
-
-  if (value is DateTime) {
-    return value;
-  }
-
-  return null;
 }

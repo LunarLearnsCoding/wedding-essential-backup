@@ -18,10 +18,7 @@ class AdminSummaryItem {
 }
 
 class AdminCollectionItem {
-  const AdminCollectionItem({
-    required this.id,
-    required this.data,
-  });
+  const AdminCollectionItem({required this.id, required this.data});
 
   final String id;
   final Map<String, dynamic> data;

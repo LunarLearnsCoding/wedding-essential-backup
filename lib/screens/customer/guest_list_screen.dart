@@ -5,8 +5,6 @@ class GuestListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Guest List')),
-    );
+    return const Scaffold(body: Center(child: Text('Guest List')));
   }
 }

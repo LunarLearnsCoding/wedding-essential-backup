@@ -10,10 +10,7 @@ import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
 class AdminUsersScreen extends StatefulWidget {
-  const AdminUsersScreen({
-    super.key,
-    required this.service,
-  });
+  const AdminUsersScreen({super.key, required this.service});
 
   final AdminService service;
 
@@ -51,13 +48,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               final docs = snapshot.data?.docs ?? [];
               final users = docs
                   .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where((item) => AdminHelpers.matchesSearch(item.data, _search))
+                  .where(
+                    (item) => AdminHelpers.matchesSearch(item.data, _search),
+                  )
                   .toList();
 
               if (users.isEmpty) {
                 return const AdminEmptyState(
                   title: 'No users found',
-                  message: 'Users will appear here after customers or admins sign up.',
+                  message:
+                      'Users will appear here after customers or admins sign up.',
                   icon: Icons.people_alt_outlined,
                 );
               }
@@ -75,7 +75,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   ], fallback: 'Unnamed user');
                   final email = item.stringValue(['email']);
                   final role = item.stringValue(['role'], fallback: 'customer');
-                  final status = item.stringValue(['status'], fallback: 'active');
+                  final status = item.stringValue([
+                    'status',
+                  ], fallback: 'active');
                   final createdAt = item.dateValue(['createdAt', 'joinedAt']);
                   final isSuspended = status.toLowerCase() == 'suspended';
 
@@ -125,12 +127,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           final confirmed = await AdminHelpers.confirm(
                             context,
                             title: 'Delete user?',
-                            message: 'This will permanently delete this user document.',
+                            message:
+                                'This will permanently delete this user document.',
                             confirmText: 'Delete',
                           );
                           if (!confirmed) return;
                           try {
-                            await widget.service.deleteDocument('users', item.id);
+                            await widget.service.deleteDocument(
+                              'users',
+                              item.id,
+                            );
                             if (!mounted) return;
                             AdminHelpers.showSnack(context, 'User deleted');
                           } catch (error) {

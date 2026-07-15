@@ -28,17 +28,12 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surface,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 18,
-        vertical: 18,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       labelStyle: const TextStyle(
         color: AppColors.textPrimary,
         fontWeight: FontWeight.w600,
       ),
-      hintStyle: const TextStyle(
-        color: AppColors.hint,
-      ),
+      hintStyle: const TextStyle(color: AppColors.hint),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: AppColors.border),
@@ -49,10 +44,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(
-          color: AppColors.primary,
-          width: 1.4,
-        ),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
       ),
     ),
 
@@ -62,13 +54,8 @@ class AppTheme {
         foregroundColor: Colors.white,
         elevation: 0,
         minimumSize: const Size(double.infinity, 56),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
   );

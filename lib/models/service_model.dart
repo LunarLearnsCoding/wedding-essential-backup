@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 
 class ServiceModel {
   final String id;
@@ -39,10 +40,7 @@ class ServiceModel {
     this.updatedAt,
   });
 
-  factory ServiceModel.fromMap(
-    String id,
-    Map<String, dynamic> map,
-  ) {
+  factory ServiceModel.fromMap(String id, Map<String, dynamic> map) {
     return ServiceModel(
       id: id,
       vendorId: map['vendorId'] ?? '',
@@ -51,17 +49,13 @@ class ServiceModel {
       description: map['description'] ?? '',
       category: map['category'] ?? '',
       location: map['location'] ?? '',
-      price: (map['price'] ?? 0).toDouble(),
-      imageUrls: List<String>.from(map['imageUrls'] ?? []),
-      averageRating:
-          (map['averageRating'] ?? 0).toDouble(),
-      totalReviews: map['totalReviews'] ?? 0,
-      isActive: map['isActive'] ?? true,
-      createdAt:
-          (map['createdAt'] as Timestamp?)?.toDate() ??
-          DateTime.now(),
-      updatedAt:
-          (map['updatedAt'] as Timestamp?)?.toDate(),
+      price: doubleFromFirestore(map['price']),
+      imageUrls: stringListFromFirestore(map['imageUrls']),
+      averageRating: doubleFromFirestore(map['averageRating']),
+      totalReviews: intFromFirestore(map['totalReviews']),
+      isActive: boolFromFirestore(map['isActive'], fallback: true),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
+      updatedAt: dateTimeFromFirestore(map['updatedAt']),
     );
   }
 
@@ -78,10 +72,9 @@ class ServiceModel {
       'averageRating': averageRating,
       'totalReviews': totalReviews,
       'isActive': isActive,
+      'status': isActive ? 'active' : 'inactive',
       'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt == null
-          ? null
-          : Timestamp.fromDate(updatedAt!),
+      'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
     };
   }
 }

@@ -29,14 +29,10 @@ class RoleSelector extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.selectedSurface
-                  : AppColors.surface,
+              color: isSelected ? AppColors.selectedSurface : AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isSelected
-                    ? AppColors.primary
-                    : AppColors.border,
+                color: isSelected ? AppColors.primary : AppColors.border,
               ),
             ),
             child: Row(
@@ -45,9 +41,7 @@ class RoleSelector extends StatelessWidget {
                   isSelected
                       ? Icons.radio_button_checked
                       : Icons.radio_button_off,
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.hint,
+                  color: isSelected ? AppColors.primary : AppColors.hint,
                 ),
                 const SizedBox(width: 14),
                 Column(
@@ -55,9 +49,7 @@ class RoleSelector extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(

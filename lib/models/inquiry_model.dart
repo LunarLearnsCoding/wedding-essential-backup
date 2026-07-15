@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 import 'app_enums.dart';
 
 class InquiryModel {
@@ -7,6 +8,7 @@ class InquiryModel {
   final String customerName;
   final String vendorId;
   final String serviceId;
+  final String serviceName;
   final String message;
   final InquiryStatus status;
   final DateTime createdAt;
@@ -17,6 +19,7 @@ class InquiryModel {
     required this.customerName,
     required this.vendorId,
     required this.serviceId,
+    required this.serviceName,
     required this.message,
     required this.status,
     required this.createdAt,
@@ -29,9 +32,10 @@ class InquiryModel {
       customerName: map['customerName'] ?? '',
       vendorId: map['vendorId'] ?? '',
       serviceId: map['serviceId'] ?? '',
+      serviceName: map['serviceName'] ?? '',
       message: map['message'] ?? '',
       status: inquiryStatusFromString(map['status'] ?? 'pending'),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
     );
   }
 
@@ -41,6 +45,7 @@ class InquiryModel {
       'customerName': customerName,
       'vendorId': vendorId,
       'serviceId': serviceId,
+      'serviceName': serviceName,
       'message': message,
       'status': enumToString(status),
       'createdAt': Timestamp.fromDate(createdAt),

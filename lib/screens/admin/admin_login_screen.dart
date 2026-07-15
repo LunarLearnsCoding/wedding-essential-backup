@@ -67,9 +67,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const AdminDashboardScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
       );
     } on FirebaseAuthException catch (e) {
       setState(() {
@@ -114,7 +112,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 30,
                     offset: const Offset(0, 16),
                   ),
@@ -129,7 +127,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       height: 72,
                       width: 72,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED).withOpacity(0.12),
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -155,10 +153,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     const Text(
                       'Wedding Essentials Management Dashboard',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF77717C),
-                      ),
+                      style: TextStyle(fontSize: 14, color: Color(0xFF77717C)),
                     ),
 
                     const SizedBox(height: 32),
@@ -298,10 +293,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     const Text(
                       'Only authorized admin accounts can access this portal.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF8A8490),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF8A8490)),
                     ),
                   ],
                 ),

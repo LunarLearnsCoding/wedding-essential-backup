@@ -56,44 +56,36 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
 
     try {
       await context.read<AuthProvider>().authService.registerVendor(
-            name: ownerNameController.text.trim(),
-            email: emailController.text.trim(),
-            password: passwordController.text.trim(),
-            phone: phoneController.text.trim(),
-            businessName: businessNameController.text.trim(),
-            category: selectedCategory,
-            locations: [locationController.text.trim()],
-          );
+        name: ownerNameController.text.trim(),
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+        phone: phoneController.text.trim(),
+        businessName: businessNameController.text.trim(),
+        category: selectedCategory,
+        locations: [locationController.text.trim()],
+      );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vendor account created successfully'),
-        ),
+        const SnackBar(content: Text('Vendor account created successfully')),
       );
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
   void _goToCustomerRegister() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => const CustomerRegisterScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const CustomerRegisterScreen()),
     );
   }
 
@@ -193,8 +185,6 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
                   onTap: () {},
                 ),
 
-            
-
                 const SizedBox(height: 20),
 
                 CustomTextField(
@@ -227,10 +217,7 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
 
                 const Text(
                   'Service Category',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
 
                 const SizedBox(height: 10),
@@ -384,17 +371,13 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
                     onPressed: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const LoginScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
                       );
                     },
                     child: const Text.rich(
                       TextSpan(
                         text: 'Already have an account? ',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                        ),
+                        style: TextStyle(color: AppColors.textSecondary),
                         children: [
                           TextSpan(
                             text: 'Sign In',
@@ -429,11 +412,7 @@ class _LogoMark extends StatelessWidget {
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Icon(
-        Icons.favorite,
-        color: Colors.white,
-        size: 22,
-      ),
+      child: const Icon(Icons.favorite, color: Colors.white, size: 22),
     );
   }
 }
@@ -479,9 +458,7 @@ class _RoleCard extends StatelessWidget {
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-          ),
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
       ),
     );

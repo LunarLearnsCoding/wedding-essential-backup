@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 import 'app_enums.dart';
 
 class BookingModel {
@@ -40,10 +41,7 @@ class BookingModel {
     this.updatedAt,
   });
 
-  factory BookingModel.fromMap(
-    String id,
-    Map<String, dynamic> map,
-  ) {
+  factory BookingModel.fromMap(String id, Map<String, dynamic> map) {
     return BookingModel(
       id: id,
       customerId: map['customerId'] ?? '',
@@ -54,18 +52,13 @@ class BookingModel {
       vendorName: map['vendorName'] ?? '',
       serviceId: map['serviceId'] ?? '',
       serviceName: map['serviceName'] ?? '',
-      servicePrice: (map['servicePrice'] ?? 0).toDouble(),
-      eventDate:
-          (map['eventDate'] as Timestamp?)?.toDate() ??
-          DateTime.now(),
-      status: bookingStatusFromString(
-        map['status'] ?? 'pending',
+      servicePrice: doubleFromFirestore(map['servicePrice'] ?? map['price']),
+      eventDate: dateTimeFromFirestoreOrNow(
+        map['eventDate'] ?? map['requestedDateTime'],
       ),
-      createdAt:
-          (map['createdAt'] as Timestamp?)?.toDate() ??
-          DateTime.now(),
-      updatedAt:
-          (map['updatedAt'] as Timestamp?)?.toDate(),
+      status: bookingStatusFromString(map['status'] ?? 'pending'),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
+      updatedAt: dateTimeFromFirestore(map['updatedAt']),
     );
   }
 
@@ -83,9 +76,7 @@ class BookingModel {
       'eventDate': Timestamp.fromDate(eventDate),
       'status': enumToString(status),
       'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt == null
-          ? null
-          : Timestamp.fromDate(updatedAt!),
+      'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
     };
   }
 }

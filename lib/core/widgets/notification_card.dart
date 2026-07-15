@@ -6,10 +6,7 @@ import '../constants/app_colors.dart';
 class NotificationCard extends StatelessWidget {
   final NotificationModel notification;
 
-  const NotificationCard({
-    super.key,
-    required this.notification,
-  });
+  const NotificationCard({super.key, required this.notification});
 
   @override
   Widget build(BuildContext context) {
@@ -20,9 +17,7 @@ class NotificationCard extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: notification.isRead
-              ? AppColors.border
-              : AppColors.primary,
+          color: notification.isRead ? AppColors.border : AppColors.primary,
         ),
       ),
       child: Row(

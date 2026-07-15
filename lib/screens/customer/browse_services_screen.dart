@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../models/service_model.dart';
-import '../../services/service_service.dart';
+import '../../providers/service_provider.dart';
 import 'customer_dashboard_screen.dart';
 import 'customer_profile_screen.dart';
+import 'notification_screen.dart';
 import 'service_details_screen.dart';
 
 class BrowseServicesScreen extends StatefulWidget {
@@ -16,7 +18,6 @@ class BrowseServicesScreen extends StatefulWidget {
 }
 
 class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
-  final ServiceService serviceService = ServiceService();
   final searchController = TextEditingController();
 
   String selectedCategory = 'All';
@@ -31,6 +32,16 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
     'Catering',
     'Music',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.read<ServiceProvider>().services.isEmpty) {
+        context.read<ServiceProvider>().loadServices();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -72,24 +83,26 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
     if (index == 0) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const CustomerDashboardScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const CustomerDashboardScreen()),
       );
-    }
-
-    if (index == 3) {
+    } else if (index == 2) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const CustomerProfileScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+      );
+    } else if (index == 3) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const CustomerProfileScreen()),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final allServices = context.watch<ServiceProvider>().services;
+    final services = _filterServices(allServices);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -117,155 +130,129 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
             ),
 
             Expanded(
-              child: StreamBuilder<List<ServiceModel>>(
-                stream: serviceService.getAllActiveServices(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(
-                      child: Text('No services available'),
-                    );
-                  }
-
-                  final services = _filterServices(snapshot.data!);
-
-
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${services.length} services found',
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: _toggleSort,
-                              icon: const Icon(
-                                Icons.tune,
-                                size: 17,
-                              ),
-                              label: Text('Sort: $selectedSort'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primaryDark,
-                                backgroundColor: AppColors.surface,
-                                side: const BorderSide(
-                                  color: AppColors.border,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
-                            ),
-                          ],
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${services.length} services found',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-
-                      SizedBox(
-                        height: 44,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: categories.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 10),
-                          itemBuilder: (context, index) {
-                            final category = categories[index];
-                            final selected = selectedCategory == category;
-
-                            return ChoiceChip(
-                              label: Text(category),
-                              selected: selected,
-                              onSelected: (_) {
-                                setState(() {
-                                  selectedCategory = category;
-                                });
-                              },
-                              selectedColor: AppColors.primary,
-                              backgroundColor: AppColors.surface,
-                              labelStyle: TextStyle(
-                                color: selected
-                                    ? Colors.white
-                                    : AppColors.primaryDark,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              side: const BorderSide(
-                                color: AppColors.border,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Featured Vendors',
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 21,
-                                fontWeight: FontWeight.w800,
-                              ),
+                        OutlinedButton.icon(
+                          onPressed: _toggleSort,
+                          icon: const Icon(Icons.tune, size: 17),
+                          label: Text('Sort: $selectedSort'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primaryDark,
+                            backgroundColor: AppColors.surface,
+                            side: const BorderSide(color: AppColors.border),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
                             ),
-                            TextButton(
-                              onPressed: () {},
-                              child: const Text(
-                                'See all',
-                                style: TextStyle(
-                                  color: AppColors.primaryDark,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-
-                   Expanded(
-  child: services.isEmpty
-      ? const Center(
-          child: Text('No matching services'),
-        )
-      : ListView.builder(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 24),
-          itemCount: services.length,
-          itemBuilder: (context, index) {
-            final service = services[index];
-
-            return _ServiceListCard(
-              service: service,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ServiceDetailsScreen(
-                      serviceId: service.id,
+                      ],
                     ),
                   ),
-                );
-              },
-            );
-          },
-        ),
-),
-                    ],
-                  );
-                },
+
+                  SizedBox(
+                    height: 44,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: categories.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (context, index) {
+                        final category = categories[index];
+                        final selected = selectedCategory == category;
+
+                        return ChoiceChip(
+                          label: Text(category),
+                          selected: selected,
+                          onSelected: (_) {
+                            setState(() {
+                              selectedCategory = category;
+                            });
+                          },
+                          selectedColor: AppColors.primary,
+                          backgroundColor: AppColors.surface,
+                          labelStyle: TextStyle(
+                            color: selected
+                                ? Colors.white
+                                : AppColors.primaryDark,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          side: const BorderSide(color: AppColors.border),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Featured Vendors',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Coming soon!')),
+                            );
+                          },
+                          child: const Text(
+                            'See all',
+                            style: TextStyle(
+                              color: AppColors.primaryDark,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  Expanded(
+                    child: services.isEmpty
+                        ? const Center(child: Text('No matching services'))
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(22, 4, 22, 24),
+                            itemCount: services.length,
+                            itemBuilder: (context, index) {
+                              final service = services[index];
+
+                              return _ServiceListCard(
+                                service: service,
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ServiceDetailsScreen(
+                                        serviceId: service.id,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -311,10 +298,7 @@ class _ServiceListCard extends StatelessWidget {
   final ServiceModel service;
   final VoidCallback onTap;
 
-  const _ServiceListCard({
-    required this.service,
-    required this.onTap,
-  });
+  const _ServiceListCard({required this.service, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -431,11 +415,7 @@ class _ServiceListCard extends StatelessWidget {
 
                       Row(
                         children: [
-                          const Icon(
-                            Icons.star,
-                            color: Colors.amber,
-                            size: 15,
-                          ),
+                          const Icon(Icons.star, color: Colors.amber, size: 15),
                           const SizedBox(width: 3),
                           Text(
                             service.averageRating.toStringAsFixed(1),

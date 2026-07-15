@@ -18,7 +18,10 @@ class AdminGuard extends StatelessWidget {
     }
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -97,9 +100,7 @@ class _AdminAccessMessage extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AdminAppColors.textSecondary,
-                ),
+                style: const TextStyle(color: AdminAppColors.textSecondary),
               ),
               const SizedBox(height: 22),
               FilledButton.icon(

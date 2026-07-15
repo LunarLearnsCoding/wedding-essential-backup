@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../customer/customer_dashboard_screen.dart';
+import '../auth/login_screen.dart';
+import '../vendor/vendor_dashboard_screen.dart';
+import '../vendor/vendor_pending_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -36,16 +40,12 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-   
-
     _titleFade = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.20, 0.55, curve: Curves.easeIn),
       ),
     );
-
- 
 
     _lineWidth = Tween<double>(begin: 0, end: 120).animate(
       CurvedAnimation(
@@ -62,12 +62,18 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _controller.forward();
-    _checkAuth();
+    _startSplashFlow();
   }
 
-  Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 4));
+  Future<void> _startSplashFlow() async {
+    await Future.delayed(const Duration(milliseconds: 2800));
 
+    if (!mounted) return;
+
+    await checkUserAndNavigate();
+  }
+
+  Future<void> checkUserAndNavigate() async {
     final user = FirebaseAuth.instance.currentUser;
 
     if (!mounted) return;
@@ -75,20 +81,115 @@ class _SplashScreenState extends State<SplashScreen>
     if (user == null) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const CustomerDashboardScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
-    } else {
+      return;
+    }
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!mounted) return;
+
+      if (!userDoc.exists) {
+        await FirebaseAuth.instance.signOut();
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+        return;
+      }
+
+      final userData = userDoc.data() ?? {};
+
+      final role = userData['role']?.toString().toLowerCase() ?? '';
+      final userStatus =
+          userData['status']?.toString().toLowerCase() ?? 'active';
+
+      if (userStatus == 'suspended' || userStatus == 'blocked') {
+        await FirebaseAuth.instance.signOut();
+
+        if (!mounted) return;
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+        return;
+      }
+
+      if (role == 'customer') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const CustomerDashboardScreen()),
+        );
+        return;
+      }
+
+      if (role == 'vendor') {
+        final vendorDoc = await FirebaseFirestore.instance
+            .collection('vendors')
+            .doc(user.uid)
+            .get();
+
+        if (!mounted) return;
+
+        if (!vendorDoc.exists) {
+          await FirebaseAuth.instance.signOut();
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+          return;
+        }
+
+        final vendorData = vendorDoc.data() ?? {};
+
+        final isApproved = vendorData['isApproved'] == true;
+        final approvalStatus =
+            vendorData['approvalStatus']?.toString().toLowerCase() ?? 'pending';
+
+        if (isApproved && approvalStatus == 'approved') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const VendorDashboardScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const VendorPendingScreen()),
+          );
+        }
+
+        return;
+      }
+
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const CustomerDashboardScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to check user role: $error')),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     }
   }
-
 
   @override
   void dispose() {
@@ -122,15 +223,15 @@ class _SplashScreenState extends State<SplashScreen>
                   opacity: _titleFade,
                   child: const Text(
                     'Wedding Essentials',
-                     textAlign: TextAlign.center,
-                     style: TextStyle(
-                         fontSize: 34,
-                         fontWeight: FontWeight.w600,
-                         color: AppColors.primaryDark,
-                         letterSpacing: 1.0,
-                      ),
-                     ),
-                   ),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryDark,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ),
 
                 const SizedBox(height: 16),
 

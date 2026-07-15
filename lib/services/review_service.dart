@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/constants/firestore_collections.dart';
+import '../core/utils/firestore_parsers.dart';
 import '../models/review_model.dart';
 
 class ReviewService {
@@ -43,10 +44,10 @@ class ReviewService {
         .where('serviceId', isEqualTo: serviceId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
-          .toList();
-    });
+          return snapshot.docs
+              .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
+              .toList();
+        });
   }
 
   Stream<List<ReviewModel>> getReviewsByVendor(String vendorId) {
@@ -55,10 +56,10 @@ class ReviewService {
         .where('vendorId', isEqualTo: vendorId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
-          .toList();
-    });
+          return snapshot.docs
+              .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
+              .toList();
+        });
   }
 
   Stream<List<ReviewModel>> getReviewsForVendor(String vendorId) {
@@ -71,17 +72,16 @@ class ReviewService {
         .where('customerId', isEqualTo: customerId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
-          .toList();
-    });
+          return snapshot.docs
+              .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
+              .toList();
+        });
   }
 
   Stream<List<ReviewModel>> getAllReviews() {
-    return _firestore
-        .collection(FirestoreCollections.reviews)
-        .snapshots()
-        .map((snapshot) {
+    return _firestore.collection(FirestoreCollections.reviews).snapshots().map((
+      snapshot,
+    ) {
       return snapshot.docs
           .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
           .toList();
@@ -102,10 +102,7 @@ class ReviewService {
     await _updateVendorRating(vendorId);
   }
 
-  Future<void> deleteReviewById(
-    String reviewId,
-    ReviewModel review,
-  ) async {
+  Future<void> deleteReviewById(String reviewId, ReviewModel review) async {
     await deleteReview(
       reviewId: reviewId,
       serviceId: review.serviceId,
@@ -122,21 +119,20 @@ class ReviewService {
     double totalRating = 0;
 
     for (final doc in snapshot.docs) {
-      totalRating += (doc.data()['rating'] ?? 0).toDouble();
+      totalRating += doubleFromFirestore(doc.data()['rating']);
     }
 
     final totalReviews = snapshot.docs.length;
-    final averageRating =
-        totalReviews == 0 ? 0.0 : totalRating / totalReviews;
+    final averageRating = totalReviews == 0 ? 0.0 : totalRating / totalReviews;
 
     await _firestore
         .collection(FirestoreCollections.services)
         .doc(serviceId)
         .update({
-      'averageRating': averageRating,
-      'totalReviews': totalReviews,
-      'updatedAt': Timestamp.now(),
-    });
+          'averageRating': averageRating,
+          'totalReviews': totalReviews,
+          'updatedAt': Timestamp.now(),
+        });
   }
 
   Future<void> _updateVendorRating(String vendorId) async {
@@ -148,20 +144,19 @@ class ReviewService {
     double totalRating = 0;
 
     for (final doc in snapshot.docs) {
-      totalRating += (doc.data()['rating'] ?? 0).toDouble();
+      totalRating += doubleFromFirestore(doc.data()['rating']);
     }
 
     final totalReviews = snapshot.docs.length;
-    final averageRating =
-        totalReviews == 0 ? 0.0 : totalRating / totalReviews;
+    final averageRating = totalReviews == 0 ? 0.0 : totalRating / totalReviews;
 
     await _firestore
         .collection(FirestoreCollections.vendors)
         .doc(vendorId)
         .update({
-      'averageRating': averageRating,
-      'totalReviews': totalReviews,
-      'updatedAt': Timestamp.now(),
-    });
+          'averageRating': averageRating,
+          'totalReviews': totalReviews,
+          'updatedAt': Timestamp.now(),
+        });
   }
 }

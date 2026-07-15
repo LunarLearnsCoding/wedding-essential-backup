@@ -20,9 +20,7 @@ class CustomerProfileScreen extends StatelessWidget {
 
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(
-        builder: (_) => const LoginScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false,
     );
   }
@@ -60,8 +58,7 @@ class CustomerProfileScreen extends StatelessWidget {
                   final name = data?['name'] ?? 'Customer';
                   final email = data?['email'] ?? currentUser?.email ?? '';
                   final phone = data?['phone'] ?? '';
-                  final initial =
-                      name.isNotEmpty ? name[0].toUpperCase() : 'C';
+                  final initial = name.isNotEmpty ? name[0].toUpperCase() : 'C';
 
                   return Container(
                     padding: const EdgeInsets.all(18),
@@ -116,7 +113,11 @@ class CustomerProfileScreen extends StatelessWidget {
                           ),
                         ),
                         IconButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Coming soon!')),
+                            );
+                          },
                           icon: const Icon(
                             Icons.edit_outlined,
                             color: AppColors.primary,
@@ -144,9 +145,7 @@ class CustomerProfileScreen extends StatelessWidget {
                         children: [
                           Text(
                             'Wedding Date',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                            ),
+                            style: TextStyle(color: AppColors.textSecondary),
                           ),
                           SizedBox(height: 4),
                           Text(
@@ -196,24 +195,15 @@ class CustomerProfileScreen extends StatelessWidget {
               Row(
                 children: const [
                   Expanded(
-                    child: _StatCard(
-                      value: '3',
-                      label: 'Bookings',
-                    ),
+                    child: _StatCard(value: '3', label: 'Bookings'),
                   ),
                   SizedBox(width: 12),
                   Expanded(
-                    child: _StatCard(
-                      value: '10',
-                      label: 'Guests',
-                    ),
+                    child: _StatCard(value: '10', label: 'Guests'),
                   ),
                   SizedBox(width: 12),
                   Expanded(
-                    child: _StatCard(
-                      value: '2/12',
-                      label: 'Tasks Done',
-                    ),
+                    child: _StatCard(value: '2/12', label: 'Tasks Done'),
                   ),
                 ],
               ),
@@ -229,13 +219,21 @@ class CustomerProfileScreen extends StatelessWidget {
                     icon: Icons.edit_outlined,
                     title: 'Edit Profile',
                     subtitle: 'Update your personal information',
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                   _ProfileMenuItem(
                     icon: Icons.calendar_month_outlined,
                     title: 'Wedding Details',
                     subtitle: 'Manage your wedding date & venue',
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -251,13 +249,21 @@ class CustomerProfileScreen extends StatelessWidget {
                     icon: Icons.notifications_none_outlined,
                     title: 'Notifications',
                     subtitle: 'Manage notification preferences',
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                   _ProfileMenuItem(
                     icon: Icons.lock_outline,
                     title: 'Privacy & Security',
                     subtitle: 'Password and privacy settings',
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                   _ProfileMenuItem(
                     icon: Icons.logout,
@@ -282,9 +288,7 @@ class CustomerProfileScreen extends StatelessWidget {
           if (index == 1) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (_) => const BrowseServicesScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const BrowseServicesScreen()),
             );
           }
 
@@ -301,10 +305,7 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String label;
 
-  const _StatCard({
-    required this.value,
-    required this.label,
-  });
+  const _StatCard({required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -362,9 +363,7 @@ class _SectionTitle extends StatelessWidget {
 class _ProfileMenuCard extends StatelessWidget {
   final List<Widget> children;
 
-  const _ProfileMenuCard({
-    required this.children,
-  });
+  const _ProfileMenuCard({required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -374,9 +373,7 @@ class _ProfileMenuCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: children,
-      ),
+      child: Column(children: children),
     );
   }
 }
@@ -404,11 +401,7 @@ class _ProfileMenuItem extends StatelessWidget {
       onTap: onTap,
       leading: CircleAvatar(
         backgroundColor: AppColors.selectedSurface,
-        child: Icon(
-          icon,
-          color: color,
-          size: 21,
-        ),
+        child: Icon(icon, color: color, size: 21),
       ),
       title: Text(
         title,
@@ -419,15 +412,9 @@ class _ProfileMenuItem extends StatelessWidget {
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 13,
-        ),
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
       ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: AppColors.textSecondary,
-      ),
+      trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
     );
   }
 }

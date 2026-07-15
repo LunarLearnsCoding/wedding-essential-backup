@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 import 'user_model.dart';
 import 'app_enums.dart';
 
@@ -20,10 +21,7 @@ class CustomerModel extends UserModel {
     this.weddingDate,
   });
 
-  factory CustomerModel.fromMap(
-    String id,
-    Map<String, dynamic> map,
-  ) {
+  factory CustomerModel.fromMap(String id, Map<String, dynamic> map) {
     return CustomerModel(
       id: id,
       name: map['name'] ?? '',
@@ -31,13 +29,11 @@ class CustomerModel extends UserModel {
       phone: map['phone'] ?? '',
       role: userRoleFromString(map['role'] ?? 'customer'),
       profileImageUrl: map['profileImageUrl'],
-      isActive: map['isActive'] ?? true,
+      isActive: boolFromFirestore(map['isActive'], fallback: true),
       address: map['address'],
-      weddingDate: (map['weddingDate'] as Timestamp?)?.toDate(),
-      createdAt:
-          (map['createdAt'] as Timestamp?)?.toDate() ??
-          DateTime.now(),
-      updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
+      weddingDate: dateTimeFromFirestore(map['weddingDate']),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
+      updatedAt: dateTimeFromFirestore(map['updatedAt']),
     );
   }
 

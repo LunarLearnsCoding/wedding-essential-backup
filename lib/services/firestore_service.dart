@@ -17,10 +17,7 @@ class FirestoreService {
     required String collection,
     required String docId,
   }) async {
-    return await _firestore
-        .collection(collection)
-        .doc(docId)
-        .get();
+    return await _firestore.collection(collection).doc(docId).get();
   }
 
   Future<QuerySnapshot<Map<String, dynamic>>> getCollection({
@@ -39,10 +36,7 @@ class FirestoreService {
     required String collection,
     required String docId,
   }) {
-    return _firestore
-        .collection(collection)
-        .doc(docId)
-        .snapshots();
+    return _firestore.collection(collection).doc(docId).snapshots();
   }
 
   Future<void> updateDocument({
@@ -50,28 +44,21 @@ class FirestoreService {
     required String docId,
     required Map<String, dynamic> data,
   }) async {
-    await _firestore
-        .collection(collection)
-        .doc(docId)
-        .update(data);
+    await _firestore.collection(collection).doc(docId).update(data);
   }
 
   Future<void> deleteDocument({
     required String collection,
     required String docId,
   }) async {
-    await _firestore
-        .collection(collection)
-        .doc(docId)
-        .delete();
+    await _firestore.collection(collection).doc(docId).delete();
   }
 
   Future<String> addDocument({
     required String collection,
     required Map<String, dynamic> data,
   }) async {
-    final docRef =
-        await _firestore.collection(collection).add(data);
+    final docRef = await _firestore.collection(collection).add(data);
 
     return docRef.id;
   }

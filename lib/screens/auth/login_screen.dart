@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/firestore_collections.dart';
+
+import '../customer/customer_dashboard_screen.dart';
+import '../vendor/vendor_dashboard_screen.dart';
+import '../vendor/vendor_pending_screen.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
 import '../../providers/auth_provider.dart';
-import '../customer/customer_dashboard_screen.dart';
-import '../vendor/vendor_dashboard_screen.dart';
 import 'customer_register_screen.dart';
 import 'vendor_register_screen.dart';
 
@@ -33,31 +38,131 @@ class _LoginScreenState extends State<LoginScreen> {
         password: passwordController.text.trim(),
       );
 
-      final role = await authProvider.authService.getUserRole();
+      final currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser == null) {
+        throw Exception('Login failed. Please try again.');
+      }
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection(FirestoreCollections.users)
+          .doc(currentUser.uid)
+          .get();
 
       if (!mounted) return;
 
-      if (role == 'vendor') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const VendorDashboardScreen(),
+      if (!userDoc.exists) {
+        await FirebaseAuth.instance.signOut();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User profile not found. Please register again.'),
           ),
         );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const CustomerDashboardScreen(),
-          ),
-        );
+        return;
       }
-    } catch (e) {
+
+      final userData = userDoc.data() ?? {};
+      final role = userData['role']?.toString().toLowerCase() ?? '';
+      final status = userData['status']?.toString().toLowerCase() ?? 'active';
+      final isActive = userData['isActive'] == true;
+
+      if (!isActive || status == 'blocked' || status == 'suspended') {
+        await FirebaseAuth.instance.signOut();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your account is not active. Please contact admin.'),
+          ),
+        );
+        return;
+      }
+
+      if (role == 'customer') {
+        final customerDoc = await FirebaseFirestore.instance
+            .collection(FirestoreCollections.customers)
+            .doc(currentUser.uid)
+            .get();
+
+        if (!mounted) return;
+
+        if (!customerDoc.exists) {
+          await FirebaseAuth.instance.signOut();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Customer profile not found. Please contact support.',
+              ),
+            ),
+          );
+          return;
+        }
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const CustomerDashboardScreen()),
+        );
+        return;
+      }
+
+      if (role == 'vendor') {
+        final vendorDoc = await FirebaseFirestore.instance
+            .collection(FirestoreCollections.vendors)
+            .doc(currentUser.uid)
+            .get();
+
+        if (!mounted) return;
+
+        if (!vendorDoc.exists) {
+          await FirebaseAuth.instance.signOut();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vendor profile not found. Please contact admin.'),
+            ),
+          );
+          return;
+        }
+
+        final vendorData = vendorDoc.data() ?? {};
+
+        final isApproved = vendorData['isApproved'] == true;
+        final approvalStatus =
+            vendorData['approvalStatus']?.toString().toLowerCase() ?? 'pending';
+
+        if (isApproved && approvalStatus == 'approved') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const VendorDashboardScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const VendorPendingScreen()),
+          );
+        }
+
+        return;
+      }
+
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
+        const SnackBar(
+          content: Text('Invalid user role. Please contact support.'),
         ),
       );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -65,16 +170,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (selectedRole == 'Vendor') {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => const VendorRegisterScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const VendorRegisterScreen()),
       );
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => const CustomerRegisterScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const CustomerRegisterScreen()),
       );
     }
   }
@@ -131,10 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const Text(
                 'Sign in to continue planning your perfect day',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
               ),
 
               const SizedBox(height: 28),
@@ -207,25 +305,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
               Row(
                 children: const [
-                  Expanded(
-                    child: Divider(
-                      color: AppColors.border,
-                    ),
-                  ),
+                  Expanded(child: Divider(color: AppColors.border)),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 14),
                     child: Text(
                       'or',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                      ),
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                   ),
-                  Expanded(
-                    child: Divider(
-                      color: AppColors.border,
-                    ),
-                  ),
+                  Expanded(child: Divider(color: AppColors.border)),
                 ],
               ),
 
@@ -237,18 +325,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   minimumSize: const Size(double.infinity, 56),
                   backgroundColor: AppColors.surface,
                   foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(
-                    color: AppColors.border,
-                  ),
+                  side: const BorderSide(color: AppColors.border),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
                 ),
                 child: const Text(
                   'Continue with Google',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
 
@@ -260,9 +344,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Text.rich(
                     TextSpan(
                       text: 'New here? ',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                      ),
+                      style: TextStyle(color: AppColors.textSecondary),
                       children: [
                         TextSpan(
                           text: 'Create account',
@@ -296,11 +378,7 @@ class _LogoMark extends StatelessWidget {
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Icon(
-        Icons.favorite,
-        color: Colors.white,
-        size: 22,
-      ),
+      child: const Icon(Icons.favorite, color: Colors.white, size: 22),
     );
   }
 }
@@ -309,10 +387,7 @@ class _RoleTabs extends StatelessWidget {
   final String selectedRole;
   final ValueChanged<String> onChanged;
 
-  const _RoleTabs({
-    required this.selectedRole,
-    required this.onChanged,
-  });
+  const _RoleTabs({required this.selectedRole, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -342,8 +417,7 @@ class _RoleTabs extends StatelessWidget {
                 child: Text(
                   role,
                   style: TextStyle(
-                    color:
-                        selected ? Colors.white : AppColors.primaryDark,
+                    color: selected ? Colors.white : AppColors.primaryDark,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

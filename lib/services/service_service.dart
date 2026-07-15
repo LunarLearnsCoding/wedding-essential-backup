@@ -26,16 +26,27 @@ class ServiceService {
         .delete();
   }
 
+  Future<void> updateServiceStatus(String serviceId, bool isActive) async {
+    await _firestore
+        .collection(FirestoreCollections.services)
+        .doc(serviceId)
+        .update({
+          'isActive': isActive,
+          'status': isActive ? 'active' : 'inactive',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+  }
+
   Stream<List<ServiceModel>> getAllActiveServices() {
     return _firestore
         .collection(FirestoreCollections.services)
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return ServiceModel.fromMap(doc.id, doc.data());
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return ServiceModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 
   Stream<List<ServiceModel>> getServicesByVendor(String vendorId) {
@@ -44,10 +55,10 @@ class ServiceService {
         .where('vendorId', isEqualTo: vendorId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return ServiceModel.fromMap(doc.id, doc.data());
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return ServiceModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 
   Stream<List<ServiceModel>> getServicesByCategory(String category) {
@@ -57,10 +68,10 @@ class ServiceService {
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return ServiceModel.fromMap(doc.id, doc.data());
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return ServiceModel.fromMap(doc.id, doc.data());
+          }).toList();
+        });
   }
 
   Future<ServiceModel?> getServiceById(String serviceId) async {

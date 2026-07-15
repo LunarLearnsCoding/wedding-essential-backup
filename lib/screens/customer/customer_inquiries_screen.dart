@@ -26,9 +26,7 @@ class CustomerInquiriesScreen extends StatelessWidget {
       builder: (context) {
         return AlertDialog(
           title: const Text('Cancel Inquiry?'),
-          content: const Text(
-            'Are you sure you want to cancel this inquiry?',
-          ),
+          content: const Text('Are you sure you want to cancel this inquiry?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -50,24 +48,20 @@ class CustomerInquiriesScreen extends StatelessWidget {
           .collection('inquiries')
           .doc(inquiryId)
           .update({
-        'status': 'cancelled',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'status': 'cancelled',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Inquiry cancelled'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Inquiry cancelled')));
     } catch (error) {
       if (!context.mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to cancel inquiry: $error'),
-        ),
+        SnackBar(content: Text('Failed to cancel inquiry: $error')),
       );
     }
   }
@@ -79,27 +73,19 @@ class CustomerInquiriesScreen extends StatelessWidget {
     if (user == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(
-          title: const Text('My Inquiries'),
-        ),
-        body: const Center(
-          child: Text('Please login to view your inquiries.'),
-        ),
+        appBar: AppBar(title: const Text('My Inquiries')),
+        body: const Center(child: Text('Please login to view your inquiries.')),
       );
     }
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('My Inquiries'),
-      ),
+      appBar: AppBar(title: const Text('My Inquiries')),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: _inquiriesStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           final inquiries = snapshot.data?.docs ?? [];
@@ -177,10 +163,7 @@ class _EmptyInquiriesView extends StatelessWidget {
             const Text(
               'Your service inquiries will appear here after you contact a vendor.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, height: 1.5),
             ),
           ],
         ),
@@ -230,9 +213,7 @@ class _InquiryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppColors.border,
-        ),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.035),
@@ -397,9 +378,7 @@ class _InquiryCard extends StatelessWidget {
 class _StatusBadge extends StatelessWidget {
   final String status;
 
-  const _StatusBadge({
-    required this.status,
-  });
+  const _StatusBadge({required this.status});
 
   @override
   Widget build(BuildContext context) {

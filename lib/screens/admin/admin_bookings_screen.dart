@@ -10,10 +10,7 @@ import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
 class AdminBookingsScreen extends StatefulWidget {
-  const AdminBookingsScreen({
-    super.key,
-    required this.service,
-  });
+  const AdminBookingsScreen({super.key, required this.service});
 
   final AdminService service;
 
@@ -51,7 +48,9 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
               final docs = snapshot.data?.docs ?? [];
               final bookings = docs
                   .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where((item) => AdminHelpers.matchesSearch(item.data, _search))
+                  .where(
+                    (item) => AdminHelpers.matchesSearch(item.data, _search),
+                  )
                   .toList();
 
               if (bookings.isEmpty) {
@@ -84,7 +83,9 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
                     'businessName',
                     'vendorId',
                   ], fallback: 'Vendor not provided');
-                  final status = item.stringValue(['status'], fallback: 'pending');
+                  final status = item.stringValue([
+                    'status',
+                  ], fallback: 'pending');
                   final amount = item.numberValue([
                     'totalAmount',
                     'amount',

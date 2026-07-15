@@ -73,27 +73,16 @@ class AdminRecordCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 10),
-                trailing!,
-              ],
+              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
             ],
           ),
           if (meta.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: meta,
-            ),
+            Wrap(spacing: 8, runSpacing: 8, children: meta),
           ],
           if (actions.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: actions,
-            ),
+            Wrap(spacing: 8, runSpacing: 8, children: actions),
           ],
         ],
       ),
@@ -102,11 +91,7 @@ class AdminRecordCard extends StatelessWidget {
 }
 
 class AdminMetaPill extends StatelessWidget {
-  const AdminMetaPill({
-    super.key,
-    required this.icon,
-    required this.label,
-  });
+  const AdminMetaPill({super.key, required this.icon, required this.label});
 
   final IconData icon;
   final String label;

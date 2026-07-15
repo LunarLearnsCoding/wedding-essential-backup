@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 
 class GuestModel {
   final String id;
@@ -30,10 +31,10 @@ class GuestModel {
       name: map['name'] ?? '',
       phone: map['phone'] ?? '',
       relation: map['relation'] ?? '',
-      numberOfGuests: map['numberOfGuests'] ?? 1,
-      isInvited: map['isInvited'] ?? false,
-      isAttending: map['isAttending'] ?? false,
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      numberOfGuests: intFromFirestore(map['numberOfGuests'], fallback: 1),
+      isInvited: boolFromFirestore(map['isInvited']),
+      isAttending: boolFromFirestore(map['isAttending']),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
     );
   }
 

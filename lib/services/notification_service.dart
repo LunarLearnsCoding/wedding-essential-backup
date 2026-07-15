@@ -11,9 +11,7 @@ class NotificationService {
     required String message,
     required String type,
   }) async {
-    await _firestore
-        .collection(FirestoreCollections.notifications)
-        .add({
+    await _firestore.collection(FirestoreCollections.notifications).add({
       'userId': userId,
       'title': title,
       'message': message,
@@ -23,8 +21,7 @@ class NotificationService {
     });
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> getNotifications(
-      String userId) {
+  Stream<QuerySnapshot<Map<String, dynamic>>> getNotifications(String userId) {
     return _firestore
         .collection(FirestoreCollections.notifications)
         .where('userId', isEqualTo: userId)
@@ -36,9 +33,7 @@ class NotificationService {
     await _firestore
         .collection(FirestoreCollections.notifications)
         .doc(id)
-        .update({
-      'isRead': true,
-    });
+        .update({'isRead': true});
   }
 
   Future<void> markAllAsRead(String userId) async {
@@ -51,9 +46,7 @@ class NotificationService {
     final batch = _firestore.batch();
 
     for (final doc in snapshot.docs) {
-      batch.update(doc.reference, {
-        'isRead': true,
-      });
+      batch.update(doc.reference, {'isRead': true});
     }
 
     await batch.commit();

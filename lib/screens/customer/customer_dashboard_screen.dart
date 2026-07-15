@@ -57,11 +57,11 @@ class CustomerDashboardScreen extends StatelessWidget {
                     itemCount: categories.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 0.95,
-                    ),
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 0.95,
+                        ),
                     itemBuilder: (context, index) {
                       final category = categories[index];
 
@@ -79,7 +79,7 @@ class CustomerDashboardScreen extends StatelessWidget {
                       );
                     },
                   ),
-                   
+
                   const SizedBox(height: 28),
 
                   _SectionHeader(
@@ -91,86 +91,81 @@ class CustomerDashboardScreen extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (_) => const BrowseServicesScreen(),
                         ),
-
                       );
                     },
                   ),
-                    
-                  
 
-            
                   const SizedBox(height: 14),
 
                   const SizedBox(height: 14),
 
-SizedBox(
-  height: 300,
-  child: GridView.count(
-    crossAxisCount: 2,
-    crossAxisSpacing: 12,
-    mainAxisSpacing: 12,
-    childAspectRatio: 1.15,
-    padding: EdgeInsets.zero,
-    children: [
-      _PlanningCard(
-        title: 'My Bookings',
-        subtitle: 'Track booking status',
-        icon: Icons.calendar_month_outlined,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const CustomerBookingsScreen(),
-            ),
-          );
-        },
-      ),
+                  SizedBox(
+                    height: 300,
+                    child: GridView.count(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.15,
+                      padding: EdgeInsets.zero,
+                      children: [
+                        _PlanningCard(
+                          title: 'My Bookings',
+                          subtitle: 'Track booking status',
+                          icon: Icons.calendar_month_outlined,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CustomerBookingsScreen(),
+                              ),
+                            );
+                          },
+                        ),
 
-      _PlanningCard(
-        title: 'Checklist',
-        subtitle: 'Manage wedding tasks',
-        icon: Icons.checklist_outlined,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const ChecklistScreen(),
-            ),
-          );
-        },
-      ),
+                        _PlanningCard(
+                          title: 'Checklist',
+                          subtitle: 'Manage wedding tasks',
+                          icon: Icons.checklist_outlined,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ChecklistScreen(),
+                              ),
+                            );
+                          },
+                        ),
 
-      _PlanningCard(
-        title: 'My Inquiries',
-        subtitle: 'Track inquiry status',
-        icon: Icons.message_outlined,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const CustomerInquiriesScreen(),
-            ),
-          );
-        },
-      ),
+                        _PlanningCard(
+                          title: 'My Inquiries',
+                          subtitle: 'Track inquiry status',
+                          icon: Icons.message_outlined,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CustomerInquiriesScreen(),
+                              ),
+                            );
+                          },
+                        ),
 
-      _PlanningCard(
-        title: 'Guest List',
-        subtitle: 'Manage wedding guests',
-        icon: Icons.people_outlined,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const GuestListScreen(),
-            ),
-          );
-        },
-      ),
-    ],
-  ),
-),
- 
+                        _PlanningCard(
+                          title: 'Guest List',
+                          subtitle: 'Manage wedding guests',
+                          icon: Icons.people_outlined,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const GuestListScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
 
                   const SizedBox(height: 28),
 
@@ -202,27 +197,21 @@ SizedBox(
           if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const BrowseServicesScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const BrowseServicesScreen()),
             );
           }
 
           if (index == 2) {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const NotificationsScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
             );
           }
 
           if (index == 3) {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const CustomerProfileScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const CustomerProfileScreen()),
             );
           }
         },
@@ -255,10 +244,7 @@ class _FixedHeroHeader extends StatelessWidget {
                 children: [
                   Text(
                     'Good morning ✨',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   SizedBox(height: 4),
                   Text(
@@ -310,17 +296,11 @@ class _FixedHeroHeader extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.25),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
             ),
             child: const Row(
               children: [
-                Icon(
-                  Icons.favorite,
-                  color: Colors.white,
-                  size: 30,
-                ),
+                Icon(Icons.favorite, color: Colors.white, size: 30),
                 SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -328,10 +308,7 @@ class _FixedHeroHeader extends StatelessWidget {
                     children: [
                       Text(
                         'Wedding Date',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       SizedBox(height: 4),
                       Text(
@@ -360,8 +337,6 @@ class _FixedHeroHeader extends StatelessWidget {
     );
   }
 }
-
-          
 
 class _SectionHeader extends StatelessWidget {
   final String title;

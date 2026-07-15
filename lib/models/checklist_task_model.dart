@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 
 class ChecklistTaskModel {
   final String id;
@@ -25,9 +26,9 @@ class ChecklistTaskModel {
       customerId: map['customerId'] ?? '',
       title: map['title'] ?? '',
       description: map['description'] ?? '',
-      isCompleted: map['isCompleted'] ?? false,
-      dueDate: (map['dueDate'] as Timestamp?)?.toDate(),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isCompleted: boolFromFirestore(map['isCompleted']),
+      dueDate: dateTimeFromFirestore(map['dueDate']),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
     );
   }
 

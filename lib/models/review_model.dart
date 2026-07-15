@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 
 class ReviewModel {
   final String id;
@@ -6,8 +7,10 @@ class ReviewModel {
   final String vendorId;
   final String customerId;
   final String customerName;
+  final String serviceName;
   final double rating;
   final String reviewText;
+  final bool vendorReplied;
   final DateTime createdAt;
 
   ReviewModel({
@@ -16,8 +19,10 @@ class ReviewModel {
     required this.vendorId,
     required this.customerId,
     required this.customerName,
+    this.serviceName = '',
     required this.rating,
     required this.reviewText,
+    this.vendorReplied = false,
     required this.createdAt,
   });
 
@@ -28,9 +33,11 @@ class ReviewModel {
       vendorId: map['vendorId'] ?? '',
       customerId: map['customerId'] ?? '',
       customerName: map['customerName'] ?? '',
-      rating: (map['rating'] ?? 0).toDouble(),
+      serviceName: map['serviceName'] ?? '',
+      rating: doubleFromFirestore(map['rating']),
       reviewText: map['reviewText'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      vendorReplied: boolFromFirestore(map['vendorReplied']),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
     );
   }
 
@@ -40,8 +47,10 @@ class ReviewModel {
       'vendorId': vendorId,
       'customerId': customerId,
       'customerName': customerName,
+      'serviceName': serviceName,
       'rating': rating,
       'reviewText': reviewText,
+      'vendorReplied': vendorReplied,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }

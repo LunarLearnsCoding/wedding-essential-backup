@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/firestore_parsers.dart';
 import 'app_enums.dart';
 
 class UserModel {
@@ -32,9 +33,9 @@ class UserModel {
       phone: map['phone'] ?? '',
       role: userRoleFromString(map['role'] ?? 'customer'),
       profileImageUrl: map['profileImageUrl'],
-      isActive: map['isActive'] ?? true,
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
+      isActive: boolFromFirestore(map['isActive'], fallback: true),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
+      updatedAt: dateTimeFromFirestore(map['updatedAt']),
     );
   }
 

@@ -1,8 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'user_model.dart';
+
+import '../core/utils/firestore_parsers.dart';
 import 'app_enums.dart';
 
-class VendorModel extends UserModel {
+class VendorModel {
+  final String id;
+  final String name;
+  final String email;
+  final String phone;
+  final UserRole role;
   final String businessName;
   final String category;
   final List<String> locations;
@@ -10,18 +16,15 @@ class VendorModel extends UserModel {
   final bool isApproved;
   final double averageRating;
   final int totalReviews;
-  final Map<String, dynamic>? socialLinks;
+  final DateTime createdAt;
+  final String approvalStatus; // New field for approval status
 
   VendorModel({
-    required super.id,
-    required super.name,
-    required super.email,
-    required super.phone,
-    required super.role,
-    super.profileImageUrl,
-    required super.createdAt,
-    super.updatedAt,
-    super.isActive,
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.role,
     required this.businessName,
     required this.category,
     required this.locations,
@@ -29,43 +32,35 @@ class VendorModel extends UserModel {
     required this.isApproved,
     required this.averageRating,
     required this.totalReviews,
-    this.socialLinks,
+    required this.createdAt,
+    required this.approvalStatus,
   });
 
-  factory VendorModel.fromMap(
-    String id,
-    Map<String, dynamic> map,
-  ) {
+  factory VendorModel.fromMap(String id, Map<String, dynamic> map) {
     return VendorModel(
       id: id,
       name: map['name'] ?? '',
       email: map['email'] ?? '',
       phone: map['phone'] ?? '',
       role: userRoleFromString(map['role'] ?? 'vendor'),
-      profileImageUrl: map['profileImageUrl'],
-      isActive: map['isActive'] ?? true,
-
       businessName: map['businessName'] ?? '',
       category: map['category'] ?? '',
-      locations: List<String>.from(map['locations'] ?? []),
+      locations: stringListFromFirestore(map['locations']),
       bio: map['bio'] ?? '',
-      isApproved: map['isApproved'] ?? false,
-      averageRating:
-          (map['averageRating'] ?? 0).toDouble(),
-      totalReviews: map['totalReviews'] ?? 0,
-      socialLinks: map['socialLinks'],
-
-      createdAt:
-          (map['createdAt'] as Timestamp?)?.toDate() ??
-          DateTime.now(),
-      updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
+      isApproved: boolFromFirestore(map['isApproved']),
+      averageRating: doubleFromFirestore(map['averageRating']),
+      totalReviews: intFromFirestore(map['totalReviews']),
+      createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
+      approvalStatus: map['approvalStatus'] ?? 'pending',
     );
   }
 
-  @override
   Map<String, dynamic> toMap() {
     return {
-      ...super.toMap(),
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'role': enumToString(role),
       'businessName': businessName,
       'category': category,
       'locations': locations,
@@ -73,7 +68,42 @@ class VendorModel extends UserModel {
       'isApproved': isApproved,
       'averageRating': averageRating,
       'totalReviews': totalReviews,
-      'socialLinks': socialLinks,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'approvalStatus': approvalStatus,
     };
+  }
+
+  VendorModel copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? phone,
+    UserRole? role,
+    String? businessName,
+    String? category,
+    List<String>? locations,
+    String? bio,
+    bool? isApproved,
+    double? averageRating,
+    int? totalReviews,
+    DateTime? createdAt,
+    String? approvalStatus,
+  }) {
+    return VendorModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      role: role ?? this.role,
+      businessName: businessName ?? this.businessName,
+      category: category ?? this.category,
+      locations: locations ?? this.locations,
+      bio: bio ?? this.bio,
+      isApproved: isApproved ?? this.isApproved,
+      averageRating: averageRating ?? this.averageRating,
+      totalReviews: totalReviews ?? this.totalReviews,
+      createdAt: createdAt ?? this.createdAt,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+    );
   }
 }

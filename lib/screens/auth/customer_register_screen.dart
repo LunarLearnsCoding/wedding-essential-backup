@@ -12,8 +12,7 @@ class CustomerRegisterScreen extends StatefulWidget {
   const CustomerRegisterScreen({super.key});
 
   @override
-  State<CustomerRegisterScreen> createState() =>
-      _CustomerRegisterScreenState();
+  State<CustomerRegisterScreen> createState() => _CustomerRegisterScreenState();
 }
 
 class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
@@ -41,41 +40,33 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
 
     try {
       await context.read<AuthProvider>().authService.registerCustomer(
-            name: nameController.text.trim(),
-            email: emailController.text.trim(),
-            password: passwordController.text.trim(),
-            phone: phoneController.text.trim(),
-          );
+        name: nameController.text.trim(),
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+        phone: phoneController.text.trim(),
+      );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Customer account created successfully'),
-        ),
+        const SnackBar(content: Text('Customer account created successfully')),
       );
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
   void _goToVendorRegister() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => const VendorRegisterScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const VendorRegisterScreen()),
     );
   }
 
@@ -172,8 +163,6 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                   selected: false,
                   onTap: _goToVendorRegister,
                 ),
-
-               
 
                 const SizedBox(height: 20),
 
@@ -306,17 +295,13 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     onPressed: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const LoginScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
                       );
                     },
                     child: const Text.rich(
                       TextSpan(
                         text: 'Already have an account? ',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                        ),
+                        style: TextStyle(color: AppColors.textSecondary),
                         children: [
                           TextSpan(
                             text: 'Sign In',
@@ -351,11 +336,7 @@ class _LogoMark extends StatelessWidget {
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Icon(
-        Icons.favorite,
-        color: Colors.white,
-        size: 22,
-      ),
+      child: const Icon(Icons.favorite, color: Colors.white, size: 22),
     );
   }
 }
@@ -401,9 +382,7 @@ class _RoleCard extends StatelessWidget {
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-          ),
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
       ),
     );

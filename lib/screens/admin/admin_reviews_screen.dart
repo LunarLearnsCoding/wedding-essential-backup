@@ -10,10 +10,7 @@ import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
 class AdminReviewsScreen extends StatefulWidget {
-  const AdminReviewsScreen({
-    super.key,
-    required this.service,
-  });
+  const AdminReviewsScreen({super.key, required this.service});
 
   final AdminService service;
 
@@ -51,7 +48,9 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
               final docs = snapshot.data?.docs ?? [];
               final reviews = docs
                   .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where((item) => AdminHelpers.matchesSearch(item.data, _search))
+                  .where(
+                    (item) => AdminHelpers.matchesSearch(item.data, _search),
+                  )
                   .toList();
 
               if (reviews.isEmpty) {
@@ -89,7 +88,9 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                     'message',
                   ], fallback: 'No comment');
                   final rating = item.numberValue(['rating', 'stars']);
-                  final status = item.stringValue(['status'], fallback: 'published');
+                  final status = item.stringValue([
+                    'status',
+                  ], fallback: 'published');
                   final createdAt = item.dateValue(['createdAt']);
 
                   return AdminRecordCard(
@@ -102,8 +103,14 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                         icon: Icons.star_rate_rounded,
                         label: '$rating / 5',
                       ),
-                      AdminMetaPill(icon: Icons.person_outline, label: customer),
-                      AdminMetaPill(icon: Icons.storefront_outlined, label: vendor),
+                      AdminMetaPill(
+                        icon: Icons.person_outline,
+                        label: customer,
+                      ),
+                      AdminMetaPill(
+                        icon: Icons.storefront_outlined,
+                        label: vendor,
+                      ),
                       AdminMetaPill(
                         icon: Icons.calendar_today_outlined,
                         label: AdminFormatters.date(createdAt),
@@ -116,7 +123,8 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                         label: const Text('Hide'),
                       ),
                       OutlinedButton.icon(
-                        onPressed: () => _updateReviewStatus(item.id, 'published'),
+                        onPressed: () =>
+                            _updateReviewStatus(item.id, 'published'),
                         icon: const Icon(Icons.visibility_outlined),
                         label: const Text('Publish'),
                       ),
@@ -125,12 +133,16 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                           final confirmed = await AdminHelpers.confirm(
                             context,
                             title: 'Delete review?',
-                            message: 'This will permanently delete this review.',
+                            message:
+                                'This will permanently delete this review.',
                             confirmText: 'Delete',
                           );
                           if (!confirmed) return;
                           try {
-                            await widget.service.deleteDocument('reviews', item.id);
+                            await widget.service.deleteDocument(
+                              'reviews',
+                              item.id,
+                            );
                             if (!mounted) return;
                             AdminHelpers.showSnack(context, 'Review deleted');
                           } catch (error) {

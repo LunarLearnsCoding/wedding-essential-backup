@@ -8,10 +8,7 @@ import '../../core/constants/app_colors.dart';
 class ServiceDetailsScreen extends StatefulWidget {
   final String serviceId;
 
-  const ServiceDetailsScreen({
-    super.key,
-    required this.serviceId,
-  });
+  const ServiceDetailsScreen({super.key, required this.serviceId});
 
   @override
   State<ServiceDetailsScreen> createState() => _ServiceDetailsScreenState();
@@ -60,8 +57,13 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               });
 
               try {
+                final customerName = user.displayName?.trim().isNotEmpty == true
+                    ? user.displayName!.trim()
+                    : (user.email ?? 'Customer');
+
                 await firestore.collection('inquiries').add({
                   'customerId': user.uid,
+                  'customerName': customerName,
                   'customerEmail': user.email ?? '',
                   'serviceId': widget.serviceId,
                   'serviceName': _stringValue(serviceData, 'name'),
@@ -135,200 +137,207 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   }
 
   Future<void> _showBookingSheet(Map<String, dynamic> serviceData) async {
-  final dateController = TextEditingController();
-  final timeController = TextEditingController();
-  final noteController = TextEditingController();
+    final dateController = TextEditingController();
+    final timeController = TextEditingController();
+    final noteController = TextEditingController();
 
-  DateTime? selectedDate;
-  TimeOfDay? selectedTime;
+    DateTime? selectedDate;
+    TimeOfDay? selectedTime;
 
-  bool isBooking = false;
+    bool isBooking = false;
 
-  await showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) {
-      return StatefulBuilder(
-        builder: (context, setModalState) {
-          Future<void> bookNow() async {
-            final user = auth.currentUser;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> bookNow() async {
+              final user = auth.currentUser;
 
-            if (user == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please login first')),
-              );
-              return;
-            }
+              if (user == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please login first')),
+                );
+                return;
+              }
 
-            if (selectedDate == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please select an event date')),
-              );
-              return;
-            }
+              if (selectedDate == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please select an event date')),
+                );
+                return;
+              }
 
-            if (selectedTime == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please select an event time')),
-              );
-              return;
-            }
+              if (selectedTime == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please select an event time')),
+                );
+                return;
+              }
 
-            setModalState(() {
-              isBooking = true;
-            });
-
-            try {
-              final requestedDateTime = DateTime(
-                selectedDate!.year,
-                selectedDate!.month,
-                selectedDate!.day,
-                selectedTime!.hour,
-                selectedTime!.minute,
-              );
-
-              await firestore.collection('bookings').add({
-                'customerId': user.uid,
-                'customerEmail': user.email ?? '',
-
-                'serviceId': widget.serviceId,
-                'serviceName': _stringValue(serviceData, 'name'),
-
-                'vendorId': _stringValue(serviceData, 'vendorId'),
-                'vendorName': _stringValue(serviceData, 'vendorName'),
-
-                'requestedDate': dateController.text.trim(),
-                'requestedTime': timeController.text.trim(),
-                'requestedDateTime': Timestamp.fromDate(requestedDateTime),
-
-                'note': noteController.text.trim(),
-                'price': _doubleValue(serviceData, 'price'),
-
-                'status': 'pending',
-                'createdAt': FieldValue.serverTimestamp(),
-                'updatedAt': FieldValue.serverTimestamp(),
-              });
-
-              if (!mounted) return;
-
-              Navigator.pop(sheetContext);
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Booking request sent')),
-              );
-            } catch (error) {
               setModalState(() {
-                isBooking = false;
+                isBooking = true;
               });
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to book: $error')),
-              );
+              try {
+                final customerName = user.displayName?.trim().isNotEmpty == true
+                    ? user.displayName!.trim()
+                    : (user.email ?? 'Customer');
+                final requestedDateTime = DateTime(
+                  selectedDate!.year,
+                  selectedDate!.month,
+                  selectedDate!.day,
+                  selectedTime!.hour,
+                  selectedTime!.minute,
+                );
+
+                await firestore.collection('bookings').add({
+                  'customerId': user.uid,
+                  'customerName': customerName,
+                  'customerEmail': user.email ?? '',
+                  'customerPhone': '',
+
+                  'serviceId': widget.serviceId,
+                  'serviceName': _stringValue(serviceData, 'name'),
+
+                  'vendorId': _stringValue(serviceData, 'vendorId'),
+                  'vendorName': _stringValue(serviceData, 'vendorName'),
+
+                  'requestedDate': dateController.text.trim(),
+                  'requestedTime': timeController.text.trim(),
+                  'requestedDateTime': Timestamp.fromDate(requestedDateTime),
+                  'eventDate': Timestamp.fromDate(requestedDateTime),
+
+                  'note': noteController.text.trim(),
+                  'price': _doubleValue(serviceData, 'price'),
+                  'servicePrice': _doubleValue(serviceData, 'price'),
+
+                  'status': 'pending',
+                  'createdAt': FieldValue.serverTimestamp(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+
+                if (!mounted) return;
+
+                Navigator.pop(sheetContext);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Booking request sent')),
+                );
+              } catch (error) {
+                setModalState(() {
+                  isBooking = false;
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to book: $error')),
+                );
+              }
             }
-          }
 
-          return _BottomInputSheet(
-            title: 'Book Service',
-            subtitle: _stringValue(serviceData, 'name'),
-            child: Column(
-              children: [
-                TextField(
-                  controller: dateController,
-                  readOnly: true,
-                  onTap: () async {
-                    final now = DateTime.now();
+            return _BottomInputSheet(
+              title: 'Book Service',
+              subtitle: _stringValue(serviceData, 'name'),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: dateController,
+                    readOnly: true,
+                    onTap: () async {
+                      final now = DateTime.now();
 
-                    final pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: now,
-                      firstDate: now,
-                      lastDate: DateTime(now.year + 2),
-                    );
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: now,
+                        firstDate: now,
+                        lastDate: DateTime(now.year + 2),
+                      );
 
-                    if (pickedDate != null) {
-                      setModalState(() {
-                        selectedDate = pickedDate;
+                      if (pickedDate != null) {
+                        setModalState(() {
+                          selectedDate = pickedDate;
 
-                        dateController.text =
-                            '${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}';
-                      });
-                    }
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Event Date',
-                    prefixIcon: Icon(Icons.calendar_month_outlined),
+                          dateController.text =
+                              '${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}';
+                        });
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Event Date',
+                      prefixIcon: Icon(Icons.calendar_month_outlined),
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 14),
+                  const SizedBox(height: 14),
 
-                TextField(
-                  controller: timeController,
-                  readOnly: true,
-                  onTap: () async {
-                    final pickedTime = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.now(),
-                    );
+                  TextField(
+                    controller: timeController,
+                    readOnly: true,
+                    onTap: () async {
+                      final pickedTime = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.now(),
+                      );
 
-                    if (pickedTime != null) {
-                      setModalState(() {
-                        selectedTime = pickedTime;
-                        timeController.text = pickedTime.format(context);
-                      });
-                    }
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Event Time',
-                    prefixIcon: Icon(Icons.access_time_outlined),
+                      if (pickedTime != null) {
+                        setModalState(() {
+                          selectedTime = pickedTime;
+                          timeController.text = pickedTime.format(context);
+                        });
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Event Time',
+                      prefixIcon: Icon(Icons.access_time_outlined),
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 14),
+                  const SizedBox(height: 14),
 
-                TextField(
-                  controller: noteController,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Booking Note',
-                    hintText: 'Write your event details...',
-                    alignLabelWithHint: true,
-                    prefixIcon: Icon(Icons.notes_outlined),
+                  TextField(
+                    controller: noteController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Booking Note',
+                      hintText: 'Write your event details...',
+                      alignLabelWithHint: true,
+                      prefixIcon: Icon(Icons.notes_outlined),
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                SizedBox(
-                  height: 54,
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: isBooking ? null : bookNow,
-                    child: isBooking
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Send Booking Request'),
+                  SizedBox(
+                    height: 54,
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isBooking ? null : bookNow,
+                      child: isBooking
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Send Booking Request'),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
 
-  dateController.dispose();
-  timeController.dispose();
-  noteController.dispose();
-}
+    dateController.dispose();
+    timeController.dispose();
+    noteController.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -396,7 +405,6 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
                             const SizedBox(height: 10),
 
-                           
                             Text(
                               _stringValue(
                                 serviceData,
@@ -410,9 +418,9 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                                 height: 1.6,
                               ),
                             ),
-                           
-                           _SocialLogoLinksSection(serviceData: serviceData),
-                            
+
+                            _SocialLogoLinksSection(serviceData: serviceData),
+
                             const SizedBox(height: 14),
 
                             const _SectionTitle('Reach Out'),
@@ -435,9 +443,21 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const _SectionTitle('Reviews'),
-                                TextButton(
-                                  onPressed: () {},
-                                  child: const Text('See all'),
+                                SizedBox(
+                                  height: 48,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Coming soon!'),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.chat_bubble_outline),
+                                    label: const Text('See all'),
+                                  ),
                                 ),
                               ],
                             ),
@@ -474,10 +494,7 @@ class _HeroSection extends StatelessWidget {
   final String imageUrl;
   final String category;
 
-  const _HeroSection({
-    required this.imageUrl,
-    required this.category,
-  });
+  const _HeroSection({required this.imageUrl, required this.category});
 
   @override
   Widget build(BuildContext context) {
@@ -511,9 +528,7 @@ class _HeroSection extends StatelessWidget {
                   },
                 ),
 
-          Container(
-            color: Colors.black.withValues(alpha:0.25),
-          ),
+          Container(color: Colors.black.withValues(alpha: 0.25)),
 
           SafeArea(
             child: Padding(
@@ -527,12 +542,20 @@ class _HeroSection extends StatelessWidget {
                   const Spacer(),
                   _CircleIconButton(
                     icon: Icons.favorite_border,
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                   const SizedBox(width: 10),
                   _CircleIconButton(
                     icon: Icons.share_outlined,
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon!')),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -568,10 +591,7 @@ class _CircleIconButton extends StatelessWidget {
   final dynamic icon;
   final VoidCallback onTap;
 
-  const _CircleIconButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _CircleIconButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -591,9 +611,7 @@ class _CircleIconButton extends StatelessWidget {
 class _TitleArea extends StatelessWidget {
   final Map<String, dynamic> serviceData;
 
-  const _TitleArea({
-    required this.serviceData,
-  });
+  const _TitleArea({required this.serviceData});
 
   @override
   Widget build(BuildContext context) {
@@ -636,9 +654,7 @@ class _TitleArea extends StatelessWidget {
 class _RatingLocationRow extends StatelessWidget {
   final Map<String, dynamic> serviceData;
 
-  const _RatingLocationRow({
-    required this.serviceData,
-  });
+  const _RatingLocationRow({required this.serviceData});
 
   @override
   Widget build(BuildContext context) {
@@ -659,17 +675,10 @@ class _RatingLocationRow extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           '($reviewCount reviews)',
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-          ),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(width: 12),
-        Container(
-          height: 18,
-          width: 1,
-          color: AppColors.border,
-        ),
+        Container(height: 18, width: 1, color: AppColors.border),
         const SizedBox(width: 12),
         const Icon(
           Icons.location_on_outlined,
@@ -682,10 +691,7 @@ class _RatingLocationRow extends StatelessWidget {
             _stringValue(serviceData, 'location'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: AppColors.primary, fontSize: 13),
           ),
         ),
       ],
@@ -696,9 +702,7 @@ class _RatingLocationRow extends StatelessWidget {
 class _TagWrap extends StatelessWidget {
   final Map<String, dynamic> serviceData;
 
-  const _TagWrap({
-    required this.serviceData,
-  });
+  const _TagWrap({required this.serviceData});
 
   @override
   Widget build(BuildContext context) {
@@ -729,9 +733,7 @@ class _TagWrap extends StatelessWidget {
 class _TagChip extends StatelessWidget {
   final String text;
 
-  const _TagChip({
-    required this.text,
-  });
+  const _TagChip({required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -756,9 +758,7 @@ class _TagChip extends StatelessWidget {
 class _PackageList extends StatelessWidget {
   final Map<String, dynamic> serviceData;
 
-  const _PackageList({
-    required this.serviceData,
-  });
+  const _PackageList({required this.serviceData});
 
   @override
   Widget build(BuildContext context) {
@@ -776,7 +776,8 @@ class _PackageList extends StatelessWidget {
               price: _stringValue(
                 packageData,
                 'price',
-                fallback: 'Rs. ${_doubleValue(serviceData, 'price').toStringAsFixed(0)}',
+                fallback:
+                    'Rs. ${_doubleValue(serviceData, 'price').toStringAsFixed(0)}',
               ),
               features: _listValue(packageData, 'features'),
             ),
@@ -816,10 +817,7 @@ class _PackageCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.selectedSurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.primary,
-          width: 1.2,
-        ),
+        border: Border.all(color: AppColors.primary, width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -885,9 +883,7 @@ class _PackageCard extends StatelessWidget {
 class _ReviewsList extends StatelessWidget {
   final String serviceId;
 
-  const _ReviewsList({
-    required this.serviceId,
-  });
+  const _ReviewsList({required this.serviceId});
 
   @override
   Widget build(BuildContext context) {
@@ -940,9 +936,7 @@ class _ReviewsList extends StatelessWidget {
 class _ReviewCard extends StatelessWidget {
   final Map<String, dynamic> reviewData;
 
-  const _ReviewCard({
-    required this.reviewData,
-  });
+  const _ReviewCard({required this.reviewData});
 
   @override
   Widget build(BuildContext context) {
@@ -1017,10 +1011,7 @@ class _BottomActionBar extends StatelessWidget {
   final VoidCallback onInquiry;
   final VoidCallback onBookNow;
 
-  const _BottomActionBar({
-    required this.onInquiry,
-    required this.onBookNow,
-  });
+  const _BottomActionBar({required this.onInquiry, required this.onBookNow});
 
   @override
   Widget build(BuildContext context) {
@@ -1030,10 +1021,14 @@ class _BottomActionBar extends StatelessWidget {
         children: [
           Expanded(
             child: SizedBox(
-              height: 54,
-              child: OutlinedButton.icon(
-                onPressed: onInquiry,
-                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+              height: 48,
+              child: TextButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('Coming soon!')));
+                },
+                icon: const Icon(Icons.edit_note),
                 label: const Text('Inquiry'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
@@ -1089,9 +1084,7 @@ class _BottomInputSheet extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
         decoration: const BoxDecoration(
           color: AppColors.background,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(28),
-          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -1120,9 +1113,7 @@ class _BottomInputSheet extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                ),
+                style: const TextStyle(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 20),
               child,
@@ -1212,15 +1203,10 @@ String _imageValue(Map<String, dynamic> data) {
   return '';
 }
 
-
-
-
 class _SocialLogoLinksSection extends StatelessWidget {
   final Map<String, dynamic> serviceData;
 
-  const _SocialLogoLinksSection({
-    required this.serviceData,
-  });
+  const _SocialLogoLinksSection({required this.serviceData});
 
   @override
   Widget build(BuildContext context) {
@@ -1364,16 +1350,10 @@ class _SocialLogoButton extends StatelessWidget {
             width: 46,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.border,
-              ),
+              border: Border.all(color: AppColors.border),
             ),
             child: Center(
-              child: FaIcon(
-                icon,
-                size: 20,
-                color: AppColors.primary,
-              ),
+              child: FaIcon(icon, size: 20, color: AppColors.primary),
             ),
           ),
         ),
@@ -1411,8 +1391,7 @@ String _socialValue(
 Future<void> _openNormalLink(BuildContext context, String link) async {
   String fixedLink = link.trim();
 
-  if (!fixedLink.startsWith('http://') &&
-      !fixedLink.startsWith('https://')) {
+  if (!fixedLink.startsWith('http://') && !fixedLink.startsWith('https://')) {
     fixedLink = 'https://$fixedLink';
   }
 
@@ -1423,10 +1402,7 @@ Future<void> _openNormalLink(BuildContext context, String link) async {
     return;
   }
 
-  final opened = await launchUrl(
-    uri,
-    mode: LaunchMode.externalApplication,
-  );
+  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
   if (!opened && context.mounted) {
     _showLinkError(context);
@@ -1445,10 +1421,7 @@ Future<void> _openWhatsApp(BuildContext context, String value) async {
 }
 
 Future<void> _openPhone(BuildContext context, String phone) async {
-  final uri = Uri(
-    scheme: 'tel',
-    path: phone.trim(),
-  );
+  final uri = Uri(scheme: 'tel', path: phone.trim());
 
   final opened = await launchUrl(uri);
 
@@ -1458,10 +1431,7 @@ Future<void> _openPhone(BuildContext context, String phone) async {
 }
 
 Future<void> _openEmail(BuildContext context, String email) async {
-  final uri = Uri(
-    scheme: 'mailto',
-    path: email.trim(),
-  );
+  final uri = Uri(scheme: 'mailto', path: email.trim());
 
   final opened = await launchUrl(uri);
 
@@ -1471,9 +1441,7 @@ Future<void> _openEmail(BuildContext context, String email) async {
 }
 
 void _showLinkError(BuildContext context) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('Could not open this link'),
-    ),
-  );
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(const SnackBar(content: Text('Could not open this link')));
 }

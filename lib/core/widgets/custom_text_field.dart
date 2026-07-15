@@ -27,10 +27,7 @@ class CustomTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
         const SizedBox(height: 10),
         TextFormField(
@@ -38,10 +35,7 @@ class CustomTextField extends StatelessWidget {
           keyboardType: keyboardType,
           obscureText: obscureText,
           validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            suffixIcon: suffixIcon,
-          ),
+          decoration: InputDecoration(hintText: hint, suffixIcon: suffixIcon),
         ),
       ],
     );
