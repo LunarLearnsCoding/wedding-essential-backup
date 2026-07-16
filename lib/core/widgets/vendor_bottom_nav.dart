@@ -4,11 +4,7 @@ class VendorBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
 
-  const VendorBottomNav({
-    super.key,
-    required this.currentIndex,
-    this.onTap,
-  });
+  const VendorBottomNav({super.key, required this.currentIndex, this.onTap});
 
   void _handleTap(BuildContext context, int index) {
     if (onTap != null) {
@@ -20,8 +16,6 @@ class VendorBottomNav extends StatelessWidget {
       '/vendor/home',
       '/vendor/services',
       '/vendor/bookings',
-      '/vendor/inquiries',
-      '/vendor/reviews',
       '/vendor/profile',
     ];
 
@@ -65,16 +59,6 @@ class VendorBottomNav extends StatelessWidget {
           icon: Icon(Icons.calendar_month_outlined),
           selectedIcon: Icon(Icons.calendar_month),
           label: 'Bookings',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.chat_bubble_outline),
-          selectedIcon: Icon(Icons.chat_bubble),
-          label: 'Inquiries',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.star_border),
-          selectedIcon: Icon(Icons.star),
-          label: 'Reviews',
         ),
         NavigationDestination(
           icon: Icon(Icons.person_outline),

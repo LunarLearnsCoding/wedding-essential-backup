@@ -7,7 +7,9 @@ import '../../models/service_model.dart';
 import '../../services/service_service.dart';
 
 class VendorServiceFormScreen extends StatefulWidget {
-  const VendorServiceFormScreen({super.key});
+  final ServiceModel? service;
+
+  const VendorServiceFormScreen({super.key, this.service});
 
   @override
   State<VendorServiceFormScreen> createState() =>
@@ -21,19 +23,27 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
   final _categoryController = TextEditingController();
   final _locationController = TextEditingController();
   final _priceController = TextEditingController();
-  final _priceUnitController = TextEditingController(text: 'per day');
   final _descriptionController = TextEditingController();
 
   String _status = 'Active';
   bool _isSaving = false;
 
-  final List<_PackageDraft> _packages = [
-    _PackageDraft(
-      name: TextEditingController(text: 'Basic'),
-      price: TextEditingController(),
-      features: [TextEditingController(text: 'Up to 100 guests')],
-    ),
-  ];
+  bool get _isUpdateMode => widget.service != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final service = widget.service;
+    if (service == null) return;
+
+    _serviceNameController.text = service.name;
+    _categoryController.text = service.category;
+    _locationController.text = service.location;
+    _priceController.text = service.price.toStringAsFixed(0);
+    _descriptionController.text = service.description;
+    _status = service.isActive ? 'Active' : 'Paused';
+  }
 
   @override
   void dispose() {
@@ -41,35 +51,9 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
     _categoryController.dispose();
     _locationController.dispose();
     _priceController.dispose();
-    _priceUnitController.dispose();
     _descriptionController.dispose();
 
-    for (final package in _packages) {
-      package.dispose();
-    }
-
     super.dispose();
-  }
-
-  void _addPackage() {
-    setState(() {
-      _packages.add(
-        _PackageDraft(
-          name: TextEditingController(),
-          price: TextEditingController(),
-          features: [TextEditingController()],
-        ),
-      );
-    });
-  }
-
-  void _removePackage(int index) {
-    if (_packages.length == 1) return;
-
-    final removedPackage = _packages.removeAt(index);
-    removedPackage.dispose();
-
-    setState(() {});
   }
 
   Future<void> _saveService() async {
@@ -78,7 +62,13 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in again to add a service.')),
+        SnackBar(
+          content: Text(
+            _isUpdateMode
+                ? 'Please sign in again to update this service.'
+                : 'Please sign in again to add a service.',
+          ),
+        ),
       );
       return;
     }
@@ -88,41 +78,63 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
     });
 
     try {
-      final vendorDoc = await FirebaseFirestore.instance
-          .collection('vendors')
-          .doc(currentUser.uid)
-          .get();
+      final existingService = widget.service;
+      final now = DateTime.now();
+      late final String vendorId;
+      late final String vendorName;
 
-      final vendorData = vendorDoc.data() ?? {};
-      final vendorName =
-          vendorData['businessName']?.toString().trim().isNotEmpty == true
-          ? vendorData['businessName'].toString().trim()
-          : (vendorData['name']?.toString().trim().isNotEmpty == true
-                ? vendorData['name'].toString().trim()
-                : currentUser.email ?? 'Vendor');
+      if (existingService == null) {
+        final vendorDoc = await FirebaseFirestore.instance
+            .collection('vendors')
+            .doc(currentUser.uid)
+            .get();
+
+        final vendorData = vendorDoc.data() ?? {};
+        vendorId = currentUser.uid;
+        vendorName =
+            vendorData['businessName']?.toString().trim().isNotEmpty == true
+            ? vendorData['businessName'].toString().trim()
+            : (vendorData['name']?.toString().trim().isNotEmpty == true
+                  ? vendorData['name'].toString().trim()
+                  : currentUser.email ?? 'Vendor');
+      } else {
+        vendorId = existingService.vendorId;
+        vendorName = existingService.vendorName;
+      }
 
       final service = ServiceModel(
-        id: '',
-        vendorId: currentUser.uid,
+        id: existingService?.id ?? '',
+        vendorId: vendorId,
         vendorName: vendorName,
         name: _serviceNameController.text.trim(),
         description: _descriptionController.text.trim(),
         category: _categoryController.text.trim(),
         location: _locationController.text.trim(),
         price: _parsePrice(_priceController.text),
-        imageUrls: const [],
-        averageRating: 0,
-        totalReviews: 0,
+        imageUrls: existingService?.imageUrls ?? const [],
+        averageRating: existingService?.averageRating ?? 0,
+        totalReviews: existingService?.totalReviews ?? 0,
         isActive: _status == 'Active',
-        createdAt: DateTime.now(),
+        createdAt: existingService?.createdAt ?? now,
+        updatedAt: _isUpdateMode ? now : null,
       );
 
-      await ServiceService().addService(service);
+      if (_isUpdateMode) {
+        await ServiceService().updateService(service);
+      } else {
+        await ServiceService().addService(service);
+      }
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Service published successfully.')),
+        SnackBar(
+          content: Text(
+            _isUpdateMode
+                ? 'Service updated successfully.'
+                : 'Service published successfully.',
+          ),
+        ),
       );
 
       Navigator.pop(context);
@@ -152,7 +164,9 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const _ServiceFormHeader(),
+          _ServiceFormHeader(
+            title: _isUpdateMode ? 'Update Service' : 'Add Service',
+          ),
 
           Expanded(
             child: Form(
@@ -183,24 +197,10 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                           controller: _locationController,
                         ),
 
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _TextInput(
-                                label: 'Starting Price',
-                                hint: 'Rs. 50,000',
-                                controller: _priceController,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _TextInput(
-                                label: 'Price Unit',
-                                hint: 'per day',
-                                controller: _priceUnitController,
-                              ),
-                            ),
-                          ],
+                        _TextInput(
+                          label: 'Base Price',
+                          hint: 'Rs. 50,000',
+                          controller: _priceController,
                         ),
 
                         _TextInput(
@@ -235,38 +235,6 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 18),
-
-                    _FormCard(
-                      title: 'Packages',
-                      trailing: TextButton.icon(
-                        onPressed: _addPackage,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                        ),
-                      ),
-                      children: [
-                        ..._packages.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final package = entry.value;
-
-                          return _PackageEditor(
-                            index: index,
-                            package: package,
-                            canRemove: _packages.length > 1,
-                            onRemove: () {
-                              _removePackage(index);
-                            },
-                            onChanged: () {
-                              setState(() {});
-                            },
-                          );
-                        }),
-                      ],
-                    ),
-
                     const SizedBox(height: 24),
 
                     SizedBox(
@@ -284,7 +252,11 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                               )
                             : const Icon(Icons.check),
                         label: Text(
-                          _isSaving ? 'Publishing...' : 'Publish Service',
+                          _isSaving
+                              ? (_isUpdateMode ? 'Saving...' : 'Publishing...')
+                              : (_isUpdateMode
+                                    ? 'Save Changes'
+                                    : 'Add Service'),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
@@ -309,7 +281,9 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
 }
 
 class _ServiceFormHeader extends StatelessWidget {
-  const _ServiceFormHeader();
+  final String title;
+
+  const _ServiceFormHeader({required this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -342,18 +316,18 @@ class _ServiceFormHeader extends StatelessWidget {
 
           const SizedBox(width: 14),
 
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Vendor Panel',
                   style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Add Service',
-                  style: TextStyle(
+                  title,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -371,9 +345,8 @@ class _ServiceFormHeader extends StatelessWidget {
 class _FormCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
-  final Widget? trailing;
 
-  const _FormCard({required this.title, required this.children, this.trailing});
+  const _FormCard({required this.title, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -387,24 +360,15 @@ class _FormCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              if (trailing != null) trailing!,
-            ],
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-
           const SizedBox(height: 16),
-
           ...children,
         ],
       ),
@@ -457,142 +421,6 @@ class _TextInput extends StatelessWidget {
   }
 }
 
-class _PackageEditor extends StatelessWidget {
-  final int index;
-  final _PackageDraft package;
-  final bool canRemove;
-  final VoidCallback onRemove;
-  final VoidCallback onChanged;
-
-  const _PackageEditor({
-    required this.index,
-    required this.package,
-    required this.canRemove,
-    required this.onRemove,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Package ${index + 1}',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-
-              if (canRemove)
-                IconButton(
-                  onPressed: onRemove,
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-
-          Row(
-            children: [
-              Expanded(
-                child: _TextInput(
-                  label: 'Package Name',
-                  hint: 'Basic',
-                  controller: package.name,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _TextInput(
-                  label: 'Price',
-                  hint: 'Rs. 50,000',
-                  controller: package.price,
-                ),
-              ),
-            ],
-          ),
-
-          const Text(
-            'Features Included',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          ...package.features.asMap().entries.map((entry) {
-            final featureIndex = entry.key;
-            final controller = entry.value;
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: controller,
-                      decoration: _inputDecoration(
-                        'Feature ${featureIndex + 1}',
-                      ).copyWith(hintText: 'Example: 6 hours coverage'),
-                    ),
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  IconButton(
-                    onPressed: package.features.length == 1
-                        ? null
-                        : () {
-                            final removedFeature = package.features.removeAt(
-                              featureIndex,
-                            );
-                            removedFeature.dispose();
-                            onChanged();
-                          },
-                    icon: const Icon(
-                      Icons.remove_circle_outline,
-                      color: Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-
-          TextButton.icon(
-            onPressed: () {
-              package.features.add(TextEditingController());
-              onChanged();
-            },
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add Feature'),
-            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 InputDecoration _inputDecoration(String label) {
   return InputDecoration(
     labelText: label,
@@ -625,25 +453,4 @@ InputDecoration _inputDecoration(String label) {
       borderSide: const BorderSide(color: Colors.red),
     ),
   );
-}
-
-class _PackageDraft {
-  final TextEditingController name;
-  final TextEditingController price;
-  final List<TextEditingController> features;
-
-  _PackageDraft({
-    required this.name,
-    required this.price,
-    required this.features,
-  });
-
-  void dispose() {
-    name.dispose();
-    price.dispose();
-
-    for (final feature in features) {
-      feature.dispose();
-    }
-  }
 }
