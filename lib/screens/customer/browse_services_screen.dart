@@ -11,7 +11,9 @@ import 'notification_screen.dart';
 import 'service_details_screen.dart';
 
 class BrowseServicesScreen extends StatefulWidget {
-  const BrowseServicesScreen({super.key});
+  final String initialCategory;
+
+  const BrowseServicesScreen({super.key, this.initialCategory = 'All'});
 
   @override
   State<BrowseServicesScreen> createState() => _BrowseServicesScreenState();
@@ -20,7 +22,7 @@ class BrowseServicesScreen extends StatefulWidget {
 class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
   final searchController = TextEditingController();
 
-  String selectedCategory = 'All';
+  late String selectedCategory;
   String selectedSort = 'Top Rated';
 
   final categories = [
@@ -36,6 +38,9 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
   @override
   void initState() {
     super.initState();
+    selectedCategory = categories.contains(widget.initialCategory)
+        ? widget.initialCategory
+        : 'All';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (context.read<ServiceProvider>().services.isEmpty) {
         context.read<ServiceProvider>().loadServices();

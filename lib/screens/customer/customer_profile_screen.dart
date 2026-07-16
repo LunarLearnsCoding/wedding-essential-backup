@@ -5,13 +5,124 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/utils/firestore_parsers.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'browse_services_screen.dart';
+import 'customer_dashboard_screen.dart';
+import 'notification_screen.dart';
 
-class CustomerProfileScreen extends StatelessWidget {
+class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({super.key});
+
+  @override
+  State<CustomerProfileScreen> createState() => _CustomerProfileScreenState();
+}
+
+class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
+  Future<_CustomerProfileData>? _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      _profileFuture = _loadProfile(currentUser.uid);
+    }
+  }
+
+  Future<_CustomerProfileData> _loadProfile(String customerId) async {
+    final firestore = FirebaseFirestore.instance;
+
+    final customerDoc = await firestore
+        .collection(FirestoreCollections.customers)
+        .doc(customerId)
+        .get();
+
+    final profileData = customerDoc.exists
+        ? customerDoc.data() ?? {}
+        : (await firestore
+                      .collection(FirestoreCollections.users)
+                      .doc(customerId)
+                      .get())
+                  .data() ??
+              {};
+
+    final counts = await _loadProfileCounts(customerId);
+
+    return _CustomerProfileData.fromMap(
+      profileData,
+      fallbackEmail: FirebaseAuth.instance.currentUser?.email ?? '',
+      stats: counts,
+    );
+  }
+
+  Future<_CustomerProfileStats> _loadProfileCounts(String customerId) async {
+    final checklistCounts = await _loadChecklistCounts(customerId);
+
+    return _CustomerProfileStats(
+      bookings: await _loadBookingCount(customerId),
+      guests: await _loadGuestCount(customerId),
+      completedTasks: checklistCounts.completed,
+      totalTasks: checklistCounts.total,
+    );
+  }
+
+  Future<int> _loadBookingCount(String customerId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection(FirestoreCollections.bookings)
+          .where('customerId', isEqualTo: customerId)
+          .get();
+
+      return snapshot.docs.length;
+    } on FirebaseException {
+      return 0;
+    }
+  }
+
+  Future<int> _loadGuestCount(String customerId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection(FirestoreCollections.guests)
+          .where('customerId', isEqualTo: customerId)
+          .get();
+
+      return snapshot.docs.fold<int>(
+        0,
+        (total, doc) =>
+            total + intFromFirestore(doc.data()['numberOfGuests'], fallback: 1),
+      );
+    } on FirebaseException {
+      return 0;
+    }
+  }
+
+  Future<_ChecklistCounts> _loadChecklistCounts(String customerId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection(FirestoreCollections.checklistTasks)
+          .where('customerId', isEqualTo: customerId)
+          .get();
+      final completed = snapshot.docs
+          .where((doc) => boolFromFirestore(doc.data()['isCompleted']))
+          .length;
+
+      return _ChecklistCounts(
+        completed: completed,
+        total: snapshot.docs.length,
+      );
+    } on FirebaseException {
+      return const _ChecklistCounts(completed: 0, total: 0);
+    }
+  }
+
+  void _refreshProfile(String customerId) {
+    setState(() {
+      _profileFuture = _loadProfile(customerId);
+    });
+  }
 
   Future<void> _logout(BuildContext context) async {
     await context.read<AuthProvider>().logout();
@@ -25,264 +136,190 @@ class CustomerProfileScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _openEditProfile(
+    BuildContext context,
+    _CustomerProfileData profile,
+    String customerId,
+  ) async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditProfileSheet(profile: profile),
+    );
+
+    if (!context.mounted || saved != true) return;
+
+    _refreshProfile(customerId);
+  }
+
+  Future<void> _confirmPasswordReset(
+    BuildContext context,
+    _CustomerProfileData profile,
+  ) async {
+    final email = profile.email.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No email address found.')));
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Reset password?'),
+          content: Text('Send a password reset email to $email?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Send'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!context.mounted || confirmed != true) return;
+
+    try {
+      await context.read<AuthProvider>().authService.resetPassword(email);
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Password reset email sent to $email.')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send reset email: $error')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
 
+    if (currentUser == null) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: Text('Please login again.')),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'My Profile',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
+        child: FutureBuilder<_CustomerProfileData>(
+          future: _profileFuture ??= _loadProfile(currentUser.uid),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text('Failed to load profile: ${snapshot.error}'),
                 ),
-              ),
-              const SizedBox(height: 22),
+              );
+            }
 
-              FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                future: FirebaseFirestore.instance
-                    .collection(FirestoreCollections.users)
-                    .doc(currentUser?.uid)
-                    .get(),
-                builder: (context, snapshot) {
-                  final data = snapshot.data?.data();
+            final profile = snapshot.data ?? _CustomerProfileData.empty();
 
-                  final name = data?['name'] ?? 'Customer';
-                  final email = data?['email'] ?? currentUser?.email ?? '';
-                  final phone = data?['phone'] ?? '';
-                  final initial = name.isNotEmpty ? name[0].toUpperCase() : 'C';
-
-                  return Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.border),
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'My Profile',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
                     ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 34,
-                          backgroundColor: AppColors.primary,
-                          child: Text(
-                            initial,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                  ),
+                  const SizedBox(height: 22),
+                  _ProfileHeaderCard(
+                    profile: profile,
+                    onEdit: () {
+                      _openEditProfile(context, profile, currentUser.uid);
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          value: profile.stats.bookings.toString(),
+                          label: 'Bookings',
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                email,
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                phone,
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Coming soon!')),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.edit_outlined,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 18),
-
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.selectedSurface,
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: const Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Wedding Date',
-                            style: TextStyle(color: AppColors.textSecondary),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            '15 January 2026',
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'The Grand Pavilion, Kathmandu',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
                       ),
-                    ),
-                    Column(
-                      children: [
-                        Text(
-                          '212',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                          ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _StatCard(
+                          value: profile.stats.guests.toString(),
+                          label: 'Guests',
                         ),
-                        Text(
-                          'days to go',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                          ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _StatCard(
+                          value:
+                              '${profile.stats.completedTasks}/${profile.stats.totalTasks}',
+                          label: 'Tasks Done',
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              Row(
-                children: const [
-                  Expanded(
-                    child: _StatCard(value: '3', label: 'Bookings'),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: _StatCard(value: '10', label: 'Guests'),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: _StatCard(value: '2/12', label: 'Tasks Done'),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 28),
-
-              const _SectionTitle('Account'),
-              const SizedBox(height: 12),
-
-              _ProfileMenuCard(
-                children: [
-                  _ProfileMenuItem(
-                    icon: Icons.edit_outlined,
-                    title: 'Edit Profile',
-                    subtitle: 'Update your personal information',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Coming soon!')),
-                      );
-                    },
-                  ),
-                  _ProfileMenuItem(
-                    icon: Icons.calendar_month_outlined,
-                    title: 'Wedding Details',
-                    subtitle: 'Manage your wedding date & venue',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Coming soon!')),
-                      );
-                    },
+                  const SizedBox(height: 28),
+                  const _SectionTitle('Account'),
+                  const SizedBox(height: 12),
+                  _ProfileMenuCard(
+                    children: [
+                      _ProfileMenuItem(
+                        icon: Icons.lock_outline,
+                        title: 'Privacy & Security',
+                        subtitle: 'Send a password reset email',
+                        onTap: () {
+                          _confirmPasswordReset(context, profile);
+                        },
+                      ),
+                      _ProfileMenuItem(
+                        icon: Icons.logout,
+                        title: 'Logout',
+                        subtitle: 'Sign out of your account',
+                        isDanger: true,
+                        onTap: () => _logout(context),
+                      ),
+                    ],
                   ),
                 ],
               ),
-
-              const SizedBox(height: 24),
-
-              const _SectionTitle('Preferences'),
-              const SizedBox(height: 12),
-
-              _ProfileMenuCard(
-                children: [
-                  _ProfileMenuItem(
-                    icon: Icons.notifications_none_outlined,
-                    title: 'Notifications',
-                    subtitle: 'Manage notification preferences',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Coming soon!')),
-                      );
-                    },
-                  ),
-                  _ProfileMenuItem(
-                    icon: Icons.lock_outline,
-                    title: 'Privacy & Security',
-                    subtitle: 'Password and privacy settings',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Coming soon!')),
-                      );
-                    },
-                  ),
-                  _ProfileMenuItem(
-                    icon: Icons.logout,
-                    title: 'Logout',
-                    subtitle: 'Sign out of your account',
-                    isDanger: true,
-                    onTap: () => _logout(context),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
       bottomNavigationBar: AppBottomNav(
         currentIndex: 3,
         onTap: (index) {
           if (index == 0) {
-            Navigator.pop(context);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CustomerDashboardScreen(),
+              ),
+            );
           }
 
           if (index == 1) {
@@ -293,12 +330,390 @@ class CustomerProfileScreen extends StatelessWidget {
           }
 
           if (index == 2) {
-            // notifications later
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            );
           }
         },
       ),
     );
   }
+}
+
+class _ProfileHeaderCard extends StatelessWidget {
+  final _CustomerProfileData profile;
+  final VoidCallback onEdit;
+
+  const _ProfileHeaderCard({required this.profile, required this.onEdit});
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = profile.name.isNotEmpty
+        ? profile.name[0].toUpperCase()
+        : 'C';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 34,
+            backgroundColor: AppColors.primary,
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  profile.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  profile.phone.isEmpty ? 'Phone not provided' : profile.phone,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditProfileSheet extends StatefulWidget {
+  final _CustomerProfileData profile;
+
+  const _EditProfileSheet({required this.profile});
+
+  @override
+  State<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends State<_EditProfileSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.text = widget.profile.name;
+    _phoneController.text = widget.profile.phone;
+    _addressController.text = widget.profile.address;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please login again.')));
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final sharedData = {
+        'name': _nameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      final customerData = {
+        ...sharedData,
+        'address': _addressController.text.trim(),
+      };
+      final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
+
+      batch.set(
+        firestore
+            .collection(FirestoreCollections.customers)
+            .doc(currentUser.uid),
+        customerData,
+        SetOptions(merge: true),
+      );
+      batch.set(
+        firestore.collection(FirestoreCollections.users).doc(currentUser.uid),
+        sharedData,
+        SetOptions(merge: true),
+      );
+
+      await batch.commit();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 24),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Edit Profile',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _ProfileTextField(
+                  label: 'Name',
+                  controller: _nameController,
+                  enabled: !_isSaving,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Name is required';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                _ProfileTextField(
+                  label: 'Phone',
+                  controller: _phoneController,
+                  enabled: !_isSaving,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Phone is required';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                _ProfileTextField(
+                  label: 'Address',
+                  controller: _addressController,
+                  enabled: !_isSaving,
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _save,
+                    icon: _isSaving
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.save_outlined),
+                    label: Text(_isSaving ? 'Saving...' : 'Save Profile'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileTextField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final bool enabled;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+
+  const _ProfileTextField({
+    required this.label,
+    required this.controller,
+    required this.enabled,
+    this.keyboardType,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: keyboardType,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: AppColors.background,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomerProfileData {
+  final String name;
+  final String email;
+  final String phone;
+  final String address;
+  final _CustomerProfileStats stats;
+
+  const _CustomerProfileData({
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.address,
+    required this.stats,
+  });
+
+  factory _CustomerProfileData.fromMap(
+    Map<String, dynamic> map, {
+    required String fallbackEmail,
+    required _CustomerProfileStats stats,
+  }) {
+    return _CustomerProfileData(
+      name: _stringValue(map['name'], fallback: 'Customer'),
+      email: _stringValue(map['email'], fallback: fallbackEmail),
+      phone: _stringValue(map['phone']),
+      address: _stringValue(map['address']),
+      stats: stats,
+    );
+  }
+
+  factory _CustomerProfileData.empty() {
+    return const _CustomerProfileData(
+      name: 'Customer',
+      email: '',
+      phone: '',
+      address: '',
+      stats: _CustomerProfileStats.empty(),
+    );
+  }
+}
+
+class _CustomerProfileStats {
+  final int bookings;
+  final int guests;
+  final int completedTasks;
+  final int totalTasks;
+
+  const _CustomerProfileStats({
+    required this.bookings,
+    required this.guests,
+    required this.completedTasks,
+    required this.totalTasks,
+  });
+
+  const _CustomerProfileStats.empty()
+    : bookings = 0,
+      guests = 0,
+      completedTasks = 0,
+      totalTasks = 0;
+}
+
+class _ChecklistCounts {
+  final int completed;
+  final int total;
+
+  const _ChecklistCounts({required this.completed, required this.total});
 }
 
 class _StatCard extends StatelessWidget {
@@ -330,6 +745,8 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
@@ -417,4 +834,9 @@ class _ProfileMenuItem extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
     );
   }
+}
+
+String _stringValue(dynamic value, {String fallback = ''}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
 }
