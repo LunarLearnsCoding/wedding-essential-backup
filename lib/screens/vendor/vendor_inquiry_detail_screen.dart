@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/app_enums.dart';
+import '../../models/inquiry_model.dart';
+import '../../services/inquiry_service.dart';
 
 class VendorInquiryDetailScreen extends StatefulWidget {
-  const VendorInquiryDetailScreen({super.key});
+  final String inquiryId;
+
+  const VendorInquiryDetailScreen({super.key, required this.inquiryId});
 
   @override
   State<VendorInquiryDetailScreen> createState() =>
@@ -11,19 +17,18 @@ class VendorInquiryDetailScreen extends StatefulWidget {
 }
 
 class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
+  final InquiryService _inquiryService = InquiryService();
   final TextEditingController _replyController = TextEditingController();
 
-  String _status = 'New';
+  late Future<InquiryModel?> _inquiryFuture;
+  bool _isReplying = false;
+  bool _isClosing = false;
 
-  final List<_MessageItem> _messages = [
-    const _MessageItem(
-      senderName: 'Aarati Sharma',
-      text:
-          'Hello, I wanted to know if your photography package is available for January 15.',
-      time: 'Today',
-      isVendor: false,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _inquiryFuture = _inquiryService.getInquiry(widget.inquiryId);
+  }
 
   @override
   void dispose() {
@@ -31,100 +36,258 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
     super.dispose();
   }
 
-  void _sendReply() {
-    final text = _replyController.text.trim();
-
-    if (text.isEmpty) return;
-
+  void _reloadInquiry() {
     setState(() {
-      _messages.add(
-        _MessageItem(
-          senderName: 'You',
-          text: text,
-          time: 'Just now',
-          isVendor: true,
-        ),
-      );
-
-      _status = 'Replied';
-      _replyController.clear();
+      _inquiryFuture = _inquiryService.getInquiry(widget.inquiryId);
     });
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Reply sent successfully')));
   }
 
-  void _closeInquiry() {
+  Future<void> _sendReply() async {
+    final text = _replyController.text.trim();
+
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a reply first')),
+      );
+      return;
+    }
+
     setState(() {
-      _status = 'Closed';
+      _isReplying = true;
     });
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Inquiry closed')));
+    try {
+      await _inquiryService.replyToInquiry(
+        inquiryId: widget.inquiryId,
+        reply: text,
+      );
+
+      final refreshedInquiry = await _inquiryService.getInquiry(
+        widget.inquiryId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _inquiryFuture = Future.value(refreshedInquiry);
+      });
+      _replyController.clear();
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Reply sent successfully')));
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to send reply: $error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isReplying = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _closeInquiry() async {
+    setState(() {
+      _isClosing = true;
+    });
+
+    try {
+      await _inquiryService.closeInquiry(widget.inquiryId);
+
+      final refreshedInquiry = await _inquiryService.getInquiry(
+        widget.inquiryId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _inquiryFuture = Future.value(refreshedInquiry);
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Inquiry closed')));
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to close inquiry: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isClosing = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isClosed = _status == 'Closed';
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _InquiryDetailHeader(status: _status),
+      body: FutureBuilder<InquiryModel?>(
+        future: _inquiryFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _CustomerInfoCard(),
+          if (snapshot.hasError) {
+            return _MessageState(
+              title: 'Failed to load inquiry',
+              message: snapshot.error.toString(),
+              onRetry: _reloadInquiry,
+            );
+          }
 
-                  const SizedBox(height: 24),
+          final inquiry = snapshot.data;
 
-                  const _SectionHeader(title: 'Conversation'),
+          if (inquiry == null) {
+            return _MessageState(
+              title: 'Inquiry not found',
+              message: 'This inquiry may have been removed.',
+              onRetry: _reloadInquiry,
+            );
+          }
 
-                  const SizedBox(height: 14),
+          final status = _inquiryStatusLabel(inquiry.status);
+          final isClosed = inquiry.status == InquiryStatus.closed;
+          final isBusy = _isReplying || _isClosing;
+          final messages = _messagesFromInquiry(inquiry);
 
-                  ..._messages.map(
-                    (message) => _MessageBubble(message: message),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  if (!isClosed)
-                    _ReplyBox(controller: _replyController, onSend: _sendReply),
-
-                  if (!isClosed) const SizedBox(height: 12),
-
-                  if (!isClosed)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _closeInquiry,
-                        icon: const Icon(Icons.close),
-                        label: const Text('Close Inquiry'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
+          return Column(
+            children: [
+              _InquiryDetailHeader(status: status),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _CustomerInfoCard(inquiry: inquiry),
+                      const SizedBox(height: 24),
+                      const _SectionHeader(title: 'Conversation'),
+                      const SizedBox(height: 14),
+                      ...messages.map(
+                        (message) => _MessageBubble(message: message),
+                      ),
+                      const SizedBox(height: 14),
+                      if (!isClosed)
+                        _ReplyBox(
+                          controller: _replyController,
+                          isSending: _isReplying,
+                          onSend: isBusy ? null : _sendReply,
+                        ),
+                      if (!isClosed) const SizedBox(height: 12),
+                      if (!isClosed)
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: isBusy ? null : _closeInquiry,
+                            icon: _isClosing
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.close),
+                            label: Text(
+                              _isClosing ? 'Closing...' : 'Close Inquiry',
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      if (isClosed) const _ClosedNoticeCard(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
 
-                  if (isClosed) const _ClosedNoticeCard(),
+class _MessageState extends StatelessWidget {
+  final String title;
+  final String message;
+  final VoidCallback onRetry;
+
+  const _MessageState({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const _InquiryDetailHeader(status: 'Unavailable'),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.mark_chat_unread_outlined,
+                    color: AppColors.primary,
+                    size: 42,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -162,9 +325,7 @@ class _InquiryDetailHeader extends StatelessWidget {
               child: const Icon(Icons.arrow_back, color: Colors.white),
             ),
           ),
-
           const SizedBox(width: 14),
-
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,7 +346,6 @@ class _InquiryDetailHeader extends StatelessWidget {
               ],
             ),
           ),
-
           _StatusBadge(status: status),
         ],
       ),
@@ -194,10 +354,19 @@ class _InquiryDetailHeader extends StatelessWidget {
 }
 
 class _CustomerInfoCard extends StatelessWidget {
-  const _CustomerInfoCard();
+  final InquiryModel inquiry;
+
+  const _CustomerInfoCard({required this.inquiry});
 
   @override
   Widget build(BuildContext context) {
+    final customerName = _displayValue(inquiry.customerName, 'Customer');
+    final serviceName = _displayValue(inquiry.serviceName, 'Wedding Service');
+    final message = _displayValue(inquiry.message, 'No message added.');
+    final createdAt = DateFormat(
+      'MMM dd, yyyy h:mm a',
+    ).format(inquiry.createdAt);
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -210,37 +379,35 @@ class _CustomerInfoCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 26,
                 backgroundColor: AppColors.selectedSurface,
                 child: Text(
-                  'A',
-                  style: TextStyle(
+                  customerName.substring(0, 1).toUpperCase(),
+                  style: const TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w800,
                     fontSize: 18,
                   ),
                 ),
               ),
-
               const SizedBox(width: 14),
-
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Aarati Sharma',
-                      style: TextStyle(
+                      customerName,
+                      style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Royal Photography',
-                      style: TextStyle(
+                      serviceName,
+                      style: const TextStyle(
                         color: AppColors.primaryDark,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -249,32 +416,22 @@ class _CustomerInfoCard extends StatelessWidget {
                   ],
                 ),
               ),
-
               Text(
-                'Today',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                DateFormat('MMM dd').format(inquiry.createdAt),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
-
           const SizedBox(height: 18),
-
-          const _InfoRow(
-            icon: Icons.calendar_today_outlined,
-            label: 'Event Date',
-            value: '15 Jan 2026',
+          _InfoRow(
+            icon: Icons.schedule_outlined,
+            label: 'Created',
+            value: createdAt,
           ),
-
-          const SizedBox(height: 10),
-
-          const _InfoRow(
-            icon: Icons.group_outlined,
-            label: 'Guests',
-            value: '300 pax',
-          ),
-
           const SizedBox(height: 18),
-
           const Text(
             'Customer Message',
             style: TextStyle(
@@ -283,12 +440,10 @@ class _CustomerInfoCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-
           const SizedBox(height: 8),
-
-          const Text(
-            'Hello, I wanted to know if your photography package is available for January 15.',
-            style: TextStyle(
+          Text(
+            message,
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
               height: 1.45,
@@ -316,9 +471,7 @@ class _InfoRow extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, size: 17, color: AppColors.textSecondary),
-
         const SizedBox(width: 8),
-
         Text(
           '$label: ',
           style: const TextStyle(
@@ -327,7 +480,6 @@ class _InfoRow extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-
         Expanded(
           child: Text(
             value,
@@ -399,9 +551,7 @@ class _MessageBubble extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-
             const SizedBox(height: 6),
-
             Text(
               message.text,
               style: TextStyle(
@@ -410,9 +560,7 @@ class _MessageBubble extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-
             const SizedBox(height: 6),
-
             Text(
               message.time,
               style: TextStyle(
@@ -431,9 +579,14 @@ class _MessageBubble extends StatelessWidget {
 
 class _ReplyBox extends StatelessWidget {
   final TextEditingController controller;
-  final VoidCallback onSend;
+  final bool isSending;
+  final VoidCallback? onSend;
 
-  const _ReplyBox({required this.controller, required this.onSend});
+  const _ReplyBox({
+    required this.controller,
+    required this.isSending,
+    required this.onSend,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -450,6 +603,7 @@ class _ReplyBox extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              enabled: !isSending,
               minLines: 1,
               maxLines: 4,
               decoration: InputDecoration(
@@ -471,20 +625,36 @@ class _ReplyBox extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(width: 10),
-
-          ElevatedButton.icon(
-            onPressed: onSend,
-            icon: const Icon(Icons.send, size: 18),
-            label: const Text('Send'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: onSend,
+                icon: isSending
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.send, size: 18),
+                label: Text(isSending ? 'Sending' : 'Send'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 13,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
               ),
             ),
           ),
@@ -578,4 +748,55 @@ class _MessageItem {
     required this.time,
     required this.isVendor,
   });
+}
+
+List<_MessageItem> _messagesFromInquiry(InquiryModel inquiry) {
+  final customerName = _displayValue(inquiry.customerName, 'Customer');
+  final customerMessage = _displayValue(inquiry.message, 'No message added.');
+  final messages = [
+    _MessageItem(
+      senderName: customerName,
+      text: customerMessage,
+      time: DateFormat('MMM dd, h:mm a').format(inquiry.createdAt),
+      isVendor: false,
+    ),
+  ];
+
+  final vendorReply = inquiry.vendorReply.trim();
+
+  if (vendorReply.isNotEmpty) {
+    messages.add(
+      _MessageItem(
+        senderName: 'You',
+        text: vendorReply,
+        time: inquiry.vendorReplyAt == null
+            ? 'Reply sent'
+            : DateFormat('MMM dd, h:mm a').format(inquiry.vendorReplyAt!),
+        isVendor: true,
+      ),
+    );
+  }
+
+  return messages;
+}
+
+String _inquiryStatusLabel(InquiryStatus status) {
+  switch (status) {
+    case InquiryStatus.pending:
+      return 'New';
+    case InquiryStatus.replied:
+      return 'Replied';
+    case InquiryStatus.closed:
+      return 'Closed';
+  }
+}
+
+String _displayValue(String value, String fallback) {
+  final text = value.trim();
+
+  if (text.isEmpty) {
+    return fallback;
+  }
+
+  return text;
 }

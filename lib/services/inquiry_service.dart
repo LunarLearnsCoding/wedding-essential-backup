@@ -13,6 +13,25 @@ class InquiryService {
         .add(inquiry.toMap());
   }
 
+  Future<InquiryModel?> getInquiry(String inquiryId) async {
+    final doc = await _firestore
+        .collection(FirestoreCollections.inquiries)
+        .doc(inquiryId)
+        .get();
+
+    if (!doc.exists) {
+      return null;
+    }
+
+    final data = doc.data();
+
+    if (data == null) {
+      return null;
+    }
+
+    return InquiryModel.fromMap(doc.id, data);
+  }
+
   Stream<List<InquiryModel>> getVendorInquiries(String vendorId) {
     return _firestore
         .collection(FirestoreCollections.inquiries)
@@ -32,7 +51,32 @@ class InquiryService {
     await _firestore
         .collection(FirestoreCollections.inquiries)
         .doc(inquiryId)
-        .update({'status': enumToString(status)});
+        .update({
+          'status': enumToString(status),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  Future<void> replyToInquiry({
+    required String inquiryId,
+    required String reply,
+  }) async {
+    await _firestore
+        .collection(FirestoreCollections.inquiries)
+        .doc(inquiryId)
+        .update({
+          'vendorReply': reply,
+          'vendorReplyAt': FieldValue.serverTimestamp(),
+          'status': enumToString(InquiryStatus.replied),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  Future<void> closeInquiry(String inquiryId) async {
+    await updateInquiryStatus(
+      inquiryId: inquiryId,
+      status: InquiryStatus.closed,
+    );
   }
 
   Future<void> deleteInquiry(String inquiryId) async {

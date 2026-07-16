@@ -127,8 +127,9 @@ class _VendorInquiriesScreenState extends State<VendorInquiriesScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        const VendorInquiryDetailScreen(),
+                                    builder: (_) => VendorInquiryDetailScreen(
+                                      inquiryId: inquiry.id,
+                                    ),
                                   ),
                                 );
                               },
@@ -602,6 +603,7 @@ class _EmptyInquiriesCard extends StatelessWidget {
 }
 
 class _InquiryItem {
+  final String id;
   final String customerName;
   final String service;
   final String message;
@@ -614,6 +616,7 @@ class _InquiryItem {
   final String replies;
 
   const _InquiryItem({
+    required this.id,
     required this.customerName,
     required this.service,
     required this.message,
@@ -635,6 +638,7 @@ class _InquiryItem {
         : inquiry.serviceName.trim();
 
     return _InquiryItem(
+      id: inquiry.id,
       customerName: customerName,
       service: serviceName,
       message: inquiry.message.trim().isEmpty
