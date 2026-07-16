@@ -1023,11 +1023,7 @@ class _BottomActionBar extends StatelessWidget {
             child: SizedBox(
               height: 48,
               child: TextButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Coming soon!')));
-                },
+                onPressed: onInquiry,
                 icon: const Icon(Icons.edit_note),
                 label: const Text('Inquiry'),
                 style: OutlinedButton.styleFrom(
