@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/firestore_collections.dart';
+import '../../services/booking_service.dart';
 
 class ServiceDetailsScreen extends StatefulWidget {
   final String serviceId;
@@ -17,9 +19,29 @@ class ServiceDetailsScreen extends StatefulWidget {
 class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   final FirebaseAuth auth = FirebaseAuth.instance;
+  final BookingService _bookingService = BookingService();
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> get serviceStream {
     return firestore.collection('services').doc(widget.serviceId).snapshots();
+  }
+
+  Future<String> _loadCustomerPhone(String customerId) async {
+    final customerDoc = await firestore
+        .collection(FirestoreCollections.customers)
+        .doc(customerId)
+        .get();
+    final customerPhone = _stringValue(customerDoc.data() ?? {}, 'phone');
+
+    if (customerPhone.isNotEmpty) {
+      return customerPhone;
+    }
+
+    final userDoc = await firestore
+        .collection(FirestoreCollections.users)
+        .doc(customerId)
+        .get();
+
+    return _stringValue(userDoc.data() ?? {}, 'phone');
   }
 
   Future<void> _showInquirySheet(Map<String, dynamic> serviceData) async {
@@ -185,6 +207,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                 final customerName = user.displayName?.trim().isNotEmpty == true
                     ? user.displayName!.trim()
                     : (user.email ?? 'Customer');
+                final customerPhone = await _loadCustomerPhone(user.uid);
                 final requestedDateTime = DateTime(
                   selectedDate!.year,
                   selectedDate!.month,
@@ -192,12 +215,37 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   selectedTime!.hour,
                   selectedTime!.minute,
                 );
+                final normalizedRequestedDateTime = _normalizeBookingDateTime(
+                  requestedDateTime,
+                );
+                final slotAlreadyBooked = await _bookingService
+                    .hasActiveBookingForSlot(
+                      serviceId: widget.serviceId,
+                      eventDate: normalizedRequestedDateTime,
+                    );
+
+                if (slotAlreadyBooked) {
+                  setModalState(() {
+                    isBooking = false;
+                  });
+
+                  if (!context.mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'This service is already booked for the selected date and time. Please choose another time.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
 
                 await firestore.collection('bookings').add({
                   'customerId': user.uid,
                   'customerName': customerName,
                   'customerEmail': user.email ?? '',
-                  'customerPhone': '',
+                  'customerPhone': customerPhone,
 
                   'serviceId': widget.serviceId,
                   'serviceName': _stringValue(serviceData, 'name'),
@@ -207,8 +255,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
                   'requestedDate': dateController.text.trim(),
                   'requestedTime': timeController.text.trim(),
-                  'requestedDateTime': Timestamp.fromDate(requestedDateTime),
-                  'eventDate': Timestamp.fromDate(requestedDateTime),
+                  'requestedDateTime': Timestamp.fromDate(
+                    normalizedRequestedDateTime,
+                  ),
+                  'eventDate': Timestamp.fromDate(normalizedRequestedDateTime),
+                  'eventTime': Timestamp.fromDate(normalizedRequestedDateTime),
 
                   'note': noteController.text.trim(),
                   'price': _doubleValue(serviceData, 'price'),
@@ -1197,6 +1248,16 @@ String _imageValue(Map<String, dynamic> data) {
   }
 
   return '';
+}
+
+DateTime _normalizeBookingDateTime(DateTime dateTime) {
+  return DateTime(
+    dateTime.year,
+    dateTime.month,
+    dateTime.day,
+    dateTime.hour,
+    dateTime.minute,
+  );
 }
 
 class _SocialLogoLinksSection extends StatelessWidget {

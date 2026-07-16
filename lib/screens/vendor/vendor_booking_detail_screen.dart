@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/app_enums.dart';
+import '../../models/booking_model.dart';
+import '../../services/booking_service.dart';
 
 class VendorBookingDetailScreen extends StatefulWidget {
-  const VendorBookingDetailScreen({super.key});
+  final String bookingId;
+
+  const VendorBookingDetailScreen({super.key, required this.bookingId});
 
   @override
   State<VendorBookingDetailScreen> createState() =>
@@ -11,107 +17,260 @@ class VendorBookingDetailScreen extends StatefulWidget {
 }
 
 class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
-  String _status = 'Pending';
+  final BookingService _bookingService = BookingService();
+  late Future<BookingModel?> _bookingFuture;
+  bool _isUpdatingStatus = false;
 
-  void _changeStatus(String status) {
+  @override
+  void initState() {
+    super.initState();
+    _bookingFuture = _bookingService.getBooking(widget.bookingId);
+  }
+
+  void _loadBooking() {
     setState(() {
-      _status = status;
+      _bookingFuture = _bookingService.getBooking(widget.bookingId);
+    });
+  }
+
+  Future<void> _updateStatus(BookingStatus newStatus) async {
+    if (_isUpdatingStatus) return;
+
+    debugPrint('DETAIL STATUS CALLBACK: ${newStatus.name}');
+    debugPrint('UPDATING BOOKING: ${widget.bookingId}');
+
+    setState(() {
+      _isUpdatingStatus = true;
     });
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Booking marked as $status')));
+    try {
+      await _bookingService.updateBookingStatus(
+        bookingId: widget.bookingId,
+        status: newStatus,
+      );
+
+      debugPrint('FIRESTORE UPDATE SUCCESS');
+
+      final refreshedBooking = await _bookingService.getBooking(
+        widget.bookingId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _bookingFuture = Future.value(refreshedBooking);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Booking marked as ${_bookingStatusLabel(newStatus)}'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update booking: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingStatus = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _BookingDetailHeader(status: _status),
+      body: FutureBuilder<BookingModel?>(
+        future: _bookingFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _BookingInfoCard(),
+          if (snapshot.hasError) {
+            return _MessageState(
+              title: 'Failed to load booking',
+              message: snapshot.error.toString(),
+              onRetry: _loadBooking,
+            );
+          }
 
-                  const SizedBox(height: 24),
+          final booking = snapshot.data;
 
-                  const _SectionHeader(title: 'Update Status'),
+          if (booking == null) {
+            return _MessageState(
+              title: 'Booking not found',
+              message: 'This booking may have been removed.',
+              onRetry: _loadBooking,
+            );
+          }
 
-                  const SizedBox(height: 14),
+          final status = _bookingStatusLabel(booking.status);
 
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+          return Column(
+            children: [
+              _BookingDetailHeader(bookingId: booking.id, status: status),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _StatusButton(
-                        label: 'Pending',
-                        icon: Icons.schedule_outlined,
-                        color: Colors.orange,
-                        isSelected: _status == 'Pending',
-                        onTap: () {
-                          _changeStatus('Pending');
-                        },
+                      _BookingInfoCard(booking: booking),
+                      const SizedBox(height: 24),
+                      const _SectionHeader(title: 'Update Status'),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _StatusButton(
+                            label: 'Pending',
+                            icon: Icons.schedule_outlined,
+                            color: Colors.orange,
+                            isSelected: status == 'Pending',
+                            onTap: _isUpdatingStatus
+                                ? null
+                                : () {
+                                    _updateStatus(BookingStatus.pending);
+                                  },
+                          ),
+                          _StatusButton(
+                            label: 'Confirmed',
+                            icon: Icons.check_circle_outline,
+                            color: AppColors.primary,
+                            isSelected: status == 'Confirmed',
+                            onTap: _isUpdatingStatus
+                                ? null
+                                : () {
+                                    _updateStatus(BookingStatus.confirmed);
+                                  },
+                          ),
+                          _StatusButton(
+                            label: 'Completed',
+                            icon: Icons.done_all_outlined,
+                            color: Colors.green,
+                            isSelected: status == 'Completed',
+                            onTap: _isUpdatingStatus
+                                ? null
+                                : () {
+                                    _updateStatus(BookingStatus.completed);
+                                  },
+                          ),
+                          _StatusButton(
+                            label: 'Cancelled',
+                            icon: Icons.cancel_outlined,
+                            color: Colors.red,
+                            isSelected: status == 'Cancelled',
+                            onTap: _isUpdatingStatus
+                                ? null
+                                : () {
+                                    _updateStatus(BookingStatus.rejected);
+                                  },
+                          ),
+                        ],
                       ),
-                      _StatusButton(
-                        label: 'Confirmed',
-                        icon: Icons.check_circle_outline,
-                        color: AppColors.primary,
-                        isSelected: _status == 'Confirmed',
-                        onTap: () {
-                          _changeStatus('Confirmed');
-                        },
-                      ),
-                      _StatusButton(
-                        label: 'Completed',
-                        icon: Icons.done_all_outlined,
-                        color: Colors.green,
-                        isSelected: _status == 'Completed',
-                        onTap: () {
-                          _changeStatus('Completed');
-                        },
-                      ),
-                      _StatusButton(
-                        label: 'Cancelled',
-                        icon: Icons.cancel_outlined,
-                        color: Colors.red,
-                        isSelected: _status == 'Cancelled',
-                        onTap: () {
-                          _changeStatus('Cancelled');
-                        },
-                      ),
+                      if (_isUpdatingStatus) const SizedBox(height: 14),
+                      if (_isUpdatingStatus)
+                        const LinearProgressIndicator(minHeight: 3),
+                      const SizedBox(height: 24),
+                      const _SectionHeader(title: 'Suggested Next Steps'),
+                      const SizedBox(height: 14),
+                      const _NextStepsCard(),
                     ],
                   ),
-
-                  const SizedBox(height: 24),
-
-                  const _SectionHeader(title: 'Suggested Next Steps'),
-
-                  const SizedBox(height: 14),
-
-                  const _NextStepsCard(),
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _BookingDetailHeader extends StatelessWidget {
-  final String status;
+class _MessageState extends StatelessWidget {
+  final String title;
+  final String message;
+  final VoidCallback onRetry;
 
-  const _BookingDetailHeader({required this.status});
+  const _MessageState({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const _BookingDetailHeader(bookingId: '', status: 'Unavailable'),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.event_busy_outlined,
+                    color: AppColors.primary,
+                    size: 42,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BookingDetailHeader extends StatelessWidget {
+  final String bookingId;
+  final String status;
+
+  const _BookingDetailHeader({required this.bookingId, required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final bookingLabel = bookingId.isEmpty ? 'Booking unavailable' : bookingId;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 52, 22, 22),
       decoration: const BoxDecoration(
@@ -138,19 +297,18 @@ class _BookingDetailHeader extends StatelessWidget {
               child: const Icon(Icons.arrow_back, color: Colors.white),
             ),
           ),
-
           const SizedBox(width: 14),
-
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Booking ID: BK001',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                  'Booking ID: $bookingLabel',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
-                SizedBox(height: 4),
-                Text(
+                const SizedBox(height: 4),
+                const Text(
                   'Booking Details',
                   style: TextStyle(
                     color: Colors.white,
@@ -161,7 +319,6 @@ class _BookingDetailHeader extends StatelessWidget {
               ],
             ),
           ),
-
           _StatusBadge(status: status),
         ],
       ),
@@ -170,10 +327,24 @@ class _BookingDetailHeader extends StatelessWidget {
 }
 
 class _BookingInfoCard extends StatelessWidget {
-  const _BookingInfoCard();
+  final BookingModel booking;
+
+  const _BookingInfoCard({required this.booking});
 
   @override
   Widget build(BuildContext context) {
+    final customerName = _displayValue(booking.customerName, 'Customer');
+    final serviceName = _displayValue(booking.serviceName, 'Wedding Service');
+    final createdDate = DateFormat('dd MMM yyyy').format(booking.createdAt);
+    final eventDate = DateFormat('dd MMM yyyy').format(booking.eventDate);
+    final eventTime = DateFormat('h:mm a').format(booking.eventTime);
+    final price = booking.servicePrice <= 0
+        ? 'Not provided'
+        : 'Rs. ${NumberFormat('#,##0').format(booking.servicePrice)}';
+    final phone = _displayValue(booking.customerPhone, 'Not provided');
+    final email = _displayValue(booking.customerEmail, 'Not provided');
+    final note = _displayValue(booking.note, 'No notes added.');
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -186,37 +357,35 @@ class _BookingInfoCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 27,
                 backgroundColor: AppColors.selectedSurface,
                 child: Text(
-                  'A',
-                  style: TextStyle(
+                  customerName.substring(0, 1).toUpperCase(),
+                  style: const TextStyle(
                     color: AppColors.primary,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-
               const SizedBox(width: 14),
-
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Aarati Sharma',
-                      style: TextStyle(
+                      customerName,
+                      style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Booked on 02 July 2026',
-                      style: TextStyle(
+                      'Booked on $createdDate',
+                      style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
                       ),
@@ -226,35 +395,35 @@ class _BookingInfoCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 22),
-
-          const _DetailRow(
+          _DetailRow(
             icon: Icons.business_center_outlined,
             label: 'Service',
-            value: 'Royal Photography',
+            value: serviceName,
           ),
-
-          const _DetailRow(
-            icon: Icons.card_giftcard_outlined,
-            label: 'Package',
-            value: 'Premium Package',
-          ),
-
-          const _DetailRow(
+          _DetailRow(
             icon: Icons.calendar_today_outlined,
             label: 'Event Date',
-            value: '15 Jan 2026',
+            value: eventDate,
           ),
-
-          const _DetailRow(
+          _DetailRow(
+            icon: Icons.access_time_outlined,
+            label: 'Event Time',
+            value: eventTime,
+          ),
+          _DetailRow(
             icon: Icons.payments_outlined,
             label: 'Amount',
-            value: 'Rs. 50,000',
+            value: price,
           ),
-
+          _DetailRow(icon: Icons.phone_outlined, label: 'Phone', value: phone),
+          _DetailRow(icon: Icons.email_outlined, label: 'Email', value: email),
+          _DetailRow(
+            icon: Icons.info_outline,
+            label: 'Status',
+            value: _bookingStatusLabel(booking.status),
+          ),
           const SizedBox(height: 10),
-
           const Text(
             'Notes',
             style: TextStyle(
@@ -263,12 +432,10 @@ class _BookingInfoCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-
           const SizedBox(height: 8),
-
-          const Text(
-            'Customer requested full wedding day coverage with couple photoshoot and family portraits.',
-            style: TextStyle(
+          Text(
+            note,
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13.5,
               height: 1.45,
@@ -306,9 +473,7 @@ class _DetailRow extends StatelessWidget {
             ),
             child: Icon(icon, size: 19, color: AppColors.primary),
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,7 +526,7 @@ class _StatusButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _StatusButton({
     required this.label,
@@ -434,7 +599,7 @@ class _TodoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           const Icon(
@@ -500,4 +665,27 @@ class _StatusBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+String _bookingStatusLabel(BookingStatus status) {
+  switch (status) {
+    case BookingStatus.pending:
+      return 'Pending';
+    case BookingStatus.confirmed:
+      return 'Confirmed';
+    case BookingStatus.rejected:
+      return 'Cancelled';
+    case BookingStatus.completed:
+      return 'Completed';
+  }
+}
+
+String _displayValue(String value, String fallback) {
+  final text = value.trim();
+
+  if (text.isEmpty) {
+    return fallback;
+  }
+
+  return text;
 }

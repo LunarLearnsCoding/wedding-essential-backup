@@ -13,6 +13,48 @@ class BookingService {
         .add(booking.toMap());
   }
 
+  Future<bool> hasActiveBookingForSlot({
+    required String serviceId,
+    required DateTime eventDate,
+  }) async {
+    final normalizedEventDate = _normalizeBookingDateTime(eventDate);
+
+    final snapshot = await _firestore
+        .collection(FirestoreCollections.bookings)
+        .where('serviceId', isEqualTo: serviceId)
+        .where('eventDate', isEqualTo: Timestamp.fromDate(normalizedEventDate))
+        .where(
+          'status',
+          whereIn: [
+            enumToString(BookingStatus.pending),
+            enumToString(BookingStatus.confirmed),
+          ],
+        )
+        .limit(1)
+        .get();
+
+    return snapshot.docs.isNotEmpty;
+  }
+
+  Future<BookingModel?> getBooking(String bookingId) async {
+    final doc = await _firestore
+        .collection(FirestoreCollections.bookings)
+        .doc(bookingId)
+        .get();
+
+    if (!doc.exists) {
+      return null;
+    }
+
+    final data = doc.data();
+
+    if (data == null) {
+      return null;
+    }
+
+    return BookingModel.fromMap(doc.id, data);
+  }
+
   Stream<List<BookingModel>> getCustomerBookings(String customerId) {
     return _firestore
         .collection(FirestoreCollections.bookings)
@@ -54,27 +96,27 @@ class BookingService {
   }
 
   Future<void> confirmBooking(String bookingId) async {
-    await _updateBookingStatus(
+    await updateBookingStatus(
       bookingId: bookingId,
       status: BookingStatus.confirmed,
     );
   }
 
   Future<void> rejectBooking(String bookingId) async {
-    await _updateBookingStatus(
+    await updateBookingStatus(
       bookingId: bookingId,
       status: BookingStatus.rejected,
     );
   }
 
   Future<void> completeBooking(String bookingId) async {
-    await _updateBookingStatus(
+    await updateBookingStatus(
       bookingId: bookingId,
       status: BookingStatus.completed,
     );
   }
 
-  Future<void> _updateBookingStatus({
+  Future<void> updateBookingStatus({
     required String bookingId,
     required BookingStatus status,
   }) async {
@@ -90,4 +132,14 @@ class BookingService {
         .doc(bookingId)
         .delete();
   }
+}
+
+DateTime _normalizeBookingDateTime(DateTime dateTime) {
+  return DateTime(
+    dateTime.year,
+    dateTime.month,
+    dateTime.day,
+    dateTime.hour,
+    dateTime.minute,
+  );
 }

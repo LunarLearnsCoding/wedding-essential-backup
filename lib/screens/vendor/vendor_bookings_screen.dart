@@ -133,8 +133,9 @@ class _VendorBookingsScreenState extends State<VendorBookingsScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        const VendorBookingDetailScreen(),
+                                    builder: (_) => VendorBookingDetailScreen(
+                                      bookingId: booking.id,
+                                    ),
                                   ),
                                 );
                               },
@@ -383,6 +384,7 @@ class _BookingCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Text(
@@ -394,7 +396,11 @@ class _BookingCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          _StatusBadge(status: booking.status),
+                          const SizedBox(width: 8),
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: _StatusBadge(status: booking.status),
+                          ),
                         ],
                       ),
 
@@ -437,16 +443,26 @@ class _BookingCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onCancel,
-                      icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Cancel'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                    child: SizedBox(
+                      height: 46,
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: onCancel,
+                        icon: const Icon(Icons.close, size: 18),
+                        label: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                       ),
                     ),
@@ -455,17 +471,27 @@ class _BookingCard extends StatelessWidget {
                   const SizedBox(width: 10),
 
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: onConfirm,
-                      icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Confirm'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                    child: SizedBox(
+                      height: 46,
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: onConfirm,
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text(
+                          'Confirm',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                       ),
                     ),
@@ -557,6 +583,8 @@ class _StatusBadge extends StatelessWidget {
     }
 
     return Container(
+      height: 28,
+      alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: backgroundColor,

@@ -18,6 +18,8 @@ class BookingModel {
   final double servicePrice;
 
   final DateTime eventDate;
+  final DateTime eventTime;
+  final String note;
 
   final BookingStatus status;
 
@@ -36,10 +38,12 @@ class BookingModel {
     required this.serviceName,
     required this.servicePrice,
     required this.eventDate,
+    DateTime? eventTime,
+    this.note = '',
     required this.status,
     required this.createdAt,
     this.updatedAt,
-  });
+  }) : eventTime = eventTime ?? eventDate;
 
   factory BookingModel.fromMap(String id, Map<String, dynamic> map) {
     return BookingModel(
@@ -56,6 +60,10 @@ class BookingModel {
       eventDate: dateTimeFromFirestoreOrNow(
         map['eventDate'] ?? map['requestedDateTime'],
       ),
+      eventTime: dateTimeFromFirestore(
+        map['eventTime'] ?? map['requestedDateTime'] ?? map['eventDate'],
+      ),
+      note: (map['note'] ?? map['notes'] ?? '').toString(),
       status: bookingStatusFromString(map['status'] ?? 'pending'),
       createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
       updatedAt: dateTimeFromFirestore(map['updatedAt']),
@@ -74,6 +82,8 @@ class BookingModel {
       'serviceName': serviceName,
       'servicePrice': servicePrice,
       'eventDate': Timestamp.fromDate(eventDate),
+      'eventTime': Timestamp.fromDate(eventTime),
+      'note': note,
       'status': enumToString(status),
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
