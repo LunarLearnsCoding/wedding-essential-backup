@@ -132,7 +132,7 @@ class VendorProfileScreen extends StatelessWidget {
           );
         },
       ),
-      bottomNavigationBar: const VendorBottomNav(currentIndex: 5),
+      bottomNavigationBar: const VendorBottomNav(currentIndex: 3),
     );
   }
 

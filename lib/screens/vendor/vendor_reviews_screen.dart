@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/widgets/vendor_bottom_nav.dart';
 import '../../models/review_model.dart';
 import '../../services/review_service.dart';
 
@@ -136,7 +135,6 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen> {
           );
         },
       ),
-      bottomNavigationBar: const VendorBottomNav(currentIndex: 4),
     );
   }
 }

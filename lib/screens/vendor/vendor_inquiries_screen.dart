@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/widgets/vendor_bottom_nav.dart';
 import '../../models/app_enums.dart';
 import '../../models/inquiry_model.dart';
 import '../../services/inquiry_service.dart';
@@ -144,7 +143,6 @@ class _VendorInquiriesScreenState extends State<VendorInquiriesScreen> {
           );
         },
       ),
-      bottomNavigationBar: const VendorBottomNav(currentIndex: 3),
     );
   }
 }
