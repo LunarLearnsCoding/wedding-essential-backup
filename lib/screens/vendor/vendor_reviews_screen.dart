@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -20,40 +19,12 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen> {
   double _averageRating(List<_ReviewItem> reviews) {
     if (reviews.isEmpty) return 0;
 
-    final totalRating = reviews.fold<int>(
-      0,
+    final totalRating = reviews.fold<double>(
+      0.0,
       (sum, review) => sum + review.rating,
     );
 
     return totalRating / reviews.length;
-  }
-
-  int _pendingReplyCount(List<_ReviewItem> reviews) {
-    return reviews.where((review) => !review.replied).length;
-  }
-
-  Future<void> _markAsReplied(_ReviewItem review) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('reviews')
-          .doc(review.id)
-          .update({
-            'vendorReplied': true,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Review marked as replied')));
-    } catch (error) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update review: $error')),
-      );
-    }
   }
 
   @override
@@ -85,7 +56,7 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen> {
 
           return Column(
             children: [
-              _ReviewsHeader(pendingReplyCount: _pendingReplyCount(reviews)),
+              const _ReviewsHeader(),
 
               Expanded(
                 child: SingleChildScrollView(
@@ -119,12 +90,7 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen> {
                           itemBuilder: (context, index) {
                             final review = reviews[index];
 
-                            return _ReviewCard(
-                              review: review,
-                              onReply: () {
-                                _markAsReplied(review);
-                              },
-                            );
+                            return _ReviewCard(review: review);
                           },
                         ),
                     ],
@@ -140,9 +106,7 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen> {
 }
 
 class _ReviewsHeader extends StatelessWidget {
-  final int pendingReplyCount;
-
-  const _ReviewsHeader({required this.pendingReplyCount});
+  const _ReviewsHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -195,24 +159,6 @@ class _ReviewsHeader extends StatelessWidget {
               ],
             ),
           ),
-
-          if (pendingReplyCount > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-              ),
-              child: Text(
-                '$pendingReplyCount pending',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -332,9 +278,8 @@ class _SectionHeader extends StatelessWidget {
 
 class _ReviewCard extends StatelessWidget {
   final _ReviewItem review;
-  final VoidCallback onReply;
 
-  const _ReviewCard({required this.review, required this.onReply});
+  const _ReviewCard({required this.review});
 
   @override
   Widget build(BuildContext context) {
@@ -397,7 +342,7 @@ class _ReviewCard extends StatelessWidget {
                     Row(
                       children: List.generate(5, (index) {
                         return Icon(
-                          index < review.rating
+                          index < review.rating.round()
                               ? Icons.star_rounded
                               : Icons.star_border_rounded,
                           color: Colors.amber,
@@ -421,34 +366,6 @@ class _ReviewCard extends StatelessWidget {
               height: 1.45,
             ),
           ),
-
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              _ReplyStatusBadge(replied: review.replied),
-
-              const Spacer(),
-
-              if (!review.replied)
-                OutlinedButton.icon(
-                  onPressed: onReply,
-                  icon: const Icon(Icons.reply, size: 17),
-                  label: const Text('Mark replied'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 9,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-            ],
-          ),
         ],
       ),
     );
@@ -471,48 +388,6 @@ class _Avatar extends StatelessWidget {
           color: AppColors.primary,
           fontWeight: FontWeight.w800,
         ),
-      ),
-    );
-  }
-}
-
-class _ReplyStatusBadge extends StatelessWidget {
-  final bool replied;
-
-  const _ReplyStatusBadge({required this.replied});
-
-  @override
-  Widget build(BuildContext context) {
-    final backgroundColor = replied
-        ? Colors.green.withValues(alpha: 0.12)
-        : AppColors.primary.withValues(alpha: 0.12);
-
-    final textColor = replied ? Colors.green : AppColors.primary;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            replied ? Icons.done_all_rounded : Icons.reply_rounded,
-            size: 14,
-            color: textColor,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            replied ? 'Replied' : 'Needs reply',
-            style: TextStyle(
-              color: textColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -556,18 +431,15 @@ class _EmptyReviewsCard extends StatelessWidget {
 }
 
 class _ReviewItem {
-  final String id;
   final String customerName;
   final String service;
   final String comment;
-  final int rating;
+  final double rating;
   final String date;
   final DateTime createdAt;
   final String avatar;
-  final bool replied;
 
   const _ReviewItem({
-    required this.id,
     required this.customerName,
     required this.service,
     required this.comment,
@@ -575,7 +447,6 @@ class _ReviewItem {
     required this.date,
     required this.createdAt,
     required this.avatar,
-    required this.replied,
   });
 
   factory _ReviewItem.fromModel(ReviewModel review) {
@@ -584,19 +455,17 @@ class _ReviewItem {
         : review.customerName.trim();
 
     return _ReviewItem(
-      id: review.id,
       customerName: customerName,
       service: review.serviceName.trim().isEmpty
-          ? 'Wedding Service'
+          ? 'Service'
           : review.serviceName.trim(),
       comment: review.reviewText.trim().isEmpty
           ? 'No review text added.'
           : review.reviewText.trim(),
-      rating: review.rating.round().clamp(0, 5),
+      rating: review.rating.clamp(0, 5),
       date: DateFormat('MMM dd').format(review.createdAt),
       createdAt: review.createdAt,
       avatar: customerName.substring(0, 1).toUpperCase(),
-      replied: review.vendorReplied,
     );
   }
 }

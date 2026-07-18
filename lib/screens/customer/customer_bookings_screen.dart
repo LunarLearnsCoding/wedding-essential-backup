@@ -7,11 +7,13 @@ import '../../providers/booking_provider.dart';
 import '../../models/booking_model.dart';
 import '../../models/app_enums.dart';
 import '../../services/booking_service.dart';
+import '../../services/review_service.dart';
 
 class CustomerBookingsScreen extends StatelessWidget {
   const CustomerBookingsScreen({super.key});
 
   static final BookingService _bookingService = BookingService();
+  static final ReviewService _reviewService = ReviewService();
 
   Future<void> _cancelBooking(
     BuildContext context,
@@ -58,6 +60,140 @@ class CustomerBookingsScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _showReviewDialog(
+    BuildContext context,
+    BookingModel booking,
+  ) async {
+    final screenContext = context;
+    final reviewController = TextEditingController();
+    var selectedRating = 5;
+    var isSaving = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> submitReview() async {
+              if (isSaving) return;
+
+              final reviewText = reviewController.text.trim();
+              if (reviewText.length < 5 || reviewText.length > 500) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Review text must be between 5 and 500 characters.',
+                    ),
+                  ),
+                );
+                return;
+              }
+
+              setDialogState(() => isSaving = true);
+              try {
+                await _reviewService.submitBookingReview(
+                  booking: booking,
+                  rating: selectedRating.toDouble(),
+                  reviewText: reviewText,
+                );
+
+                if (!dialogContext.mounted) return;
+                Navigator.pop(dialogContext);
+                if (!screenContext.mounted) return;
+                ScaffoldMessenger.of(screenContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Review submitted successfully'),
+                  ),
+                );
+              } catch (error) {
+                if (!dialogContext.mounted) return;
+                setDialogState(() => isSaving = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(_reviewErrorMessage(error))),
+                );
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Write Review'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      booking.serviceName.trim().isEmpty
+                          ? 'Wedding Service'
+                          : booking.serviceName.trim(),
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index) {
+                        final starRating = index + 1;
+                        return IconButton(
+                          onPressed: isSaving
+                              ? null
+                              : () => setDialogState(
+                                  () => selectedRating = starRating,
+                                ),
+                          icon: Icon(
+                            starRating <= selectedRating
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: Colors.amber,
+                            size: 32,
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: reviewController,
+                      enabled: !isSaving,
+                      maxLines: 5,
+                      maxLength: 500,
+                      decoration: const InputDecoration(
+                        labelText: 'Your Review',
+                        hintText: 'Share your experience with this service.',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving ? null : submitReview,
+                  child: isSaving
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Submit Review'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    reviewController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final bookings = context.watch<BookingProvider>().bookings;
@@ -85,6 +221,7 @@ class CustomerBookingsScreen extends StatelessWidget {
           return _BookingCard(
             booking: booking,
             onCancel: () => _cancelBooking(context, booking),
+            onReview: () => _showReviewDialog(context, booking),
           );
         },
       ),
@@ -141,8 +278,13 @@ class _EmptyBookingsView extends StatelessWidget {
 class _BookingCard extends StatelessWidget {
   final BookingModel booking;
   final VoidCallback onCancel;
+  final VoidCallback onReview;
 
-  const _BookingCard({required this.booking, required this.onCancel});
+  const _BookingCard({
+    required this.booking,
+    required this.onCancel,
+    required this.onReview,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -274,10 +416,51 @@ class _BookingCard extends StatelessWidget {
               ),
             ),
           ],
+          if (booking.status == BookingStatus.completed) ...[
+            const SizedBox(height: 18),
+            StreamBuilder<bool>(
+              stream: CustomerBookingsScreen._reviewService.hasReviewForBooking(
+                booking.id,
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                }
+
+                final hasReview = snapshot.data ?? false;
+                return SizedBox(
+                  height: 46,
+                  width: double.infinity,
+                  child: hasReview
+                      ? OutlinedButton.icon(
+                          onPressed: null,
+                          icon: const Icon(Icons.check_circle_outline),
+                          label: const Text('Reviewed'),
+                        )
+                      : ElevatedButton.icon(
+                          onPressed: onReview,
+                          icon: const Icon(Icons.rate_review_outlined),
+                          label: const Text('Write Review'),
+                        ),
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+String _reviewErrorMessage(Object error) {
+  if (error is StateError) return error.message.toString();
+  return 'Failed to submit review: $error';
 }
 
 class _MiniInfoBox extends StatelessWidget {

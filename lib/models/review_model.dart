@@ -3,6 +3,7 @@ import '../core/utils/firestore_parsers.dart';
 
 class ReviewModel {
   final String id;
+  final String bookingId;
   final String serviceId;
   final String vendorId;
   final String customerId;
@@ -15,6 +16,7 @@ class ReviewModel {
 
   ReviewModel({
     required this.id,
+    this.bookingId = '',
     required this.serviceId,
     required this.vendorId,
     required this.customerId,
@@ -29,6 +31,7 @@ class ReviewModel {
   factory ReviewModel.fromMap(String id, Map<String, dynamic> map) {
     return ReviewModel(
       id: id,
+      bookingId: map['bookingId'] ?? '',
       serviceId: map['serviceId'] ?? '',
       vendorId: map['vendorId'] ?? '',
       customerId: map['customerId'] ?? '',
@@ -43,6 +46,7 @@ class ReviewModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'bookingId': bookingId,
       'serviceId': serviceId,
       'vendorId': vendorId,
       'customerId': customerId,
