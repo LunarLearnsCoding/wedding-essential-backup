@@ -111,6 +111,7 @@ class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
           }
 
           final status = _bookingStatusLabel(booking.status);
+          final isCancelled = booking.status == BookingStatus.cancelled;
 
           return Column(
             children: [
@@ -134,7 +135,7 @@ class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
                             icon: Icons.schedule_outlined,
                             color: Colors.orange,
                             isSelected: status == 'Pending',
-                            onTap: _isUpdatingStatus
+                            onTap: _isUpdatingStatus || isCancelled
                                 ? null
                                 : () {
                                     _updateStatus(BookingStatus.pending);
@@ -145,7 +146,7 @@ class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
                             icon: Icons.check_circle_outline,
                             color: AppColors.primary,
                             isSelected: status == 'Confirmed',
-                            onTap: _isUpdatingStatus
+                            onTap: _isUpdatingStatus || isCancelled
                                 ? null
                                 : () {
                                     _updateStatus(BookingStatus.confirmed);
@@ -156,18 +157,18 @@ class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
                             icon: Icons.done_all_outlined,
                             color: Colors.green,
                             isSelected: status == 'Completed',
-                            onTap: _isUpdatingStatus
+                            onTap: _isUpdatingStatus || isCancelled
                                 ? null
                                 : () {
                                     _updateStatus(BookingStatus.completed);
                                   },
                           ),
                           _StatusButton(
-                            label: 'Cancelled',
+                            label: 'Rejected',
                             icon: Icons.cancel_outlined,
                             color: Colors.red,
-                            isSelected: status == 'Cancelled',
-                            onTap: _isUpdatingStatus
+                            isSelected: status == 'Rejected',
+                            onTap: _isUpdatingStatus || isCancelled
                                 ? null
                                 : () {
                                     _updateStatus(BookingStatus.rejected);
@@ -674,9 +675,11 @@ String _bookingStatusLabel(BookingStatus status) {
     case BookingStatus.confirmed:
       return 'Confirmed';
     case BookingStatus.rejected:
-      return 'Cancelled';
+      return 'Rejected';
     case BookingStatus.completed:
       return 'Completed';
+    case BookingStatus.cancelled:
+      return 'Cancelled';
   }
 }
 

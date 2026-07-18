@@ -279,7 +279,7 @@ class _InquiryFilterTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filters = ['All', 'New', 'Replied', 'Closed'];
+    final filters = ['All', 'New', 'Replied', 'Closed', 'Cancelled'];
 
     return Row(
       children: filters.map((filter) {
@@ -663,5 +663,7 @@ String _inquiryStatusLabel(InquiryStatus status) {
       return 'Replied';
     case InquiryStatus.closed:
       return 'Closed';
+    case InquiryStatus.cancelled:
+      return 'Cancelled';
   }
 }

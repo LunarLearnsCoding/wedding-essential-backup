@@ -210,13 +210,16 @@ class BookingService {
         throw StateError('Booking not found.');
       }
 
-      if (data['status'].toString().toLowerCase() == 'cancelled') {
+      currentBooking = BookingModel.fromMap(snapshot.id, data);
+      if (currentBooking!.status == BookingStatus.cancelled) {
+        return false;
+      }
+      if (currentBooking!.status != BookingStatus.pending) {
         return false;
       }
 
-      currentBooking = BookingModel.fromMap(snapshot.id, data);
       transaction.update(bookingReference, {
-        'status': 'cancelled',
+        'status': enumToString(BookingStatus.cancelled),
         'updatedAt': Timestamp.now(),
       });
       return true;

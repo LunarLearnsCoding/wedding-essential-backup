@@ -1,26 +1,20 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/app_enums.dart';
+import '../../models/inquiry_model.dart';
+import '../../services/inquiry_service.dart';
 
 class CustomerInquiriesScreen extends StatelessWidget {
   const CustomerInquiriesScreen({super.key});
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> _inquiriesStream() {
-    final user = FirebaseAuth.instance.currentUser;
+  static final InquiryService _inquiryService = InquiryService();
 
-    if (user == null) {
-      return const Stream.empty();
-    }
-
-    return FirebaseFirestore.instance
-        .collection('inquiries')
-        .where('customerId', isEqualTo: user.uid)
-        .snapshots();
-  }
-
-  Future<void> _cancelInquiry(BuildContext context, String inquiryId) async {
+  Future<void> _cancelInquiry(
+    BuildContext context,
+    InquiryModel inquiry,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -44,13 +38,7 @@ class CustomerInquiriesScreen extends StatelessWidget {
     if (confirm != true) return;
 
     try {
-      await FirebaseFirestore.instance
-          .collection('inquiries')
-          .doc(inquiryId)
-          .update({
-            'status': 'cancelled',
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+      await _inquiryService.cancelInquiry(inquiry);
 
       if (!context.mounted) return;
 
@@ -60,9 +48,9 @@ class CustomerInquiriesScreen extends StatelessWidget {
     } catch (error) {
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to cancel inquiry: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_cancellationErrorMessage(error))));
     }
   }
 
@@ -81,42 +69,41 @@ class CustomerInquiriesScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('My Inquiries')),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: _inquiriesStream(),
+      body: StreamBuilder<List<InquiryModel>>(
+        stream: _inquiryService.getCustomerInquiries(user.uid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final inquiries = snapshot.data?.docs ?? [];
+          if (snapshot.hasError) {
+            final error = snapshot.error;
+            final message = error is FirebaseException
+                ? error.message ?? error.code
+                : error.toString();
+            return _InquiryMessageState(
+              icon: Icons.error_outline,
+              title: 'Could not load inquiries',
+              message: message,
+            );
+          }
+
+          final inquiries = snapshot.data ?? [];
 
           if (inquiries.isEmpty) {
             return const _EmptyInquiriesView();
           }
-
-          inquiries.sort((a, b) {
-            final aDate = _dateFromValue(a.data()['createdAt']);
-            final bDate = _dateFromValue(b.data()['createdAt']);
-
-            if (aDate == null && bDate == null) return 0;
-            if (aDate == null) return 1;
-            if (bDate == null) return -1;
-
-            return bDate.compareTo(aDate);
-          });
 
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
             itemCount: inquiries.length,
             separatorBuilder: (_, __) => const SizedBox(height: 14),
             itemBuilder: (context, index) {
-              final inquiryDoc = inquiries[index];
-              final data = inquiryDoc.data();
+              final inquiry = inquiries[index];
 
               return _InquiryCard(
-                inquiryId: inquiryDoc.id,
-                inquiryData: data,
-                onCancel: () => _cancelInquiry(context, inquiryDoc.id),
+                inquiry: inquiry,
+                onCancel: () => _cancelInquiry(context, inquiry),
               );
             },
           );
@@ -173,40 +160,17 @@ class _EmptyInquiriesView extends StatelessWidget {
 }
 
 class _InquiryCard extends StatelessWidget {
-  final String inquiryId;
-  final Map<String, dynamic> inquiryData;
+  final InquiryModel inquiry;
   final VoidCallback onCancel;
 
-  const _InquiryCard({
-    required this.inquiryId,
-    required this.inquiryData,
-    required this.onCancel,
-  });
+  const _InquiryCard({required this.inquiry, required this.onCancel});
 
   @override
   Widget build(BuildContext context) {
-    final serviceName = _stringValue(
-      inquiryData,
-      'serviceName',
-      fallback: 'Wedding Service',
-    );
-
-    final vendorName = _stringValue(
-      inquiryData,
-      'vendorName',
-      fallback: 'Vendor',
-    );
-
-    final message = _stringValue(inquiryData, 'message');
-    final vendorReply = _stringValue(inquiryData, 'vendorReply');
-
-    final status = _stringValue(
-      inquiryData,
-      'status',
-      fallback: 'pending',
-    ).toLowerCase();
-
-    final createdAt = _dateFromValue(inquiryData['createdAt']);
+    final serviceName = _displayValue(inquiry.serviceName, 'Wedding Service');
+    final vendorName = _displayValue(inquiry.vendorName, 'Vendor');
+    final message = inquiry.message.trim();
+    final vendorReply = inquiry.vendorReply.trim();
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -268,31 +232,29 @@ class _InquiryCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _StatusBadge(status: status),
+              _StatusBadge(status: inquiry.status),
             ],
           ),
 
-          if (createdAt != null) ...[
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                const Icon(
-                  Icons.schedule_outlined,
-                  size: 17,
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Icon(
+                Icons.schedule_outlined,
+                size: 17,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _formatDate(inquiry.createdAt),
+                style: const TextStyle(
                   color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  _formatDate(createdAt),
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
 
           const SizedBox(height: 16),
 
@@ -350,7 +312,7 @@ class _InquiryCard extends StatelessWidget {
             ),
           ],
 
-          if (status == 'pending') ...[
+          if (inquiry.status == InquiryStatus.pending) ...[
             const SizedBox(height: 18),
             SizedBox(
               height: 46,
@@ -376,31 +338,36 @@ class _InquiryCard extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  final String status;
+  final InquiryStatus status;
 
   const _StatusBadge({required this.status});
 
   @override
   Widget build(BuildContext context) {
-    final label = status.isEmpty
-        ? 'Pending'
-        : status[0].toUpperCase() + status.substring(1);
+    final label = switch (status) {
+      InquiryStatus.pending => 'Pending',
+      InquiryStatus.replied => 'Replied',
+      InquiryStatus.closed => 'Closed',
+      InquiryStatus.cancelled => 'Cancelled',
+    };
 
     Color backgroundColor;
     Color textColor;
 
     switch (status) {
-      case 'replied':
-      case 'answered':
+      case InquiryStatus.replied:
         backgroundColor = Colors.green.shade50;
         textColor = Colors.green.shade700;
         break;
-      case 'cancelled':
-      case 'closed':
+      case InquiryStatus.cancelled:
         backgroundColor = Colors.red.shade50;
         textColor = Colors.red.shade700;
         break;
-      default:
+      case InquiryStatus.closed:
+        backgroundColor = Colors.grey.shade200;
+        textColor = Colors.grey.shade700;
+        break;
+      case InquiryStatus.pending:
         backgroundColor = AppColors.selectedSurface;
         textColor = AppColors.primary;
     }
@@ -423,32 +390,52 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-String _stringValue(
-  Map<String, dynamic> data,
-  String key, {
-  String fallback = '',
-}) {
-  final value = data[key];
-
-  if (value == null) return fallback;
-
-  final text = value.toString().trim();
-
-  if (text.isEmpty) return fallback;
-
-  return text;
+String _displayValue(String value, String fallback) {
+  final text = value.trim();
+  return text.isEmpty ? fallback : text;
 }
 
-DateTime? _dateFromValue(dynamic value) {
-  if (value is Timestamp) {
-    return value.toDate();
-  }
+class _InquiryMessageState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
 
-  if (value is DateTime) {
-    return value;
-  }
+  const _InquiryMessageState({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
 
-  return null;
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 44, color: AppColors.primary),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 String _formatDate(DateTime date) {
@@ -457,4 +444,11 @@ String _formatDate(DateTime date) {
   final year = date.year.toString();
 
   return '$year-$month-$day';
+}
+
+String _cancellationErrorMessage(Object error) {
+  if (error is StateError) {
+    return error.message.toString();
+  }
+  return 'Failed to cancel inquiry: $error';
 }

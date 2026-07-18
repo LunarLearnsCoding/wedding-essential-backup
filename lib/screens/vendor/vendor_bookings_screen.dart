@@ -38,7 +38,7 @@ class _VendorBookingsScreenState extends State<VendorBookingsScreen> {
     try {
       if (status == 'Confirmed') {
         await _bookingService.confirmBooking(booking.id);
-      } else if (status == 'Cancelled') {
+      } else if (status == 'Rejected') {
         await _bookingService.rejectBooking(booking.id);
       } else if (status == 'Completed') {
         await _bookingService.completeBooking(booking.id);
@@ -149,10 +149,7 @@ class _VendorBookingsScreenState extends State<VendorBookingsScreen> {
                                   : null,
                               onCancel: booking.status == 'Pending'
                                   ? () {
-                                      _changeBookingStatus(
-                                        booking,
-                                        'Cancelled',
-                                      );
+                                      _changeBookingStatus(booking, 'Rejected');
                                     }
                                   : null,
                             );
@@ -264,7 +261,14 @@ class _BookingFilterTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filters = ['All', 'Pending', 'Confirmed', 'Completed', 'Cancelled'];
+    final filters = [
+      'All',
+      'Pending',
+      'Confirmed',
+      'Rejected',
+      'Completed',
+      'Cancelled',
+    ];
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -450,7 +454,7 @@ class _BookingCard extends StatelessWidget {
                         onPressed: onCancel,
                         icon: const Icon(Icons.close, size: 18),
                         label: const Text(
-                          'Cancel',
+                          'Reject',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
@@ -709,8 +713,10 @@ String _bookingStatusLabel(BookingStatus status) {
     case BookingStatus.confirmed:
       return 'Confirmed';
     case BookingStatus.rejected:
-      return 'Cancelled';
+      return 'Rejected';
     case BookingStatus.completed:
       return 'Completed';
+    case BookingStatus.cancelled:
+      return 'Cancelled';
   }
 }

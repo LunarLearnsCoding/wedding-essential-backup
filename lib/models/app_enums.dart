@@ -1,8 +1,8 @@
 enum UserRole { customer, vendor, admin }
 
-enum BookingStatus { pending, confirmed, rejected, completed }
+enum BookingStatus { pending, confirmed, rejected, completed, cancelled }
 
-enum InquiryStatus { pending, replied, closed }
+enum InquiryStatus { pending, replied, closed, cancelled }
 
 String enumToString(Object value) {
   return value.toString().split('.').last;
@@ -19,7 +19,7 @@ UserRole userRoleFromString(String value) {
 BookingStatus bookingStatusFromString(String value) {
   final normalized = value.toLowerCase().trim();
   if (normalized == 'cancelled' || normalized == 'canceled') {
-    return BookingStatus.rejected;
+    return BookingStatus.cancelled;
   }
 
   return BookingStatus.values.firstWhere(
@@ -32,6 +32,9 @@ InquiryStatus inquiryStatusFromString(String value) {
   final normalized = value.toLowerCase().trim();
   if (normalized == 'new') {
     return InquiryStatus.pending;
+  }
+  if (normalized == 'cancelled' || normalized == 'canceled') {
+    return InquiryStatus.cancelled;
   }
 
   return InquiryStatus.values.firstWhere(

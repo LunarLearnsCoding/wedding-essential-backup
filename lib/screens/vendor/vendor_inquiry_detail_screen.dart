@@ -20,26 +20,13 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
   final InquiryService _inquiryService = InquiryService();
   final TextEditingController _replyController = TextEditingController();
 
-  late Future<InquiryModel?> _inquiryFuture;
   bool _isReplying = false;
   bool _isClosing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _inquiryFuture = _inquiryService.getInquiry(widget.inquiryId);
-  }
 
   @override
   void dispose() {
     _replyController.dispose();
     super.dispose();
-  }
-
-  void _reloadInquiry() {
-    setState(() {
-      _inquiryFuture = _inquiryService.getInquiry(widget.inquiryId);
-    });
   }
 
   Future<void> _sendReply() async {
@@ -62,15 +49,8 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
         reply: text,
       );
 
-      final refreshedInquiry = await _inquiryService.getInquiry(
-        widget.inquiryId,
-      );
-
       if (!mounted) return;
 
-      setState(() {
-        _inquiryFuture = Future.value(refreshedInquiry);
-      });
       _replyController.clear();
 
       ScaffoldMessenger.of(
@@ -99,15 +79,7 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
     try {
       await _inquiryService.closeInquiry(widget.inquiryId);
 
-      final refreshedInquiry = await _inquiryService.getInquiry(
-        widget.inquiryId,
-      );
-
       if (!mounted) return;
-
-      setState(() {
-        _inquiryFuture = Future.value(refreshedInquiry);
-      });
 
       ScaffoldMessenger.of(
         context,
@@ -131,8 +103,8 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: FutureBuilder<InquiryModel?>(
-        future: _inquiryFuture,
+      body: StreamBuilder<InquiryModel?>(
+        stream: _inquiryService.watchInquiry(widget.inquiryId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -142,7 +114,6 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
             return _MessageState(
               title: 'Failed to load inquiry',
               message: snapshot.error.toString(),
-              onRetry: _reloadInquiry,
             );
           }
 
@@ -150,14 +121,21 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
 
           if (inquiry == null) {
             return _MessageState(
-              title: 'Inquiry not found',
-              message: 'This inquiry may have been removed.',
-              onRetry: _reloadInquiry,
+              title: 'Inquiry unavailable',
+              message: 'This inquiry is no longer available.',
+              actionLabel: 'Back to inquiries',
+              onAction: () => Navigator.maybePop(context),
             );
           }
 
           final status = _inquiryStatusLabel(inquiry.status);
           final isClosed = inquiry.status == InquiryStatus.closed;
+          final isCancelled = inquiry.status == InquiryStatus.cancelled;
+          final isInactive = isClosed || isCancelled;
+          final canReply = inquiry.status == InquiryStatus.pending;
+          final canClose =
+              inquiry.status == InquiryStatus.pending ||
+              inquiry.status == InquiryStatus.replied;
           final isBusy = _isReplying || _isClosing;
           final messages = _messagesFromInquiry(inquiry);
 
@@ -178,14 +156,14 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
                         (message) => _MessageBubble(message: message),
                       ),
                       const SizedBox(height: 14),
-                      if (!isClosed)
+                      if (canReply)
                         _ReplyBox(
                           controller: _replyController,
                           isSending: _isReplying,
                           onSend: isBusy ? null : _sendReply,
                         ),
-                      if (!isClosed) const SizedBox(height: 12),
-                      if (!isClosed)
+                      if (canClose) const SizedBox(height: 12),
+                      if (canClose)
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
@@ -212,7 +190,8 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
                             ),
                           ),
                         ),
-                      if (isClosed) const _ClosedNoticeCard(),
+                      if (isInactive)
+                        _ClosedNoticeCard(isCancelled: isCancelled),
                     ],
                   ),
                 ),
@@ -228,12 +207,14 @@ class _VendorInquiryDetailScreenState extends State<VendorInquiryDetailScreen> {
 class _MessageState extends StatelessWidget {
   final String title;
   final String message;
-  final VoidCallback onRetry;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const _MessageState({
     required this.title,
     required this.message,
-    required this.onRetry,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
@@ -272,16 +253,18 @@ class _MessageState extends StatelessWidget {
                       fontSize: 13.5,
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  ElevatedButton.icon(
-                    onPressed: onRetry,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                  if (actionLabel != null && onAction != null) ...[
+                    const SizedBox(height: 18),
+                    ElevatedButton.icon(
+                      onPressed: onAction,
+                      icon: const Icon(Icons.arrow_back),
+                      label: Text(actionLabel!),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -665,7 +648,9 @@ class _ReplyBox extends StatelessWidget {
 }
 
 class _ClosedNoticeCard extends StatelessWidget {
-  const _ClosedNoticeCard();
+  final bool isCancelled;
+
+  const _ClosedNoticeCard({required this.isCancelled});
 
   @override
   Widget build(BuildContext context) {
@@ -677,14 +662,19 @@ class _ClosedNoticeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.check_circle_outline, color: Colors.grey),
-          SizedBox(width: 12),
+          Icon(
+            isCancelled ? Icons.cancel_outlined : Icons.check_circle_outline,
+            color: Colors.grey,
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'This inquiry has been closed.',
-              style: TextStyle(
+              isCancelled
+                  ? 'This inquiry was cancelled by the customer.'
+                  : 'This inquiry has been closed.',
+              style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w700,
               ),
@@ -788,6 +778,8 @@ String _inquiryStatusLabel(InquiryStatus status) {
       return 'Replied';
     case InquiryStatus.closed:
       return 'Closed';
+    case InquiryStatus.cancelled:
+      return 'Cancelled';
   }
 }
 

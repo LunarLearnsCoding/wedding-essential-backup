@@ -7,6 +7,7 @@ class InquiryModel {
   final String customerId;
   final String customerName;
   final String vendorId;
+  final String vendorName;
   final String serviceId;
   final String serviceName;
   final String message;
@@ -21,6 +22,7 @@ class InquiryModel {
     required this.customerId,
     required this.customerName,
     required this.vendorId,
+    this.vendorName = '',
     required this.serviceId,
     required this.serviceName,
     required this.message,
@@ -37,6 +39,7 @@ class InquiryModel {
       customerId: map['customerId'] ?? '',
       customerName: map['customerName'] ?? '',
       vendorId: map['vendorId'] ?? '',
+      vendorName: map['vendorName'] ?? '',
       serviceId: map['serviceId'] ?? '',
       serviceName: map['serviceName'] ?? '',
       message: map['message'] ?? '',
@@ -53,6 +56,7 @@ class InquiryModel {
       'customerId': customerId,
       'customerName': customerName,
       'vendorId': vendorId,
+      'vendorName': vendorName,
       'serviceId': serviceId,
       'serviceName': serviceName,
       'message': message,

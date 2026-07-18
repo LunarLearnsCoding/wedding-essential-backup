@@ -46,6 +46,18 @@ class InquiryService {
     return InquiryModel.fromMap(doc.id, data);
   }
 
+  Stream<InquiryModel?> watchInquiry(String inquiryId) {
+    return _firestore
+        .collection(FirestoreCollections.inquiries)
+        .doc(inquiryId)
+        .snapshots()
+        .map((snapshot) {
+          final data = snapshot.data();
+          if (!snapshot.exists || data == null) return null;
+          return InquiryModel.fromMap(snapshot.id, data);
+        });
+  }
+
   Stream<List<InquiryModel>> getVendorInquiries(String vendorId) {
     return _firestore
         .collection(FirestoreCollections.inquiries)
@@ -55,6 +67,20 @@ class InquiryService {
           return snapshot.docs.map((doc) {
             return InquiryModel.fromMap(doc.id, doc.data());
           }).toList();
+        });
+  }
+
+  Stream<List<InquiryModel>> getCustomerInquiries(String customerId) {
+    return _firestore
+        .collection(FirestoreCollections.inquiries)
+        .where('customerId', isEqualTo: customerId)
+        .snapshots()
+        .map((snapshot) {
+          final inquiries = snapshot.docs
+              .map((doc) => InquiryModel.fromMap(doc.id, doc.data()))
+              .toList();
+          inquiries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return inquiries;
         });
   }
 
@@ -75,26 +101,50 @@ class InquiryService {
     required String inquiryId,
     required String reply,
   }) async {
-    final inquiry = await getInquiry(inquiryId);
-    if (inquiry == null) {
-      throw StateError('Inquiry not found.');
-    }
-
-    await _firestore
+    final inquiryReference = _firestore
         .collection(FirestoreCollections.inquiries)
-        .doc(inquiryId)
-        .update({
-          'vendorReply': reply,
-          'vendorReplyAt': FieldValue.serverTimestamp(),
-          'status': enumToString(InquiryStatus.replied),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        .doc(inquiryId);
+    InquiryModel? currentInquiry;
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(inquiryReference);
+      final data = snapshot.data();
+
+      if (!snapshot.exists || data == null) {
+        throw StateError('This inquiry no longer exists.');
+      }
+
+      final currentStatus = inquiryStatusFromString(
+        data['status']?.toString() ?? '',
+      );
+      switch (currentStatus) {
+        case InquiryStatus.cancelled:
+          throw StateError(
+            'This inquiry was cancelled by the customer and cannot be replied to.',
+          );
+        case InquiryStatus.closed:
+          throw StateError('This inquiry is closed and cannot be replied to.');
+        case InquiryStatus.replied:
+          throw StateError('This inquiry has already been replied to.');
+        case InquiryStatus.pending:
+          break;
+      }
+
+      currentInquiry = InquiryModel.fromMap(snapshot.id, data);
+      final now = Timestamp.now();
+      transaction.update(inquiryReference, {
+        'vendorReply': reply,
+        'vendorReplyAt': now,
+        'status': enumToString(InquiryStatus.replied),
+        'updatedAt': now,
+      });
+    });
 
     await _createNotificationSafely(
-      userId: inquiry.customerId,
+      userId: currentInquiry!.customerId,
       title: 'Inquiry replied',
       message:
-          'The vendor replied to your inquiry about ${inquiry.serviceName}.',
+          'The vendor replied to your inquiry about ${currentInquiry!.serviceName}.',
     );
   }
 
@@ -123,6 +173,37 @@ class InquiryService {
       inquiryId: inquiryId,
       status: InquiryStatus.closed,
     );
+  }
+
+  Future<void> cancelInquiry(InquiryModel inquiry) async {
+    final inquiryReference = _firestore
+        .collection(FirestoreCollections.inquiries)
+        .doc(inquiry.id);
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(inquiryReference);
+      final data = snapshot.data();
+
+      if (!snapshot.exists || data == null) {
+        throw StateError('This inquiry no longer exists.');
+      }
+
+      final currentStatus = inquiryStatusFromString(
+        data['status']?.toString() ?? '',
+      );
+      if (currentStatus == InquiryStatus.cancelled) {
+        throw StateError('This inquiry has already been cancelled.');
+      }
+      if (currentStatus == InquiryStatus.replied) {
+        throw StateError(
+          'This inquiry has already been replied to and cannot be cancelled.',
+        );
+      }
+      if (currentStatus == InquiryStatus.closed) {
+        throw StateError('This inquiry is closed and cannot be cancelled.');
+      }
+
+      transaction.delete(inquiryReference);
+    });
   }
 
   Future<void> deleteInquiry(String inquiryId) async {
