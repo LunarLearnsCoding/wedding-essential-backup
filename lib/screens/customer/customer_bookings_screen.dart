@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -8,11 +6,17 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/booking_provider.dart';
 import '../../models/booking_model.dart';
 import '../../models/app_enums.dart';
+import '../../services/booking_service.dart';
 
 class CustomerBookingsScreen extends StatelessWidget {
   const CustomerBookingsScreen({super.key});
 
-  Future<void> _cancelBooking(BuildContext context, String bookingId) async {
+  static final BookingService _bookingService = BookingService();
+
+  Future<void> _cancelBooking(
+    BuildContext context,
+    BookingModel booking,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -38,13 +42,7 @@ class CustomerBookingsScreen extends StatelessWidget {
     if (confirm != true) return;
 
     try {
-      await FirebaseFirestore.instance
-          .collection('bookings')
-          .doc(bookingId)
-          .update({
-            'status': 'cancelled',
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+      await _bookingService.cancelBooking(booking);
 
       if (!context.mounted) return;
 
@@ -86,7 +84,7 @@ class CustomerBookingsScreen extends StatelessWidget {
           final booking = sortedBookings[index];
           return _BookingCard(
             booking: booking,
-            onCancel: () => _cancelBooking(context, booking.id),
+            onCancel: () => _cancelBooking(context, booking),
           );
         },
       ),

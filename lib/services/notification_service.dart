@@ -29,6 +29,17 @@ class NotificationService {
         .snapshots();
   }
 
+  Stream<QuerySnapshot<Map<String, dynamic>>> getRecentNotifications(
+    String userId,
+  ) {
+    return _firestore
+        .collection(FirestoreCollections.notifications)
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .limit(3)
+        .snapshots();
+  }
+
   Future<void> markAsRead(String id) async {
     await _firestore
         .collection(FirestoreCollections.notifications)

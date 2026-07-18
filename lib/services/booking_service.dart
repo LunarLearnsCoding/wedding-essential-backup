@@ -1,16 +1,38 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../core/constants/firestore_collections.dart';
 import '../models/app_enums.dart';
 import '../models/booking_model.dart';
+import 'notification_service.dart';
 
 class BookingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
-  Future<void> createBooking(BookingModel booking) async {
-    await _firestore
-        .collection(FirestoreCollections.bookings)
-        .add(booking.toMap());
+  Future<void> createBooking(
+    BookingModel booking, {
+    Map<String, dynamic> additionalData = const {},
+  }) async {
+    await _firestore.collection(FirestoreCollections.bookings).add({
+      ...booking.toMap(),
+      ...additionalData,
+    });
+
+    await _createNotificationSafely(
+      userId: booking.vendorId,
+      title: 'New booking request',
+      message:
+          '${booking.customerName} requested a booking for ${booking.serviceName}.',
+      type: 'booking',
+    );
+    await _createNotificationSafely(
+      userId: booking.customerId,
+      title: 'Booking request submitted',
+      message:
+          'Your booking request for ${booking.serviceName} has been submitted. Please wait for the vendor\'s response.',
+      type: 'booking',
+    );
   }
 
   Future<bool> hasActiveBookingForSlot({
@@ -120,10 +142,116 @@ class BookingService {
     required String bookingId,
     required BookingStatus status,
   }) async {
-    await _firestore
+    final bookingReference = _firestore
         .collection(FirestoreCollections.bookings)
-        .doc(bookingId)
-        .update({'status': enumToString(status), 'updatedAt': Timestamp.now()});
+        .doc(bookingId);
+    BookingModel? booking;
+
+    final statusChanged = await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(bookingReference);
+      final data = snapshot.data();
+
+      if (!snapshot.exists || data == null) {
+        throw StateError('Booking not found.');
+      }
+
+      booking = BookingModel.fromMap(snapshot.id, data);
+      if (booking!.status == status) {
+        return false;
+      }
+
+      transaction.update(bookingReference, {
+        'status': enumToString(status),
+        'updatedAt': Timestamp.now(),
+      });
+      return true;
+    });
+
+    if (!statusChanged || booking == null) return;
+
+    final notification = switch (status) {
+      BookingStatus.confirmed => (
+        title: 'Booking confirmed',
+        message: 'Your booking for ${booking!.serviceName} has been confirmed.',
+      ),
+      BookingStatus.rejected => (
+        title: 'Booking rejected',
+        message: 'Your booking for ${booking!.serviceName} has been rejected.',
+      ),
+      BookingStatus.completed => (
+        title: 'Booking completed',
+        message:
+            'Your booking for ${booking!.serviceName} has been marked as completed.',
+      ),
+      _ => null,
+    };
+
+    if (notification != null) {
+      await _createNotificationSafely(
+        userId: booking!.customerId,
+        title: notification.title,
+        message: notification.message,
+        type: 'booking',
+      );
+    }
+  }
+
+  Future<void> cancelBooking(BookingModel booking) async {
+    final bookingReference = _firestore
+        .collection(FirestoreCollections.bookings)
+        .doc(booking.id);
+    BookingModel? currentBooking;
+
+    final statusChanged = await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(bookingReference);
+      final data = snapshot.data();
+
+      if (!snapshot.exists || data == null) {
+        throw StateError('Booking not found.');
+      }
+
+      if (data['status'].toString().toLowerCase() == 'cancelled') {
+        return false;
+      }
+
+      currentBooking = BookingModel.fromMap(snapshot.id, data);
+      transaction.update(bookingReference, {
+        'status': 'cancelled',
+        'updatedAt': Timestamp.now(),
+      });
+      return true;
+    });
+
+    if (!statusChanged || currentBooking == null) return;
+
+    await _createNotificationSafely(
+      userId: currentBooking!.vendorId,
+      title: 'Booking cancelled',
+      message:
+          '${currentBooking!.customerName} cancelled ${currentBooking!.serviceName}.',
+      type: 'booking',
+    );
+  }
+
+  Future<void> _createNotificationSafely({
+    required String userId,
+    required String title,
+    required String message,
+    required String type,
+  }) async {
+    if (userId.trim().isEmpty) return;
+
+    try {
+      await _notificationService.createNotification(
+        userId: userId,
+        title: title,
+        message: message,
+        type: type,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Failed to create booking notification: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   Future<void> deleteBooking(String bookingId) async {

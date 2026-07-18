@@ -1,17 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/widgets/notification_card.dart';
 import '../../core/widgets/vendor_bottom_nav.dart';
 import '../../models/app_enums.dart';
 import '../../models/booking_model.dart';
 import '../../models/inquiry_model.dart';
+import '../../models/notification_model.dart';
 import '../../models/vendor_model.dart';
+import '../../services/notification_service.dart';
 import 'vendor_bookings_screen.dart';
 import 'vendor_inquiries_screen.dart';
+import 'vendor_notifications_screen.dart';
 import 'vendor_reviews_screen.dart';
 import 'vendor_service_form_screen.dart';
 import 'vendor_services_screen.dart';
@@ -62,8 +65,6 @@ class VendorDashboardScreen extends StatelessWidget {
       final inquiries = inquiriesSnapshot.docs
           .map((doc) => InquiryModel.fromMap(doc.id, doc.data()))
           .toList();
-      final recentActivity = _recentActivity(bookings, inquiries);
-
       return _DashboardData(
         businessName: _vendorDisplayName(vendor),
         totalServices: servicesSnapshot.docs.length,
@@ -74,7 +75,6 @@ class VendorDashboardScreen extends StatelessWidget {
             .where((inquiry) => inquiry.status == InquiryStatus.pending)
             .length,
         totalReviews: reviewsSnapshot.docs.length,
-        recentActivity: recentActivity,
       );
     } catch (error, stackTrace) {
       debugPrint('Vendor dashboard load failed: $error');
@@ -156,30 +156,7 @@ class VendorDashboardScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const _SectionTitle(title: 'Recent Activity'),
-                      const SizedBox(height: 12),
-                      if (data.recentActivity.isEmpty)
-                        const _DashboardMessageCard(
-                          icon: Icons.insights_outlined,
-                          title: 'No recent activity',
-                          message:
-                              'Recent bookings and inquiries for this vendor account will appear here.',
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: data.recentActivity.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final item = data.recentActivity[index];
-                            return _ActivityTile(
-                              item: item,
-                              onTap: () => _open(context, item.destination),
-                            );
-                          },
-                        ),
+                      _RecentNotifications(vendorId: currentUser.uid),
                     ],
                   ),
                 ),
@@ -356,74 +333,96 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _ActivityTile extends StatelessWidget {
-  final _ActivityItem item;
-  final VoidCallback onTap;
+class _RecentNotifications extends StatefulWidget {
+  final String vendorId;
 
-  const _ActivityTile({required this.item, required this.onTap});
+  const _RecentNotifications({required this.vendorId});
+
+  @override
+  State<_RecentNotifications> createState() => _RecentNotificationsState();
+}
+
+class _RecentNotificationsState extends State<_RecentNotifications> {
+  final NotificationService _notificationService = NotificationService();
+  String? _markingNotificationId;
+
+  Future<void> _markAsRead(NotificationModel notification) async {
+    if (notification.isRead || _markingNotificationId == notification.id) {
+      return;
+    }
+
+    setState(() => _markingNotificationId = notification.id);
+    try {
+      await _notificationService.markAsRead(notification.id);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to mark notification as read: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _markingNotificationId = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
+    return Column(
+      children: [
+        Row(
           children: [
-            Container(
-              height: 42,
-              width: 42,
-              decoration: BoxDecoration(
-                color: AppColors.selectedSurface,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(item.icon, color: AppColors.primary, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              item.date,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+            const Expanded(child: _SectionTitle(title: 'Recent Notifications')),
+            TextButton(
+              onPressed: () =>
+                  _open(context, const VendorNotificationsScreen()),
+              child: const Text('View all'),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: _notificationService.getRecentNotifications(widget.vendorId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              );
+            }
+            if (snapshot.hasError) {
+              return _DashboardMessageCard(
+                icon: Icons.error_outline,
+                title: 'Could not load notifications',
+                message: snapshot.error.toString(),
+              );
+            }
+
+            final notifications = (snapshot.data?.docs ?? [])
+                .map((doc) => NotificationModel.fromMap(doc.id, doc.data()))
+                .toList();
+            if (notifications.isEmpty) {
+              return const _DashboardMessageCard(
+                icon: Icons.notifications_none_outlined,
+                title: 'No notifications yet',
+                message: 'New booking and inquiry updates will appear here.',
+              );
+            }
+
+            return Column(
+              children: notifications
+                  .map(
+                    (notification) => NotificationCard(
+                      notification: notification,
+                      isLoading: _markingNotificationId == notification.id,
+                      onTap: notification.isRead
+                          ? null
+                          : () => _markAsRead(notification),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -485,7 +484,6 @@ class _DashboardData {
   final int pendingBookings;
   final int pendingInquiries;
   final int totalReviews;
-  final List<_ActivityItem> recentActivity;
 
   const _DashboardData({
     required this.businessName,
@@ -493,7 +491,6 @@ class _DashboardData {
     required this.pendingBookings,
     required this.pendingInquiries,
     required this.totalReviews,
-    required this.recentActivity,
   });
 
   const _DashboardData.empty()
@@ -501,61 +498,7 @@ class _DashboardData {
       totalServices = 0,
       pendingBookings = 0,
       pendingInquiries = 0,
-      totalReviews = 0,
-      recentActivity = const [];
-}
-
-class _ActivityItem {
-  final String title;
-  final String subtitle;
-  final String date;
-  final DateTime createdAt;
-  final IconData icon;
-  final Widget destination;
-
-  const _ActivityItem({
-    required this.title,
-    required this.subtitle,
-    required this.date,
-    required this.createdAt,
-    required this.icon,
-    required this.destination,
-  });
-}
-
-List<_ActivityItem> _recentActivity(
-  List<BookingModel> bookings,
-  List<InquiryModel> inquiries,
-) {
-  final formatter = DateFormat('MMM dd');
-  final items = <_ActivityItem>[
-    ...bookings.map((booking) {
-      final customer = _clean(booking.customerName, fallback: 'Customer');
-      final service = _clean(booking.serviceName, fallback: 'Wedding Service');
-      return _ActivityItem(
-        title: 'Booking: $service',
-        subtitle: '$customer - ${_bookingStatusLabel(booking.status)}',
-        date: formatter.format(booking.createdAt),
-        createdAt: booking.createdAt,
-        icon: Icons.calendar_month_outlined,
-        destination: const VendorBookingsScreen(),
-      );
-    }),
-    ...inquiries.map((inquiry) {
-      final customer = _clean(inquiry.customerName, fallback: 'Customer');
-      final service = _clean(inquiry.serviceName, fallback: 'Wedding Service');
-      return _ActivityItem(
-        title: 'Inquiry: $service',
-        subtitle: '$customer - ${_inquiryStatusLabel(inquiry.status)}',
-        date: formatter.format(inquiry.createdAt),
-        createdAt: inquiry.createdAt,
-        icon: Icons.message_outlined,
-        destination: const VendorInquiriesScreen(),
-      );
-    }),
-  ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-  return items.take(4).toList();
+      totalReviews = 0;
 }
 
 String _vendorDisplayName(VendorModel? vendor) {
@@ -574,35 +517,6 @@ String _vendorDisplayName(VendorModel? vendor) {
   }
 
   return 'Vendor';
-}
-
-String _bookingStatusLabel(BookingStatus status) {
-  switch (status) {
-    case BookingStatus.pending:
-      return 'Pending';
-    case BookingStatus.confirmed:
-      return 'Confirmed';
-    case BookingStatus.rejected:
-      return 'Rejected';
-    case BookingStatus.completed:
-      return 'Completed';
-  }
-}
-
-String _inquiryStatusLabel(InquiryStatus status) {
-  switch (status) {
-    case InquiryStatus.pending:
-      return 'Pending';
-    case InquiryStatus.replied:
-      return 'Replied';
-    case InquiryStatus.closed:
-      return 'Closed';
-  }
-}
-
-String _clean(String value, {required String fallback}) {
-  final text = value.trim();
-  return text.isEmpty ? fallback : text;
 }
 
 void _open(BuildContext context, Widget screen) {

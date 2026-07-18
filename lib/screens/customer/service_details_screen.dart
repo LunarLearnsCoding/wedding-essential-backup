@@ -5,7 +5,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../models/app_enums.dart';
+import '../../models/booking_model.dart';
+import '../../models/inquiry_model.dart';
 import '../../services/booking_service.dart';
+import '../../services/inquiry_service.dart';
 
 class ServiceDetailsScreen extends StatefulWidget {
   final String serviceId;
@@ -20,6 +24,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   final FirebaseAuth auth = FirebaseAuth.instance;
   final BookingService _bookingService = BookingService();
+  final InquiryService _inquiryService = InquiryService();
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> get serviceStream {
     return firestore.collection('services').doc(widget.serviceId).snapshots();
@@ -83,18 +88,23 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     ? user.displayName!.trim()
                     : (user.email ?? 'Customer');
 
-                await firestore.collection('inquiries').add({
-                  'customerId': user.uid,
-                  'customerName': customerName,
-                  'customerEmail': user.email ?? '',
-                  'serviceId': widget.serviceId,
-                  'serviceName': _stringValue(serviceData, 'name'),
-                  'vendorId': _stringValue(serviceData, 'vendorId'),
-                  'vendorName': _stringValue(serviceData, 'vendorName'),
-                  'message': messageController.text.trim(),
-                  'status': 'pending',
-                  'createdAt': FieldValue.serverTimestamp(),
-                });
+                await _inquiryService.createInquiry(
+                  InquiryModel(
+                    id: '',
+                    customerId: user.uid,
+                    customerName: customerName,
+                    vendorId: _stringValue(serviceData, 'vendorId'),
+                    serviceId: widget.serviceId,
+                    serviceName: _stringValue(serviceData, 'name'),
+                    message: messageController.text.trim(),
+                    status: InquiryStatus.pending,
+                    createdAt: DateTime.now(),
+                  ),
+                  additionalData: {
+                    'customerEmail': user.email ?? '',
+                    'vendorName': _stringValue(serviceData, 'vendorName'),
+                  },
+                );
 
                 if (!mounted) return;
 
@@ -241,34 +251,34 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   return;
                 }
 
-                await firestore.collection('bookings').add({
-                  'customerId': user.uid,
-                  'customerName': customerName,
-                  'customerEmail': user.email ?? '',
-                  'customerPhone': customerPhone,
-
-                  'serviceId': widget.serviceId,
-                  'serviceName': _stringValue(serviceData, 'name'),
-
-                  'vendorId': _stringValue(serviceData, 'vendorId'),
-                  'vendorName': _stringValue(serviceData, 'vendorName'),
-
-                  'requestedDate': dateController.text.trim(),
-                  'requestedTime': timeController.text.trim(),
-                  'requestedDateTime': Timestamp.fromDate(
-                    normalizedRequestedDateTime,
+                await _bookingService.createBooking(
+                  BookingModel(
+                    id: '',
+                    customerId: user.uid,
+                    customerName: customerName,
+                    customerEmail: user.email ?? '',
+                    customerPhone: customerPhone,
+                    vendorId: _stringValue(serviceData, 'vendorId'),
+                    vendorName: _stringValue(serviceData, 'vendorName'),
+                    serviceId: widget.serviceId,
+                    serviceName: _stringValue(serviceData, 'name'),
+                    servicePrice: _doubleValue(serviceData, 'price'),
+                    eventDate: normalizedRequestedDateTime,
+                    eventTime: normalizedRequestedDateTime,
+                    note: noteController.text.trim(),
+                    status: BookingStatus.pending,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
                   ),
-                  'eventDate': Timestamp.fromDate(normalizedRequestedDateTime),
-                  'eventTime': Timestamp.fromDate(normalizedRequestedDateTime),
-
-                  'note': noteController.text.trim(),
-                  'price': _doubleValue(serviceData, 'price'),
-                  'servicePrice': _doubleValue(serviceData, 'price'),
-
-                  'status': 'pending',
-                  'createdAt': FieldValue.serverTimestamp(),
-                  'updatedAt': FieldValue.serverTimestamp(),
-                });
+                  additionalData: {
+                    'requestedDate': dateController.text.trim(),
+                    'requestedTime': timeController.text.trim(),
+                    'requestedDateTime': Timestamp.fromDate(
+                      normalizedRequestedDateTime,
+                    ),
+                    'price': _doubleValue(serviceData, 'price'),
+                  },
+                );
 
                 if (!mounted) return;
 

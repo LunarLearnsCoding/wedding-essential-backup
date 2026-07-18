@@ -1,16 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../core/constants/firestore_collections.dart';
 import '../models/app_enums.dart';
 import '../models/inquiry_model.dart';
+import 'notification_service.dart';
 
 class InquiryService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
-  Future<void> createInquiry(InquiryModel inquiry) async {
-    await _firestore
-        .collection(FirestoreCollections.inquiries)
-        .add(inquiry.toMap());
+  Future<void> createInquiry(
+    InquiryModel inquiry, {
+    Map<String, dynamic> additionalData = const {},
+  }) async {
+    await _firestore.collection(FirestoreCollections.inquiries).add({
+      ...inquiry.toMap(),
+      ...additionalData,
+    });
+
+    await _createNotificationSafely(
+      userId: inquiry.vendorId,
+      title: 'New inquiry',
+      message:
+          '${inquiry.customerName} sent an inquiry about ${inquiry.serviceName}.',
+    );
   }
 
   Future<InquiryModel?> getInquiry(String inquiryId) async {
@@ -61,6 +75,11 @@ class InquiryService {
     required String inquiryId,
     required String reply,
   }) async {
+    final inquiry = await getInquiry(inquiryId);
+    if (inquiry == null) {
+      throw StateError('Inquiry not found.');
+    }
+
     await _firestore
         .collection(FirestoreCollections.inquiries)
         .doc(inquiryId)
@@ -70,6 +89,33 @@ class InquiryService {
           'status': enumToString(InquiryStatus.replied),
           'updatedAt': FieldValue.serverTimestamp(),
         });
+
+    await _createNotificationSafely(
+      userId: inquiry.customerId,
+      title: 'Inquiry replied',
+      message:
+          'The vendor replied to your inquiry about ${inquiry.serviceName}.',
+    );
+  }
+
+  Future<void> _createNotificationSafely({
+    required String userId,
+    required String title,
+    required String message,
+  }) async {
+    if (userId.trim().isEmpty) return;
+
+    try {
+      await _notificationService.createNotification(
+        userId: userId,
+        title: title,
+        message: message,
+        type: 'inquiry',
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Failed to create inquiry notification: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   Future<void> closeInquiry(String inquiryId) async {
