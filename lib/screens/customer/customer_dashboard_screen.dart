@@ -10,7 +10,9 @@ import '../../core/utils/firestore_parsers.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../models/vendor_model.dart';
 import '../../models/blog_model.dart';
+import '../../models/review_model.dart';
 import '../../services/blog_service.dart';
+import '../../services/review_service.dart';
 import 'blog_details_screen.dart';
 import 'browse_services_screen.dart';
 import 'checklist_screen.dart';
@@ -773,17 +775,9 @@ class _FeaturedVendorCard extends StatelessWidget {
                     style: const TextStyle(color: AppColors.primaryDark),
                   ),
                   const SizedBox(height: 7),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 17),
-                      Text(
-                        ' ${vendor.averageRating.toStringAsFixed(1)} (${vendor.totalReviews} reviews)',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                  _FeaturedVendorRating(
+                    key: ValueKey(vendor.id),
+                    vendorId: vendor.id,
                   ),
                 ],
               ),
@@ -795,6 +789,67 @@ class _FeaturedVendorCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FeaturedVendorRating extends StatefulWidget {
+  const _FeaturedVendorRating({super.key, required this.vendorId});
+
+  final String vendorId;
+
+  @override
+  State<_FeaturedVendorRating> createState() => _FeaturedVendorRatingState();
+}
+
+class _FeaturedVendorRatingState extends State<_FeaturedVendorRating> {
+  static final ReviewService _reviewService = ReviewService();
+  late Stream<List<ReviewModel>> _reviews;
+
+  @override
+  void initState() {
+    super.initState();
+    _reviews = _reviewService.getReviewsByVendor(widget.vendorId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _FeaturedVendorRating oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.vendorId != widget.vendorId) {
+      _reviews = _reviewService.getReviewsByVendor(widget.vendorId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ReviewModel>>(
+      stream: _reviews,
+      builder: (context, snapshot) {
+        final reviews = snapshot.data ?? const <ReviewModel>[];
+        final average = reviews.isEmpty
+            ? 0.0
+            : reviews.fold<double>(
+                    0,
+                    (total, review) => total + review.rating,
+                  ) /
+                  reviews.length;
+        return Row(
+          children: [
+            const Icon(Icons.star, color: Colors.amber, size: 17),
+            Flexible(
+              child: Text(
+                ' ${average.toStringAsFixed(1)} (${reviews.length} ${reviews.length == 1 ? 'review' : 'reviews'})',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

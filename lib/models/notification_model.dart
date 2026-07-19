@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/firestore_parsers.dart';
 
-enum NotificationType { booking, inquiry, guest, checklist, payment }
+enum NotificationType { booking, inquiry, guest, checklist, payment, featured }
 
 class NotificationModel {
   final String id;
@@ -59,6 +59,8 @@ class NotificationModel {
 
       case NotificationType.payment:
         return Icons.payments_outlined;
+      case NotificationType.featured:
+        return Icons.star_outline_rounded;
     }
   }
 
@@ -78,6 +80,8 @@ class NotificationModel {
 
       case NotificationType.payment:
         return const Color(0xffE8F5E9);
+      case NotificationType.featured:
+        return const Color(0xffFFF3E0);
     }
   }
 
@@ -97,6 +101,8 @@ class NotificationModel {
 
       case NotificationType.payment:
         return Colors.green;
+      case NotificationType.featured:
+        return Colors.orange;
     }
   }
 }

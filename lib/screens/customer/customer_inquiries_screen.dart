@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_information_sheet.dart';
 import '../../models/app_enums.dart';
 import '../../models/inquiry_model.dart';
 import '../../services/inquiry_service.dart';
@@ -15,27 +16,15 @@ class CustomerInquiriesScreen extends StatelessWidget {
     BuildContext context,
     InquiryModel inquiry,
   ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Cancel Inquiry?'),
-          content: const Text('Are you sure you want to cancel this inquiry?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('No'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Yes, Cancel'),
-            ),
-          ],
-        );
-      },
+    final confirm = await showAppConfirmationSheet(
+      context,
+      title: 'Cancel inquiry?',
+      message: 'Are you sure you want to cancel this inquiry?',
+      confirmLabel: 'Cancel inquiry',
+      isDestructive: true,
     );
 
-    if (confirm != true) return;
+    if (!confirm) return;
 
     try {
       await _inquiryService.cancelInquiry(inquiry);

@@ -343,28 +343,164 @@ class _VendorServices extends StatelessWidget {
           return const _EmptyCard('This vendor has no active services.');
         }
         return Column(
-          children: services.map((service) {
-            return Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: ListTile(
-                leading: _ServiceImage(service: service),
-                title: Text(service.name),
-                subtitle: Text(
-                  '${service.category} • ${service.location}\nRs. ${service.price.toStringAsFixed(0)}',
-                ),
-                isThreeLine: true,
-                trailing: const Text('View Details'),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ServiceDetailsScreen(serviceId: service.id),
+          children: services
+              .map(
+                (service) => _VendorServiceCard(
+                  service: service,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ServiceDetailsScreen(serviceId: service.id),
+                    ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              )
+              .toList(),
         );
       },
+    );
+  }
+}
+
+class _VendorServiceCard extends StatelessWidget {
+  const _VendorServiceCard({required this.service, required this.onTap});
+
+  final ServiceModel service;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final category = service.category.trim();
+    final location = service.location.trim();
+    final price = service.price > 0
+        ? 'Starting from Rs. ${service.price.toStringAsFixed(0)}'
+        : 'Price not provided';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.035),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ServiceImage(service: service),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 108),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (category.isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.selectedSurface,
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            child: Text(
+                              category,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.primaryDark,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        Text(
+                          service.name.trim().isEmpty
+                              ? 'Wedding Service'
+                              : service.name.trim(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 16,
+                            height: 1.2,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        if (location.isNotEmpty) ...[
+                          const SizedBox(height: 7),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 15,
+                                color: AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  location,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        Text(
+                          price,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.primaryDark,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const SizedBox(
+                  width: 22,
+                  height: 108,
+                  child: Center(
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: AppColors.primary,
+                      size: 15,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -456,16 +592,36 @@ class _ServiceImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (service.imageUrls.isEmpty) {
-      return const Icon(Icons.image_outlined);
+      return Container(
+        width: 104,
+        height: 108,
+        decoration: BoxDecoration(
+          color: AppColors.selectedSurface,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: const Icon(
+          Icons.image_outlined,
+          color: AppColors.primary,
+          size: 30,
+        ),
+      );
     }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(15),
       child: Image.network(
         service.imageUrls.first,
-        width: 52,
-        height: 52,
+        width: 104,
+        height: 108,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined),
+        errorBuilder: (_, __, ___) => Container(
+          width: 104,
+          height: 108,
+          color: AppColors.selectedSurface,
+          child: const Icon(
+            Icons.broken_image_outlined,
+            color: AppColors.primary,
+          ),
+        ),
       ),
     );
   }

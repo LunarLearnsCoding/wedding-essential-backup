@@ -187,23 +187,26 @@ class _DashboardHeader extends StatelessWidget {
           bottomRight: Radius.circular(32),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Welcome back',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+      child: Text.rich(
+        TextSpan(
+          text: 'Welcome back, ',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(height: 6),
-          Text(
-            businessName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+          children: [
+            TextSpan(
+              text: businessName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

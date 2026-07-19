@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_information_sheet.dart';
 import '../../models/guest_model.dart';
 import '../../services/guest_service.dart';
 
@@ -214,28 +215,16 @@ class _GuestGroupCard extends StatelessWidget {
   }
 
   Future<void> _confirmDeleteGroup(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete group?'),
-        content: Text(
-          guests.isEmpty
-              ? 'Remove “$groupName” from your guest list?'
-              : 'This will also remove all guests in “$groupName”.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await showAppConfirmationSheet(
+      context,
+      title: 'Delete group?',
+      message: guests.isEmpty
+          ? 'Remove “$groupName” from your guest list?'
+          : 'This will also remove all guests in “$groupName”.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     try {
       await GuestListScreen._service.deleteGroup(
         customerId: customerId,

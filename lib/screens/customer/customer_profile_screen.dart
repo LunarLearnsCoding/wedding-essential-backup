@@ -8,6 +8,7 @@ import '../../core/constants/firestore_collections.dart';
 import '../../core/utils/firestore_parsers.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/app_information_sheet.dart';
+import '../../core/widgets/support_contact_card.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'browse_services_screen.dart';
@@ -132,7 +133,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       title: 'Log out?',
       message: 'Are you sure you want to sign out of your customer account?',
       confirmLabel: 'Log out',
-      icon: Icons.logout_rounded,
       isDestructive: true,
     );
     if (!context.mounted || !confirmed) return;
@@ -452,6 +452,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 20),
+                  const SupportContactCard(),
                 ],
               ),
             );

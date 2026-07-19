@@ -410,16 +410,7 @@ class _BookingCard extends StatelessWidget {
 
                       const SizedBox(height: 4),
 
-                      Text(
-                        booking.id,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
 
                       _SmallInfoRow(
                         icon: Icons.business_center_outlined,

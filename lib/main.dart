@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
@@ -15,6 +17,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Keep web sign-ins scoped to the current browser tab. This allows a
+  // customer, vendor, and admin session to remain open side by side during a
+  // demonstration without one tab replacing another tab's account.
+  if (kIsWeb) {
+    await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
+  }
 
   runApp(
     MultiProvider(

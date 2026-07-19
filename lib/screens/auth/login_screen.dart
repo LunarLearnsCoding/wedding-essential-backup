@@ -236,6 +236,17 @@ class _LoginScreenState extends State<LoginScreen> {
       final status = userData['status']?.toString().toLowerCase() ?? 'active';
       final isActive = userData['isActive'] == true;
 
+      if (role == 'admin') {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Use the separate admin application to sign in.'),
+          ),
+        );
+        return;
+      }
+
       if (!isActive || status == 'blocked' || status == 'suspended') {
         await FirebaseAuth.instance.signOut();
 
@@ -250,6 +261,16 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (role == 'customer') {
+        if (selectedRole != 'Customer') {
+          await FirebaseAuth.instance.signOut();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This is a customer account. Select Customer.'),
+            ),
+          );
+          return;
+        }
         final customerDoc = await FirebaseFirestore.instance
             .collection(FirestoreCollections.customers)
             .doc(currentUser.uid)
@@ -278,6 +299,16 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (role == 'vendor') {
+        if (selectedRole != 'Vendor') {
+          await FirebaseAuth.instance.signOut();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This is a vendor account. Select Vendor.'),
+            ),
+          );
+          return;
+        }
         final vendorDoc = await FirebaseFirestore.instance
             .collection(FirestoreCollections.vendors)
             .doc(currentUser.uid)

@@ -195,19 +195,123 @@ class AdminService {
     });
   }
 
-  Future<void> featureVendorUntil(String vendorId, DateTime featuredUntil) {
-    return updateDocument('vendors', vendorId, {
+  Future<void> featureVendorUntil(
+    String vendorId,
+    DateTime featuredUntil,
+  ) async {
+    final batch = _firestore.batch();
+    final vendorRef = _collection('vendors').doc(vendorId);
+    final notificationRef = _collection('notifications').doc();
+    batch.update(vendorRef, {
       'isFeatured': true,
       'featuredAt': FieldValue.serverTimestamp(),
       'featuredUntil': Timestamp.fromDate(featuredUntil),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(notificationRef, {
+      'userId': vendorId,
+      'title': 'Your business is now featured',
+      'message':
+          'Your vendor profile will appear in Featured Vendors until ${featuredUntil.year}-${featuredUntil.month.toString().padLeft(2, '0')}-${featuredUntil.day.toString().padLeft(2, '0')}.',
+      'type': 'featured',
+      'isRead': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  Future<void> extendFeaturedVendorTime(String vendorId, int days) async {
+    if (days < 1 || days > 30) {
+      throw RangeError.range(days, 1, 30, 'days');
+    }
+
+    final vendorRef = _collection('vendors').doc(vendorId);
+    final notificationRef = _collection('notifications').doc();
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(vendorRef);
+      final data = snapshot.data();
+      if (data == null || data['isFeatured'] != true) {
+        throw StateError('This vendor is no longer featured.');
+      }
+
+      final now = DateTime.now();
+      final currentValue = data['featuredUntil'];
+      final currentExpiration = currentValue is Timestamp
+          ? currentValue.toDate()
+          : null;
+      final extensionStart =
+          currentExpiration != null && currentExpiration.isAfter(now)
+          ? currentExpiration
+          : now;
+      final featuredUntil = extensionStart.add(Duration(days: days));
+
+      transaction.update(vendorRef, {
+        'featuredUntil': Timestamp.fromDate(featuredUntil),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.set(notificationRef, {
+        'userId': vendorId,
+        'title': 'Featured placement updated',
+        'message':
+            'Your Featured Vendors placement was extended by $days ${days == 1 ? 'day' : 'days'} and will remain active until ${featuredUntil.year}-${featuredUntil.month.toString().padLeft(2, '0')}-${featuredUntil.day.toString().padLeft(2, '0')}.',
+        'type': 'featured',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 
-  Future<void> removeFeaturedVendor(String vendorId) {
-    return updateDocument('vendors', vendorId, {
+  Future<void> removeFeaturedVendor(String vendorId) async {
+    final batch = _firestore.batch();
+    final vendorRef = _collection('vendors').doc(vendorId);
+    final notificationRef = _collection('notifications').doc();
+    batch.update(vendorRef, {
       'isFeatured': false,
       'featuredAt': null,
       'featuredUntil': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(notificationRef, {
+      'userId': vendorId,
+      'title': 'Featured placement removed',
+      'message':
+          'Your Featured Vendors placement was removed by the admin. Contact the admin if you need more information.',
+      'type': 'featured',
+      'isRead': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  Future<void> expireFeaturedVendor(String vendorId) async {
+    final vendorRef = _collection('vendors').doc(vendorId);
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(vendorRef);
+      final data = snapshot.data();
+      if (data == null || data['isFeatured'] != true) return;
+      final untilValue = data['featuredUntil'];
+      if (untilValue is! Timestamp) return;
+      final until = untilValue.toDate();
+      if (until.isAfter(DateTime.now())) return;
+
+      final notificationRef = _collection(
+        'notifications',
+      ).doc('featured-expired-$vendorId-${until.millisecondsSinceEpoch}');
+      transaction.update(vendorRef, {
+        'isFeatured': false,
+        'featuredAt': null,
+        'featuredUntil': null,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.set(notificationRef, {
+        'userId': vendorId,
+        'title': 'Featured placement ended',
+        'message':
+            'Your Featured Vendors placement has expired. Contact the admin if you would like to schedule another period.',
+        'type': 'featured',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 

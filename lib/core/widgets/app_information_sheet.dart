@@ -82,7 +82,6 @@ Future<bool> showAppConfirmationSheet(
   required String title,
   required String message,
   required String confirmLabel,
-  IconData icon = Icons.help_outline_rounded,
   bool isDestructive = false,
 }) async {
   final result = await showModalBottomSheet<bool>(
@@ -111,21 +110,6 @@ Future<bool> showAppConfirmationSheet(
               ),
             ),
             const SizedBox(height: 22),
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: (isDestructive ? AppColors.error : AppColors.primary)
-                    .withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(17),
-              ),
-              child: Icon(
-                icon,
-                color: isDestructive ? AppColors.error : AppColors.primaryDark,
-                size: 27,
-              ),
-            ),
-            const SizedBox(height: 16),
             Text(
               title,
               style: const TextStyle(

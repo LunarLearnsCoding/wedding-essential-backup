@@ -3,8 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/admin_account.dart';
 import '../../core/constants/service_categories.dart';
+import '../../core/utils/firestore_parsers.dart';
 import '../../core/widgets/app_information_sheet.dart';
+import '../../core/widgets/support_contact_card.dart';
 import '../../core/widgets/vendor_bottom_nav.dart';
 import '../auth/login_screen.dart';
 
@@ -85,6 +88,18 @@ class VendorProfileScreen extends StatelessWidget {
                       const SizedBox(height: 12),
 
                       _ProfileOptionCard(
+                        icon: Icons.star_outline_rounded,
+                        title: 'Promote Your Business',
+                        subtitle:
+                            profile.isFeatured && profile.featuredUntil != null
+                            ? 'Featured until ${_formatDate(profile.featuredUntil!)}'
+                            : 'Explore featured placement plans and contact the admin team',
+                        onTap: () => _showFeaturedOptionsSheet(context),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      _ProfileOptionCard(
                         icon: Icons.lock_outline,
                         title: 'Change Password',
                         subtitle: 'Send a password reset email',
@@ -102,6 +117,8 @@ class VendorProfileScreen extends StatelessWidget {
                           _showLogoutDialog(context);
                         },
                       ),
+                      const SizedBox(height: 20),
+                      const SupportContactCard(),
                     ],
                   ),
                 ),
@@ -186,6 +203,15 @@ class VendorProfileScreen extends StatelessWidget {
         const SnackBar(content: Text('Could not update business information.')),
       );
     }
+  }
+
+  Future<void> _showFeaturedOptionsSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _FeaturedOptionsSheet(),
+    );
   }
 
   Future<void> _showSocialLinksDialog(
@@ -307,7 +333,6 @@ class VendorProfileScreen extends StatelessWidget {
       title: 'Log out?',
       message: 'Are you sure you want to sign out of your vendor account?',
       confirmLabel: 'Log out',
-      icon: Icons.logout_rounded,
       isDestructive: true,
     );
     if (!context.mounted || !confirmed) return;
@@ -318,6 +343,97 @@ class VendorProfileScreen extends StatelessWidget {
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (_) => false,
+    );
+  }
+}
+
+class _FeaturedOptionsSheet extends StatelessWidget {
+  const _FeaturedOptionsSheet();
+
+  static const _plans = <int, int>{1: 100, 3: 250, 7: 500, 14: 900, 30: 1500};
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SheetHandle(),
+              const SizedBox(height: 22),
+              const Text(
+                'Featured Vendor Placement',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 18),
+              for (final plan in _plans.entries)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 9),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_month_outlined,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Text(
+                          '${plan.key} ${plan.key == 1 ? 'day' : 'days'}',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Text(
+                        'Rs. ${plan.value}',
+                        style: const TextStyle(
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 10),
+              SupportContactCard(
+                title: 'Arrange your featured placement',
+                message:
+                    'Email $adminAccountEmail to confirm your preferred plan, payment, and schedule.',
+                emailSubject: 'Featured vendor request',
+                emailBody:
+                    'I would like to arrange featured vendor placement. Please share the payment and scheduling details.',
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -798,6 +914,8 @@ class _VendorProfileData {
   final String instagramUrl;
   final String tiktokUrl;
   final String websiteUrl;
+  final bool isFeatured;
+  final DateTime? featuredUntil;
 
   const _VendorProfileData({
     required this.name,
@@ -811,6 +929,8 @@ class _VendorProfileData {
     required this.instagramUrl,
     required this.tiktokUrl,
     required this.websiteUrl,
+    required this.isFeatured,
+    required this.featuredUntil,
   });
 
   factory _VendorProfileData.fromMap(
@@ -840,8 +960,16 @@ class _VendorProfileData {
       instagramUrl: _cleanText(map['instagramUrl'], fallback: ''),
       tiktokUrl: _cleanText(map['tiktokUrl'], fallback: ''),
       websiteUrl: _cleanText(map['websiteUrl'], fallback: ''),
+      isFeatured: boolFromFirestore(map['isFeatured']),
+      featuredUntil: dateTimeFromFirestore(map['featuredUntil']),
     );
   }
+}
+
+String _formatDate(DateTime value) {
+  final day = value.day.toString().padLeft(2, '0');
+  final month = value.month.toString().padLeft(2, '0');
+  return '$day/$month/${value.year}';
 }
 
 String _cleanText(dynamic value, {required String fallback}) {

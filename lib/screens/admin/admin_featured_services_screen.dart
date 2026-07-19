@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/constants/admin_app_colors.dart';
@@ -21,6 +23,21 @@ class AdminFeaturedVendorsScreen extends StatefulWidget {
 class _AdminFeaturedVendorsScreenState
     extends State<AdminFeaturedVendorsScreen> {
   final Set<String> _clearingExpired = {};
+  Timer? _expiryTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _expiryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _expiryTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -141,11 +158,24 @@ class _AdminFeaturedVendorsScreenState
                             ),
                             DataCell(Text(_timeLeft(until, now))),
                             DataCell(
-                              AdminTableAction(
-                                tooltip: 'Remove featured vendor',
-                                icon: Icons.delete_outline,
-                                color: AdminAppColors.danger,
-                                onPressed: () => _remove(vendor),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AdminTableAction(
+                                    tooltip: 'Extend featured time',
+                                    icon: Icons.edit_calendar_outlined,
+                                    color: AdminAppColors.primary,
+                                    onPressed: () =>
+                                        _extendFeaturedTime(vendor),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  AdminTableAction(
+                                    tooltip: 'Remove featured vendor',
+                                    icon: Icons.delete_outline,
+                                    color: AdminAppColors.danger,
+                                    onPressed: () => _remove(vendor),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -164,7 +194,7 @@ class _AdminFeaturedVendorsScreenState
       if (!_clearingExpired.add(vendor.id)) continue;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         try {
-          await widget.service.removeFeaturedVendor(vendor.id);
+          await widget.service.expireFeaturedVendor(vendor.id);
         } finally {
           _clearingExpired.remove(vendor.id);
         }
@@ -227,6 +257,111 @@ class _AdminFeaturedVendorsScreenState
       await widget.service.removeFeaturedVendor(vendor.id);
       if (!mounted) return;
       AdminHelpers.showSnack(context, 'Vendor removed from featured.');
+    } catch (error) {
+      if (!mounted) return;
+      AdminHelpers.showSnack(context, error.toString(), isError: true);
+    }
+  }
+
+  Future<void> _extendFeaturedTime(AdminCollectionItem vendor) async {
+    var selectedDays = 7;
+    final days = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            decoration: const BoxDecoration(
+              color: AdminAppColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AdminAppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Text(
+                  'Extend featured time',
+                  style: TextStyle(
+                    color: AdminAppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Choose up to 30 additional days. Any time currently remaining will be kept.',
+                  style: TextStyle(
+                    color: AdminAppColors.textSecondary,
+                    fontSize: 14,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                DropdownButtonFormField<int>(
+                  initialValue: selectedDays,
+                  decoration: const InputDecoration(
+                    labelText: 'Additional featured time',
+                  ),
+                  items: const [1, 3, 7, 14, 30]
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(
+                            '$value additional ${value == 1 ? 'day' : 'days'}',
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setSheetState(() => selectedDays = value ?? selectedDays),
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () =>
+                            Navigator.pop(sheetContext, selectedDays),
+                        child: const Text('Extend'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted || days == null) return;
+
+    try {
+      await widget.service.extendFeaturedVendorTime(vendor.id, days);
+      if (!mounted) return;
+      AdminHelpers.showSnack(
+        context,
+        'Featured time extended by $days ${days == 1 ? 'day' : 'days'}.',
+      );
     } catch (error) {
       if (!mounted) return;
       AdminHelpers.showSnack(context, error.toString(), isError: true);

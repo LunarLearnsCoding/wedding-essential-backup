@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/firestore_collections.dart';
+import '../../core/widgets/app_information_sheet.dart';
 import '../../models/service_model.dart';
 import '../../services/service_service.dart';
 import '../../core/widgets/vendor_bottom_nav.dart';
@@ -99,33 +100,16 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
                   );
                 },
                 onDelete: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (context) {
-                      return AlertDialog(
-                        title: const Text('Delete Service'),
-                        content: const Text(
-                          'Are you sure you want to delete this service?',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context, false);
-                            },
-                            child: const Text('Cancel'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context, true);
-                            },
-                            child: const Text('Delete'),
-                          ),
-                        ],
-                      );
-                    },
+                  final confirm = await showAppConfirmationSheet(
+                    context,
+                    title: 'Delete service?',
+                    message:
+                        'This service will be permanently removed from your listings.',
+                    confirmLabel: 'Delete',
+                    isDestructive: true,
                   );
 
-                  if (confirm == true) {
+                  if (confirm) {
                     await serviceService.deleteService(service.id);
                   }
                 },
@@ -259,99 +243,87 @@ class _ServiceCard extends StatelessWidget {
 
                 const SizedBox(height: 14),
 
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isNarrow = constraints.maxWidth < 420;
-
-                    final actions = Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      alignment: isNarrow
-                          ? WrapAlignment.start
-                          : WrapAlignment.end,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          onPressed: onUpdate,
-                          icon: const Icon(Icons.edit_outlined, size: 16),
-                          label: const Text('Update'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primaryDark,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            minimumSize: const Size(0, 36),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: onToggleStatus,
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            minimumSize: const Size(0, 36),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(service.isActive ? 'Hide' : 'Activate'),
-                        ),
-                        IconButton(
-                          onPressed: onDelete,
-                          tooltip: 'Delete service',
-                          visualDensity: VisualDensity.compact,
-                          style: IconButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            backgroundColor: Colors.red.withValues(alpha: 0.08),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                        ),
-                      ],
-                    );
-
-                    final price = Text(
-                      'Rs. ${service.price.toStringAsFixed(0)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                Text(
+                  'Rs. ${service.price.toStringAsFixed(0)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Divider(height: 1, color: AppColors.border),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ServiceActionButton(
+                        label: 'Update',
+                        icon: Icons.edit_outlined,
+                        color: AppColors.primaryDark,
+                        onPressed: onUpdate,
                       ),
-                    );
-
-                    if (isNarrow) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [price, const SizedBox(height: 10), actions],
-                      );
-                    }
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(child: price),
-                        const SizedBox(width: 12),
-                        Flexible(child: actions),
-                      ],
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ServiceActionButton(
+                        label: service.isActive ? 'Hide' : 'Activate',
+                        icon: service.isActive
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppColors.primary,
+                        onPressed: onToggleStatus,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ServiceActionButton(
+                        label: 'Delete',
+                        icon: Icons.delete_outline,
+                        color: Colors.red,
+                        onPressed: onDelete,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ServiceActionButton extends StatelessWidget {
+  const _ServiceActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 17),
+      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        backgroundColor: color.withValues(alpha: 0.05),
+        side: BorderSide(color: color.withValues(alpha: 0.22)),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+        minimumSize: const Size(0, 42),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

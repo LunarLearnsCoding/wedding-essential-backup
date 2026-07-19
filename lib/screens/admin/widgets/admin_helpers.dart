@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/app_information_sheet.dart';
+
 class AdminHelpers {
   AdminHelpers._();
 
@@ -37,26 +39,17 @@ class AdminHelpers {
     required String title,
     required String message,
     String confirmText = 'Confirm',
+    bool? isDestructive,
   }) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(confirmText),
-            ),
-          ],
-        );
-      },
+    final destructive =
+        isDestructive ??
+        const {'delete', 'remove'}.contains(confirmText.trim().toLowerCase());
+    return showAppConfirmationSheet(
+      context,
+      title: title,
+      message: message,
+      confirmLabel: confirmText,
+      isDestructive: destructive,
     );
-    return result ?? false;
   }
 }

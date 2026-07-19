@@ -20,10 +20,41 @@ class ServiceService {
   }
 
   Future<void> deleteService(String serviceId) async {
-    await _firestore
+    final serviceReference = _firestore
         .collection(FirestoreCollections.services)
-        .doc(serviceId)
-        .delete();
+        .doc(serviceId);
+    final bookings = await _firestore
+        .collection(FirestoreCollections.bookings)
+        .where('serviceId', isEqualTo: serviceId)
+        .get();
+
+    final references = bookings.docs
+        .where(
+          (doc) =>
+              (doc.data()['status'] ?? '').toString().toLowerCase() !=
+              'completed',
+        )
+        .map((doc) => doc.reference)
+        .toList();
+    var offset = 0;
+    var serviceDeleted = false;
+    while (offset < references.length) {
+      final batch = _firestore.batch();
+      final end = (offset + 499).clamp(0, references.length);
+      if (!serviceDeleted) {
+        batch.delete(serviceReference);
+        serviceDeleted = true;
+      }
+      for (final reference in references.sublist(offset, end)) {
+        batch.delete(reference);
+      }
+      await batch.commit();
+      offset = end;
+    }
+
+    if (!serviceDeleted) {
+      await serviceReference.delete();
+    }
   }
 
   Future<void> updateServiceStatus(String serviceId, bool isActive) async {

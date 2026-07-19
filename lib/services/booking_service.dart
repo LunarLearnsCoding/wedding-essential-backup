@@ -82,11 +82,7 @@ class BookingService {
         .collection(FirestoreCollections.bookings)
         .where('customerId', isEqualTo: customerId)
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            return BookingModel.fromMap(doc.id, doc.data());
-          }).toList();
-        });
+        .asyncMap(_removeOrphanedBookings);
   }
 
   Stream<List<BookingModel>> getVendorBookings(String vendorId) {
@@ -94,11 +90,7 @@ class BookingService {
         .collection(FirestoreCollections.bookings)
         .where('vendorId', isEqualTo: vendorId)
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            return BookingModel.fromMap(doc.id, doc.data());
-          }).toList();
-        });
+        .asyncMap(_removeOrphanedBookings);
   }
 
   Stream<List<BookingModel>> getVendorBookingsByStatus({
@@ -110,11 +102,96 @@ class BookingService {
         .where('vendorId', isEqualTo: vendorId)
         .where('status', isEqualTo: enumToString(status))
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            return BookingModel.fromMap(doc.id, doc.data());
-          }).toList();
-        });
+        .asyncMap(_removeOrphanedBookings);
+  }
+
+  Future<List<BookingModel>> _removeOrphanedBookings(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    if (snapshot.docs.isEmpty) return const [];
+
+    final serviceIds = snapshot.docs
+        .map((doc) => (doc.data()['serviceId'] ?? '').toString().trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final vendorIds = snapshot.docs
+        .map((doc) => (doc.data()['vendorId'] ?? '').toString().trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    try {
+      final serviceSnapshots = await Future.wait(
+        serviceIds.map(
+          (id) => _firestore
+              .collection(FirestoreCollections.services)
+              .doc(id)
+              .get(),
+        ),
+      );
+      final vendorSnapshots = await Future.wait(
+        vendorIds.map(
+          (id) =>
+              _firestore.collection(FirestoreCollections.vendors).doc(id).get(),
+        ),
+      );
+      final existingServices = serviceSnapshots
+          .where((doc) => doc.exists)
+          .map((doc) => doc.id)
+          .toSet();
+      final existingVendors = vendorSnapshots
+          .where((doc) => doc.exists)
+          .map((doc) => doc.id)
+          .toSet();
+
+      final valid = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+      final orphaned = <DocumentReference<Map<String, dynamic>>>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final serviceId = (data['serviceId'] ?? '').toString().trim();
+        final vendorId = (data['vendorId'] ?? '').toString().trim();
+        final status = (data['status'] ?? '').toString().trim().toLowerCase();
+        final vendorExists = existingVendors.contains(vendorId);
+        final serviceExists = existingServices.contains(serviceId);
+        final preserveCompletedHistory =
+            status == enumToString(BookingStatus.completed) && vendorExists;
+        if (vendorExists && (serviceExists || preserveCompletedHistory)) {
+          valid.add(doc);
+        } else {
+          orphaned.add(doc.reference);
+        }
+      }
+
+      if (orphaned.isNotEmpty) {
+        try {
+          await _deleteBookingReferences(orphaned);
+        } catch (error, stackTrace) {
+          debugPrint('Could not delete orphaned booking documents: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }
+      return valid
+          .map((doc) => BookingModel.fromMap(doc.id, doc.data()))
+          .toList();
+    } catch (error, stackTrace) {
+      debugPrint('Could not clean orphaned bookings: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return snapshot.docs
+          .map((doc) => BookingModel.fromMap(doc.id, doc.data()))
+          .toList();
+    }
+  }
+
+  Future<void> _deleteBookingReferences(
+    List<DocumentReference<Map<String, dynamic>>> references,
+  ) async {
+    for (var offset = 0; offset < references.length; offset += 500) {
+      final end = (offset + 500).clamp(0, references.length);
+      final batch = _firestore.batch();
+      for (final reference in references.sublist(offset, end)) {
+        batch.delete(reference);
+      }
+      await batch.commit();
+    }
   }
 
   Future<void> confirmBooking(String bookingId) async {

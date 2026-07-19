@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/admin_app_colors.dart';
+import '../../core/constants/admin_account.dart';
 import 'package:wedding_essentialsapp/screens/admin/admin_login_screen.dart';
 import 'package:wedding_essentialsapp/screens/admin/admin_dashboard_screen.dart';
 
@@ -32,7 +33,9 @@ class AdminGuard extends StatelessWidget {
 
         final data = snapshot.data?.data();
         final role = (data?['role'] ?? '').toString().toLowerCase();
-        final isAdmin = role == 'admin' || role == 'super_admin';
+        final isAdmin =
+            role == 'admin' &&
+            user.email?.trim().toLowerCase() == adminAccountEmail;
 
         if (!isAdmin) {
           return const _AdminAccessMessage(

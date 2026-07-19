@@ -3,48 +3,42 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_information_sheet.dart';
 import '../../providers/booking_provider.dart';
 import '../../models/booking_model.dart';
 import '../../models/app_enums.dart';
 import '../../services/booking_service.dart';
 import '../../services/review_service.dart';
 
-class CustomerBookingsScreen extends StatelessWidget {
+class CustomerBookingsScreen extends StatefulWidget {
   const CustomerBookingsScreen({super.key});
 
   static final BookingService _bookingService = BookingService();
   static final ReviewService _reviewService = ReviewService();
 
+  @override
+  State<CustomerBookingsScreen> createState() => _CustomerBookingsScreenState();
+}
+
+class _CustomerBookingsScreenState extends State<CustomerBookingsScreen> {
+  String _selectedFilter = 'All';
+
   Future<void> _cancelBooking(
     BuildContext context,
     BookingModel booking,
   ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Cancel Booking?'),
-          content: const Text(
-            'Are you sure you want to cancel this booking request?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('No'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Yes, Cancel'),
-            ),
-          ],
-        );
-      },
+    final confirm = await showAppConfirmationSheet(
+      context,
+      title: 'Cancel booking?',
+      message: 'Are you sure you want to cancel this booking request?',
+      confirmLabel: 'Cancel booking',
+      isDestructive: true,
     );
 
-    if (confirm != true) return;
+    if (!confirm) return;
 
     try {
-      await _bookingService.cancelBooking(booking);
+      await CustomerBookingsScreen._bookingService.cancelBooking(booking);
 
       if (!context.mounted) return;
 
@@ -69,12 +63,14 @@ class CustomerBookingsScreen extends StatelessWidget {
     var selectedRating = 5;
     var isSaving = false;
 
-    await showDialog<void>(
+    await showModalBottomSheet<void>(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      builder: (sheetContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (context, setSheetState) {
             Future<void> submitReview() async {
               if (isSaving) return;
 
@@ -90,16 +86,16 @@ class CustomerBookingsScreen extends StatelessWidget {
                 return;
               }
 
-              setDialogState(() => isSaving = true);
+              setSheetState(() => isSaving = true);
               try {
-                await _reviewService.submitBookingReview(
+                await CustomerBookingsScreen._reviewService.submitBookingReview(
                   booking: booking,
                   rating: selectedRating.toDouble(),
                   reviewText: reviewText,
                 );
 
-                if (!dialogContext.mounted) return;
-                Navigator.pop(dialogContext);
+                if (!sheetContext.mounted) return;
+                Navigator.pop(sheetContext);
                 if (!screenContext.mounted) return;
                 ScaffoldMessenger.of(screenContext).showSnackBar(
                   const SnackBar(
@@ -107,84 +103,135 @@ class CustomerBookingsScreen extends StatelessWidget {
                   ),
                 );
               } catch (error) {
-                if (!dialogContext.mounted) return;
-                setDialogState(() => isSaving = false);
+                if (!sheetContext.mounted) return;
+                setSheetState(() => isSaving = false);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(_reviewErrorMessage(error))),
                 );
               }
             }
 
-            return AlertDialog(
-              title: const Text('Write Review'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      booking.serviceName.trim().isEmpty
-                          ? 'Wedding Service'
-                          : booking.serviceName.trim(),
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (index) {
-                        final starRating = index + 1;
-                        return IconButton(
-                          onPressed: isSaving
-                              ? null
-                              : () => setDialogState(
-                                  () => selectedRating = starRating,
-                                ),
-                          icon: Icon(
-                            starRating <= selectedRating
-                                ? Icons.star_rounded
-                                : Icons.star_border_rounded,
-                            color: Colors.amber,
-                            size: 32,
+            return SafeArea(
+              top: false,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  12,
+                  24,
+                  24 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.border,
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: reviewController,
-                      enabled: !isSaving,
-                      maxLines: 5,
-                      maxLength: 500,
-                      decoration: const InputDecoration(
-                        labelText: 'Your Review',
-                        hintText: 'Share your experience with this service.',
-                        alignLabelWithHint: true,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 22),
+                      const Text(
+                        'Write review',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Share your experience to help other customers.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        booking.serviceName.trim().isEmpty
+                            ? 'Wedding Service'
+                            : booking.serviceName.trim(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(5, (index) {
+                          final starRating = index + 1;
+                          return IconButton(
+                            onPressed: isSaving
+                                ? null
+                                : () => setSheetState(
+                                    () => selectedRating = starRating,
+                                  ),
+                            icon: Icon(
+                              starRating <= selectedRating
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              color: Colors.amber,
+                              size: 32,
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: reviewController,
+                        enabled: !isSaving,
+                        maxLines: 5,
+                        maxLength: 500,
+                        decoration: const InputDecoration(
+                          labelText: 'Your Review',
+                          hintText: 'Share your experience with this service.',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: isSaving
+                                  ? null
+                                  : () => Navigator.pop(sheetContext),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: isSaving ? null : submitReview,
+                              child: isSaving
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Submit review'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: isSaving
-                      ? null
-                      : () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: isSaving ? null : submitReview,
-                  child: isSaving
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Submit Review'),
-                ),
-              ],
             );
           },
         );
@@ -207,23 +254,167 @@ class CustomerBookingsScreen extends StatelessWidget {
     }
 
     final sortedBookings = List<BookingModel>.from(bookings)
-      ..sort((a, b) => b.eventDate.compareTo(a.eventDate));
+      ..sort((a, b) {
+        final createdComparison = b.createdAt.compareTo(a.createdAt);
+        return createdComparison != 0
+            ? createdComparison
+            : b.id.compareTo(a.id);
+      });
+    final filteredBookings = _selectedFilter == 'All'
+        ? sortedBookings
+        : sortedBookings
+              .where(
+                (booking) =>
+                    _customerBookingStatusLabel(booking.status) ==
+                    _selectedFilter,
+              )
+              .toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('My Bookings')),
-      body: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-        itemCount: sortedBookings.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 14),
-        itemBuilder: (context, index) {
-          final booking = sortedBookings[index];
-          return _BookingCard(
-            booking: booking,
-            onCancel: () => _cancelBooking(context, booking),
-            onReview: () => _showReviewDialog(context, booking),
-          );
-        },
+      body: Column(
+        children: [
+          _CustomerBookingFilterTabs(
+            selectedFilter: _selectedFilter,
+            bookings: sortedBookings,
+            onChanged: (filter) => setState(() => _selectedFilter = filter),
+          ),
+          Expanded(
+            child: filteredBookings.isEmpty
+                ? _FilteredBookingsEmpty(filter: _selectedFilter)
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+                    itemCount: filteredBookings.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      final booking = filteredBookings[index];
+                      return _BookingCard(
+                        key: ValueKey(booking.id),
+                        booking: booking,
+                        onCancel: () => _cancelBooking(context, booking),
+                        onReview: () => _showReviewDialog(context, booking),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomerBookingFilterTabs extends StatelessWidget {
+  const _CustomerBookingFilterTabs({
+    required this.selectedFilter,
+    required this.bookings,
+    required this.onChanged,
+  });
+
+  final String selectedFilter;
+  final List<BookingModel> bookings;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const filters = [
+      'All',
+      'Pending',
+      'Confirmed',
+      'Rejected',
+      'Completed',
+      'Cancelled',
+    ];
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: filters.map((filter) {
+            final selected = selectedFilter == filter;
+            final count = filter == 'All'
+                ? bookings.length
+                : bookings
+                      .where(
+                        (booking) =>
+                            _customerBookingStatusLabel(booking.status) ==
+                            filter,
+                      )
+                      .length;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () => onChanged(filter),
+                borderRadius: BorderRadius.circular(14),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.primary : AppColors.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: selected ? AppColors.primary : AppColors.border,
+                    ),
+                  ),
+                  child: Text(
+                    '$filter $count',
+                    style: TextStyle(
+                      color: selected ? Colors.white : AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilteredBookingsEmpty extends StatelessWidget {
+  const _FilteredBookingsEmpty({required this.filter});
+
+  final String filter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.event_note_outlined,
+              color: AppColors.primary,
+              size: 42,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No ${filter.toLowerCase()} bookings',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Bookings matching this status will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -281,6 +472,7 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback onReview;
 
   const _BookingCard({
+    super.key,
     required this.booking,
     required this.onCancel,
     required this.onReview,
@@ -418,41 +610,77 @@ class _BookingCard extends StatelessWidget {
           ],
           if (booking.status == BookingStatus.completed) ...[
             const SizedBox(height: 18),
-            StreamBuilder<bool>(
-              stream: CustomerBookingsScreen._reviewService.hasReviewForBooking(
-                booking.id,
-              ),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: SizedBox(
-                      height: 22,
-                      width: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  );
-                }
-
-                final hasReview = snapshot.data ?? false;
-                return SizedBox(
-                  height: 46,
-                  width: double.infinity,
-                  child: hasReview
-                      ? OutlinedButton.icon(
-                          onPressed: null,
-                          icon: const Icon(Icons.check_circle_outline),
-                          label: const Text('Reviewed'),
-                        )
-                      : ElevatedButton.icon(
-                          onPressed: onReview,
-                          icon: const Icon(Icons.rate_review_outlined),
-                          label: const Text('Write Review'),
-                        ),
-                );
-              },
-            ),
+            _ReviewAction(bookingId: booking.id, onReview: onReview),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ReviewAction extends StatefulWidget {
+  const _ReviewAction({required this.bookingId, required this.onReview});
+
+  final String bookingId;
+  final VoidCallback onReview;
+
+  @override
+  State<_ReviewAction> createState() => _ReviewActionState();
+}
+
+class _ReviewActionState extends State<_ReviewAction> {
+  late Stream<bool> _reviewStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _reviewStatus = CustomerBookingsScreen._reviewService.hasReviewForBooking(
+      widget.bookingId,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReviewAction oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bookingId != widget.bookingId) {
+      _reviewStatus = CustomerBookingsScreen._reviewService.hasReviewForBooking(
+        widget.bookingId,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 46,
+      width: double.infinity,
+      child: StreamBuilder<bool>(
+        stream: _reviewStatus,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return OutlinedButton(
+              onPressed: null,
+              child: const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          }
+
+          final hasReview = snapshot.data ?? false;
+          return hasReview
+              ? OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Reviewed'),
+                )
+              : ElevatedButton.icon(
+                  onPressed: widget.onReview,
+                  icon: const Icon(Icons.rate_review_outlined),
+                  label: const Text('Write Review'),
+                );
+        },
       ),
     );
   }
@@ -461,6 +689,13 @@ class _BookingCard extends StatelessWidget {
 String _reviewErrorMessage(Object error) {
   if (error is StateError) return error.message.toString();
   return 'Failed to submit review: $error';
+}
+
+String _customerBookingStatusLabel(BookingStatus status) {
+  final value = enumToString(status);
+  return value.isEmpty
+      ? value
+      : '${value[0].toUpperCase()}${value.substring(1)}';
 }
 
 class _MiniInfoBox extends StatelessWidget {

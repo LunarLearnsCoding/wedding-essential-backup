@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/constants/admin_account.dart';
 import 'admin_dashboard_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -37,10 +38,20 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     });
 
     try {
+      final email = _emailController.text.trim().toLowerCase();
       final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
+        email: email,
         password: _passwordController.text.trim(),
       );
+
+      if (credential.user?.email?.trim().toLowerCase() != adminAccountEmail) {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = 'This account is not authorized for admin access.';
+        });
+        return;
+      }
 
       final uid = credential.user!.uid;
 
@@ -162,7 +173,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        labelText: 'Admin Email',
+                        labelText: 'Email address',
+                        hintText: 'Enter your admin email',
                         prefixIcon: const Icon(Icons.email_outlined),
                         filled: true,
                         fillColor: const Color(0xFFF7F4F8),
@@ -172,14 +184,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         ),
                       ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Email is required';
+                        final email = value?.trim() ?? '';
+                        if (email.isEmpty) return 'Email is required';
+                        if (!RegExp(
+                          r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                        ).hasMatch(email)) {
+                          return 'Enter a valid email address';
                         }
-
-                        if (!value.contains('@')) {
-                          return 'Enter a valid email';
-                        }
-
                         return null;
                       },
                     ),
