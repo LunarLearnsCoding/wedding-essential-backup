@@ -22,11 +22,13 @@ class AdminShell extends StatelessWidget {
     required this.pages,
     required this.selectedIndex,
     required this.onSelected,
+    required this.onLogout,
   });
 
   final List<AdminPanelPage> pages;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +47,7 @@ class AdminShell extends StatelessWidget {
                   pages: pages,
                   selectedIndex: selectedIndex,
                   onSelected: onSelected,
+                  onLogout: onLogout,
                 ),
                 Expanded(child: _PageFrame(page: page)),
               ],
@@ -68,6 +71,10 @@ class AdminShell extends StatelessWidget {
                 onSelected: (index) {
                   Navigator.pop(context);
                   onSelected(index);
+                },
+                onLogout: () {
+                  Navigator.pop(context);
+                  onLogout();
                 },
               ),
             ),
@@ -166,11 +173,13 @@ class _Sidebar extends StatelessWidget {
     required this.pages,
     required this.selectedIndex,
     required this.onSelected,
+    required this.onLogout,
   });
 
   final List<AdminPanelPage> pages;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -249,6 +258,14 @@ class _Sidebar extends StatelessWidget {
               },
             ),
           ),
+          const Divider(height: 18),
+          _NavTile(
+            title: 'Log out',
+            icon: Icons.logout_rounded,
+            selected: false,
+            color: AdminAppColors.danger,
+            onTap: onLogout,
+          ),
         ],
       ),
     );
@@ -260,17 +277,19 @@ class _MobileDrawer extends StatelessWidget {
     required this.pages,
     required this.selectedIndex,
     required this.onSelected,
+    required this.onLogout,
   });
 
   final List<AdminPanelPage> pages;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.all(14),
-      itemCount: pages.length + 1,
+      itemCount: pages.length + 2,
       itemBuilder: (context, index) {
         if (index == 0) {
           return const Padding(
@@ -278,6 +297,18 @@ class _MobileDrawer extends StatelessWidget {
             child: Text(
               'Wedding Essentials Admin',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+            ),
+          );
+        }
+        if (index == pages.length + 1) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _NavTile(
+              title: 'Log out',
+              icon: Icons.logout_rounded,
+              selected: false,
+              color: AdminAppColors.danger,
+              onTap: onLogout,
             ),
           );
         }
@@ -300,12 +331,14 @@ class _NavTile extends StatelessWidget {
     required this.icon,
     required this.selected,
     required this.onTap,
+    this.color,
   });
 
   final String title;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -323,18 +356,22 @@ class _NavTile extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: selected
-                    ? AdminAppColors.primary
-                    : AdminAppColors.textSecondary,
+                color:
+                    color ??
+                    (selected
+                        ? AdminAppColors.primary
+                        : AdminAppColors.textSecondary),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
                   style: TextStyle(
-                    color: selected
-                        ? AdminAppColors.primary
-                        : AdminAppColors.textPrimary,
+                    color:
+                        color ??
+                        (selected
+                            ? AdminAppColors.primary
+                            : AdminAppColors.textPrimary),
                     fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   ),
                 ),

@@ -38,6 +38,12 @@ class BlogService {
         });
   }
 
+  Stream<List<BlogModel>> getPublishedBlogs() {
+    return getAllBlogs().map(
+      (blogs) => blogs.where((blog) => blog.isPublished).toList(),
+    );
+  }
+
   Future<BlogModel?> getBlogById(String blogId) async {
     final doc = await _firestore
         .collection(FirestoreCollections.blogs)

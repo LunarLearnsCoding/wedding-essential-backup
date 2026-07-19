@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/admin_app_colors.dart';
 import '../../models/admin_models.dart';
 import '../../services/admin_service.dart';
+import 'widgets/admin_data_table.dart';
 import 'widgets/admin_empty_state.dart';
 import 'widgets/admin_formatters.dart';
 import 'widgets/admin_helpers.dart';
-import 'widgets/admin_record_card.dart';
 import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
@@ -45,14 +46,25 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
                 );
               }
 
-              final docs = snapshot.data?.docs ?? [];
-              final services = docs
+              final services = (snapshot.data?.docs ?? [])
                   .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where(
-                    (item) => AdminHelpers.matchesSearch(item.data, _search),
-                  )
+                  .where((item) {
+                    final active = item.boolValue(['isActive'], fallback: true);
+                    return AdminHelpers.matchesValues(_search, [
+                      item.stringValue(['title', 'serviceName', 'name']),
+                      item.stringValue([
+                        'vendorName',
+                        'businessName',
+                        'vendorId',
+                      ]),
+                      item.stringValue(['category', 'serviceCategory']),
+                      item.numberValue(['price', 'startingPrice', 'amount']),
+                      item.stringValue([
+                        'status',
+                      ], fallback: active ? 'active' : 'inactive'),
+                    ]);
+                  })
                   .toList();
-
               if (services.isEmpty) {
                 return const AdminEmptyState(
                   title: 'No services found',
@@ -61,11 +73,19 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
                 );
               }
 
-              return ListView.separated(
-                itemCount: services.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final item = services[index];
+              return AdminDataTable(
+                minWidth: 1120,
+                columns: const [
+                  DataColumn(label: Text('#')),
+                  DataColumn(label: Text('SERVICE')),
+                  DataColumn(label: Text('VENDOR')),
+                  DataColumn(label: Text('CATEGORY')),
+                  DataColumn(label: Text('PRICE')),
+                  DataColumn(label: Text('STATUS')),
+                  DataColumn(label: Text('ACTIONS')),
+                ],
+                rows: services.asMap().entries.map((entry) {
+                  final item = entry.value;
                   final title = item.stringValue([
                     'title',
                     'serviceName',
@@ -75,7 +95,7 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
                     'vendorName',
                     'businessName',
                     'vendorId',
-                  ], fallback: 'Vendor not provided');
+                  ], fallback: '—');
                   final category = item.stringValue([
                     'category',
                     'serviceCategory',
@@ -85,97 +105,79 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
                     'startingPrice',
                     'amount',
                   ]);
-                  final isActive = item.boolValue(['isActive'], fallback: true);
+                  final active = item.boolValue(['isActive'], fallback: true);
                   final status = item.stringValue([
                     'status',
-                  ], fallback: isActive ? 'active' : 'inactive');
-                  final createdAt = item.dateValue(['createdAt']);
+                  ], fallback: active ? 'active' : 'inactive');
 
-                  return AdminRecordCard(
-                    leadingIcon: Icons.room_service_outlined,
-                    title: title,
-                    subtitle: vendor,
-                    trailing: AdminStatusChip(label: status),
-                    meta: [
-                      AdminMetaPill(
-                        icon: Icons.category_outlined,
-                        label: category,
-                      ),
-                      AdminMetaPill(
-                        icon: Icons.payments_outlined,
-                        label: AdminFormatters.currency(price),
-                      ),
-                      AdminMetaPill(
-                        icon: Icons.calendar_today_outlined,
-                        label: AdminFormatters.date(createdAt),
-                      ),
-                    ],
-                    actions: [
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          try {
-                            await widget.service.updateServiceStatus(
-                              item.id,
-                              !isActive,
-                            );
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(
-                              context,
-                              isActive ? 'Service hidden' : 'Service activated',
-                            );
-                          } catch (error) {
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(
-                              context,
-                              error.toString(),
-                              isError: true,
-                            );
-                          }
-                        },
-                        icon: Icon(
-                          isActive
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
+                  return DataRow(
+                    cells: [
+                      DataCell(Text('${entry.key + 1}')),
+                      DataCell(Text(title)),
+                      DataCell(Text(vendor)),
+                      DataCell(Text(category)),
+                      DataCell(Text(AdminFormatters.currency(price))),
+                      DataCell(AdminStatusChip(label: status)),
+                      DataCell(
+                        AdminTableActions(
+                          children: [
+                            AdminTableAction(
+                              tooltip: active ? 'Hide' : 'Activate',
+                              icon: active
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              onPressed: () =>
+                                  _toggleActive(item.id, active: active),
+                            ),
+                            AdminTableAction(
+                              tooltip: 'Delete',
+                              icon: Icons.delete_outline,
+                              color: AdminAppColors.danger,
+                              onPressed: () => _deleteService(item.id),
+                            ),
+                          ],
                         ),
-                        label: Text(isActive ? 'Hide' : 'Activate'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final confirmed = await AdminHelpers.confirm(
-                            context,
-                            title: 'Delete service?',
-                            message:
-                                'This will permanently delete this service listing.',
-                            confirmText: 'Delete',
-                          );
-                          if (!confirmed) return;
-                          try {
-                            await widget.service.deleteDocument(
-                              'services',
-                              item.id,
-                            );
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(context, 'Service deleted');
-                          } catch (error) {
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(
-                              context,
-                              error.toString(),
-                              isError: true,
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Delete'),
                       ),
                     ],
                   );
-                },
+                }).toList(),
               );
             },
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _toggleActive(String id, {required bool active}) async {
+    try {
+      await widget.service.updateServiceStatus(id, !active);
+      if (!mounted) return;
+      AdminHelpers.showSnack(
+        context,
+        active ? 'Service hidden' : 'Service activated',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      AdminHelpers.showSnack(context, error.toString(), isError: true);
+    }
+  }
+
+  Future<void> _deleteService(String id) async {
+    final confirmed = await AdminHelpers.confirm(
+      context,
+      title: 'Delete service?',
+      message: 'This will permanently delete this service listing.',
+      confirmText: 'Delete',
+    );
+    if (!confirmed) return;
+    try {
+      await widget.service.deleteDocument('services', id);
+      if (!mounted) return;
+      AdminHelpers.showSnack(context, 'Service deleted');
+    } catch (error) {
+      if (!mounted) return;
+      AdminHelpers.showSnack(context, error.toString(), isError: true);
+    }
   }
 }

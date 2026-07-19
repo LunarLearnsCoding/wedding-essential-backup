@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
+import '../../core/widgets/legal_agreement.dart';
 import '../../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'vendor_register_screen.dart';
@@ -49,7 +50,11 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Customer account created successfully')),
+        const SnackBar(
+          content: Text(
+            'Account created. Check your email and verify it before signing in.',
+          ),
+        ),
       );
 
       Navigator.pushReplacement(
@@ -253,31 +258,11 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
 
                 const SizedBox(height: 18),
 
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Checkbox(
-                      value: agreeToTerms,
-                      activeColor: AppColors.primary,
-                      onChanged: (value) {
-                        setState(() {
-                          agreeToTerms = value ?? false;
-                        });
-                      },
-                    ),
-                    const Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 12),
-                        child: Text(
-                          'I agree to the Terms of Service and Privacy Policy',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                LegalAgreement(
+                  value: agreeToTerms,
+                  onChanged: (value) {
+                    setState(() => agreeToTerms = value);
+                  },
                 ),
 
                 const SizedBox(height: 18),
@@ -285,7 +270,9 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                 CustomButton(
                   text: 'Create Account',
                   isLoading: isLoading,
-                  onPressed: isLoading ? null : _registerCustomer,
+                  onPressed: isLoading || !agreeToTerms
+                      ? null
+                      : _registerCustomer,
                 ),
 
                 const SizedBox(height: 22),

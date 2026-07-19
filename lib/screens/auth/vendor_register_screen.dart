@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/service_categories.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
+import '../../core/widgets/legal_agreement.dart';
 import '../../providers/auth_provider.dart';
 import 'customer_register_screen.dart';
 import 'login_screen.dart';
@@ -29,18 +31,6 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
   bool agreeToTerms = false;
 
   String selectedCategory = 'Photography';
-
-  final List<String> categories = [
-    'Photography',
-    'Videography',
-    'Venue',
-    'Decoration',
-    'Catering',
-    'Makeup',
-    'Music & DJ',
-    'Transportation',
-    'Wedding Planner',
-  ];
 
   Future<void> _registerVendor() async {
     if (!_formKey.currentState!.validate()) return;
@@ -68,7 +58,11 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vendor account created successfully')),
+        const SnackBar(
+          content: Text(
+            'Vendor account created. Check your email and verify it before signing in.',
+          ),
+        ),
       );
 
       Navigator.pushReplacement(
@@ -224,10 +218,18 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
 
                 DropdownButtonFormField<String>(
                   initialValue: selectedCategory,
-                  decoration: const InputDecoration(
+                  isExpanded: true,
+                  decoration: InputDecoration(
                     hintText: 'Select category',
+                    prefixIcon: const Icon(Icons.category_outlined),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
                   ),
-                  items: categories.map((category) {
+                  items: serviceCategories.map((category) {
                     return DropdownMenuItem(
                       value: category,
                       child: Text(category),
@@ -238,6 +240,9 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
                       selectedCategory = value!;
                     });
                   },
+                  validator: (value) => value == null
+                      ? 'Please choose a service category.'
+                      : null,
                 ),
 
                 const SizedBox(height: 18),
@@ -329,31 +334,11 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
 
                 const SizedBox(height: 18),
 
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Checkbox(
-                      value: agreeToTerms,
-                      activeColor: AppColors.primary,
-                      onChanged: (value) {
-                        setState(() {
-                          agreeToTerms = value ?? false;
-                        });
-                      },
-                    ),
-                    const Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 12),
-                        child: Text(
-                          'I agree to the Terms of Service and Privacy Policy',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                LegalAgreement(
+                  value: agreeToTerms,
+                  onChanged: (value) {
+                    setState(() => agreeToTerms = value);
+                  },
                 ),
 
                 const SizedBox(height: 18),
@@ -361,7 +346,9 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
                 CustomButton(
                   text: 'Create Vendor Account',
                   isLoading: isLoading,
-                  onPressed: isLoading ? null : _registerVendor,
+                  onPressed: isLoading || !agreeToTerms
+                      ? null
+                      : _registerVendor,
                 ),
 
                 const SizedBox(height: 22),

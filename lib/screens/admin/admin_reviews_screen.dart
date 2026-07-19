@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../models/admin_models.dart';
+import '../../core/constants/admin_app_colors.dart';
+import '../../models/review_model.dart';
 import '../../services/admin_service.dart';
+import 'admin_vendor_reviews_screen.dart';
 import 'widgets/admin_empty_state.dart';
-import 'widgets/admin_formatters.dart';
 import 'widgets/admin_helpers.dart';
-import 'widgets/admin_record_card.dart';
 import 'widgets/admin_search_bar.dart';
-import 'widgets/admin_status_chip.dart';
 
 class AdminReviewsScreen extends StatefulWidget {
   const AdminReviewsScreen({super.key, required this.service});
@@ -26,138 +25,108 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
     return Column(
       children: [
         AdminSearchBar(
-          hintText: 'Search reviews by customer, vendor, service, or comment',
+          hintText: 'Search vendors by business name',
           onChanged: (value) => setState(() => _search = value),
         ),
         const SizedBox(height: 16),
         Expanded(
           child: StreamBuilder(
             stream: widget.service.collectionStream('reviews'),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+            builder: (context, reviewSnapshot) {
+              if (reviewSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (snapshot.hasError) {
+              if (reviewSnapshot.hasError) {
                 return AdminEmptyState(
                   title: 'Unable to load reviews',
-                  message: snapshot.error.toString(),
+                  message: reviewSnapshot.error.toString(),
                   icon: Icons.error_outline,
                 );
               }
 
-              final docs = snapshot.data?.docs ?? [];
-              final reviews = docs
-                  .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where(
-                    (item) => AdminHelpers.matchesSearch(item.data, _search),
-                  )
-                  .toList();
+              return StreamBuilder(
+                stream: widget.service.plainCollectionStream('vendors'),
+                builder: (context, vendorSnapshot) {
+                  if (vendorSnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-              if (reviews.isEmpty) {
-                return const AdminEmptyState(
-                  title: 'No reviews found',
-                  message: 'Customer reviews will appear here.',
-                  icon: Icons.star_border_rounded,
-                );
-              }
+                  final vendorInfo = <String, _VendorInfo>{};
+                  for (final doc in vendorSnapshot.data?.docs ?? []) {
+                    final data = doc.data();
+                    final fallbackName = data['name']?.toString().trim() ?? '';
+                    final businessName =
+                        data['businessName']?.toString().trim() ?? '';
+                    vendorInfo[doc.id] = _VendorInfo(
+                      id: doc.id,
+                      name: businessName.isNotEmpty
+                          ? businessName
+                          : fallbackName.isNotEmpty
+                          ? fallbackName
+                          : 'Vendor',
+                    );
+                  }
 
-              return ListView.separated(
-                itemCount: reviews.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final item = reviews[index];
-                  final customer = item.stringValue([
-                    'customerName',
-                    'userName',
-                    'name',
-                    'userId',
-                  ], fallback: 'Anonymous customer');
-                  final vendor = item.stringValue([
-                    'vendorName',
-                    'businessName',
-                    'vendorId',
-                  ], fallback: 'Vendor not provided');
-                  final serviceTitle = item.stringValue([
-                    'serviceTitle',
-                    'serviceName',
-                    'title',
-                  ], fallback: 'Service review');
-                  final comment = item.stringValue([
-                    'comment',
-                    'review',
-                    'message',
-                  ], fallback: 'No comment');
-                  final rating = item.numberValue(['rating', 'stars']);
-                  final status = item.stringValue([
-                    'status',
-                  ], fallback: 'published');
-                  final createdAt = item.dateValue(['createdAt']);
+                  final reviewsByVendor = <String, List<ReviewModel>>{};
+                  for (final doc in reviewSnapshot.data?.docs ?? []) {
+                    final review = ReviewModel.fromMap(doc.id, doc.data());
+                    if (review.vendorId.isEmpty) continue;
+                    reviewsByVendor
+                        .putIfAbsent(review.vendorId, () => [])
+                        .add(review);
+                  }
 
-                  return AdminRecordCard(
-                    leadingIcon: Icons.star_border_rounded,
-                    title: serviceTitle,
-                    subtitle: comment,
-                    trailing: AdminStatusChip(label: status),
-                    meta: [
-                      AdminMetaPill(
-                        icon: Icons.star_rate_rounded,
-                        label: '$rating / 5',
-                      ),
-                      AdminMetaPill(
-                        icon: Icons.person_outline,
-                        label: customer,
-                      ),
-                      AdminMetaPill(
-                        icon: Icons.storefront_outlined,
-                        label: vendor,
-                      ),
-                      AdminMetaPill(
-                        icon: Icons.calendar_today_outlined,
-                        label: AdminFormatters.date(createdAt),
-                      ),
-                    ],
-                    actions: [
-                      OutlinedButton.icon(
-                        onPressed: () => _updateReviewStatus(item.id, 'hidden'),
-                        icon: const Icon(Icons.visibility_off_outlined),
-                        label: const Text('Hide'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () =>
-                            _updateReviewStatus(item.id, 'published'),
-                        icon: const Icon(Icons.visibility_outlined),
-                        label: const Text('Publish'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final confirmed = await AdminHelpers.confirm(
-                            context,
-                            title: 'Delete review?',
-                            message:
-                                'This will permanently delete this review.',
-                            confirmText: 'Delete',
-                          );
-                          if (!confirmed) return;
-                          try {
-                            await widget.service.deleteDocument(
-                              'reviews',
-                              item.id,
+                  final cards =
+                      reviewsByVendor.entries
+                          .map((entry) {
+                            final info =
+                                vendorInfo[entry.key] ??
+                                _VendorInfo(
+                                  id: entry.key,
+                                  name: 'Unknown vendor',
+                                );
+                            return _VendorReviewSummary(
+                              info: info,
+                              reviews: entry.value,
                             );
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(context, 'Review deleted');
-                          } catch (error) {
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(
-                              context,
-                              error.toString(),
-                              isError: true,
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Delete'),
-                      ),
-                    ],
+                          })
+                          .where((summary) {
+                            return AdminHelpers.matchesValues(_search, [
+                              summary.info.name,
+                            ]);
+                          })
+                          .toList()
+                        ..sort(
+                          (a, b) => a.info.name.toLowerCase().compareTo(
+                            b.info.name.toLowerCase(),
+                          ),
+                        );
+
+                  if (cards.isEmpty) {
+                    return const AdminEmptyState(
+                      title: 'No vendor reviews found',
+                      message: 'Vendors with customer reviews appear here.',
+                      icon: Icons.star_border_rounded,
+                    );
+                  }
+
+                  return GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 440,
+                          mainAxisExtent: 132,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                        ),
+                    itemCount: cards.length,
+                    itemBuilder: (context, index) {
+                      final summary = cards[index];
+                      return _VendorReviewCard(
+                        summary: summary,
+                        onTap: () => _openVendorReviews(summary),
+                      );
+                    },
                   );
                 },
               );
@@ -168,14 +137,140 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
     );
   }
 
-  Future<void> _updateReviewStatus(String id, String status) async {
-    try {
-      await widget.service.updateDocument('reviews', id, {'status': status});
-      if (!mounted) return;
-      AdminHelpers.showSnack(context, 'Review marked as $status');
-    } catch (error) {
-      if (!mounted) return;
-      AdminHelpers.showSnack(context, error.toString(), isError: true);
-    }
+  void _openVendorReviews(_VendorReviewSummary summary) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminVendorReviewsScreen(
+          vendorId: summary.info.id,
+          vendorName: summary.info.name,
+        ),
+      ),
+    );
+  }
+}
+
+class _VendorInfo {
+  final String id;
+  final String name;
+
+  const _VendorInfo({required this.id, required this.name});
+}
+
+class _VendorReviewSummary {
+  final _VendorInfo info;
+  final List<ReviewModel> reviews;
+
+  const _VendorReviewSummary({required this.info, required this.reviews});
+
+  double get average => reviews.isEmpty
+      ? 0
+      : reviews.fold<double>(0, (sum, review) => sum + review.rating) /
+            reviews.length;
+}
+
+class _VendorReviewCard extends StatelessWidget {
+  const _VendorReviewCard({required this.summary, required this.onTap});
+
+  final _VendorReviewSummary summary;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AdminAppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AdminAppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AdminAppColors.surfaceSoft,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Text(
+                  summary.info.name.substring(0, 1).toUpperCase(),
+                  style: const TextStyle(
+                    color: AdminAppColors.primaryDark,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      summary.info.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AdminAppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: AdminAppColors.warning,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          summary.average.toStringAsFixed(1),
+                          style: const TextStyle(
+                            color: AdminAppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        const Text(
+                          '•',
+                          style: TextStyle(color: AdminAppColors.border),
+                        ),
+                        const SizedBox(width: 9),
+                        Flexible(
+                          child: Text(
+                            '${summary.reviews.length} ${summary.reviews.length == 1 ? 'review' : 'reviews'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AdminAppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AdminAppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -13,7 +13,13 @@ class VendorModel {
   final String category;
   final List<String> locations;
   final String bio;
+  final String facebookUrl;
+  final String instagramUrl;
+  final String tiktokUrl;
+  final String websiteUrl;
   final bool isApproved;
+  final bool isFeatured;
+  final DateTime? featuredUntil;
   final double averageRating;
   final int totalReviews;
   final DateTime createdAt;
@@ -29,7 +35,13 @@ class VendorModel {
     required this.category,
     required this.locations,
     required this.bio,
+    this.facebookUrl = '',
+    this.instagramUrl = '',
+    this.tiktokUrl = '',
+    this.websiteUrl = '',
     required this.isApproved,
+    this.isFeatured = false,
+    this.featuredUntil,
     required this.averageRating,
     required this.totalReviews,
     required this.createdAt,
@@ -47,7 +59,13 @@ class VendorModel {
       category: map['category'] ?? '',
       locations: stringListFromFirestore(map['locations']),
       bio: map['bio'] ?? '',
+      facebookUrl: map['facebookUrl']?.toString() ?? '',
+      instagramUrl: map['instagramUrl']?.toString() ?? '',
+      tiktokUrl: map['tiktokUrl']?.toString() ?? '',
+      websiteUrl: map['websiteUrl']?.toString() ?? '',
       isApproved: boolFromFirestore(map['isApproved']),
+      isFeatured: boolFromFirestore(map['isFeatured']),
+      featuredUntil: dateTimeFromFirestore(map['featuredUntil']),
       averageRating: doubleFromFirestore(map['averageRating']),
       totalReviews: intFromFirestore(map['totalReviews']),
       createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
@@ -65,7 +83,15 @@ class VendorModel {
       'category': category,
       'locations': locations,
       'bio': bio,
+      'facebookUrl': facebookUrl,
+      'instagramUrl': instagramUrl,
+      'tiktokUrl': tiktokUrl,
+      'websiteUrl': websiteUrl,
       'isApproved': isApproved,
+      'isFeatured': isFeatured,
+      'featuredUntil': featuredUntil == null
+          ? null
+          : Timestamp.fromDate(featuredUntil!),
       'averageRating': averageRating,
       'totalReviews': totalReviews,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -83,7 +109,13 @@ class VendorModel {
     String? category,
     List<String>? locations,
     String? bio,
+    String? facebookUrl,
+    String? instagramUrl,
+    String? tiktokUrl,
+    String? websiteUrl,
     bool? isApproved,
+    bool? isFeatured,
+    DateTime? featuredUntil,
     double? averageRating,
     int? totalReviews,
     DateTime? createdAt,
@@ -99,7 +131,13 @@ class VendorModel {
       category: category ?? this.category,
       locations: locations ?? this.locations,
       bio: bio ?? this.bio,
+      facebookUrl: facebookUrl ?? this.facebookUrl,
+      instagramUrl: instagramUrl ?? this.instagramUrl,
+      tiktokUrl: tiktokUrl ?? this.tiktokUrl,
+      websiteUrl: websiteUrl ?? this.websiteUrl,
       isApproved: isApproved ?? this.isApproved,
+      isFeatured: isFeatured ?? this.isFeatured,
+      featuredUntil: featuredUntil ?? this.featuredUntil,
       averageRating: averageRating ?? this.averageRating,
       totalReviews: totalReviews ?? this.totalReviews,
       createdAt: createdAt ?? this.createdAt,

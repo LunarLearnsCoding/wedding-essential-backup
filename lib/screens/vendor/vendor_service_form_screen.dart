@@ -1,10 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/service_model.dart';
 import '../../services/service_service.dart';
+import '../../services/storage_service.dart';
 
 class VendorServiceFormScreen extends StatefulWidget {
   final ServiceModel? service;
@@ -27,22 +31,68 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
 
   String _status = 'Active';
   bool _isSaving = false;
+  bool _isLoadingCategory = true;
+  final ImagePicker _imagePicker = ImagePicker();
+  final StorageService _storageService = StorageService();
+  final List<XFile> _newImages = [];
+  late List<String> _existingImageUrls;
 
   bool get _isUpdateMode => widget.service != null;
 
   @override
   void initState() {
     super.initState();
+    _existingImageUrls = List<String>.from(
+      widget.service?.imageUrls ?? const [],
+    );
+    _categoryController.text = widget.service?.category.trim() ?? '';
+    _loadVendorCategory();
 
     final service = widget.service;
     if (service == null) return;
 
     _serviceNameController.text = service.name;
-    _categoryController.text = service.category;
     _locationController.text = service.location;
     _priceController.text = service.price.toStringAsFixed(0);
     _descriptionController.text = service.description;
     _status = service.isActive ? 'Active' : 'Paused';
+  }
+
+  Future<void> _loadVendorCategory() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      if (mounted) setState(() => _isLoadingCategory = false);
+      return;
+    }
+    try {
+      final vendorDoc = await FirebaseFirestore.instance
+          .collection('vendors')
+          .doc(currentUser.uid)
+          .get();
+      final category = vendorDoc.data()?['category']?.toString().trim() ?? '';
+      if (!mounted) return;
+      if (category.isNotEmpty) _categoryController.text = category;
+    } finally {
+      if (mounted) setState(() => _isLoadingCategory = false);
+    }
+  }
+
+  Future<void> _pickImages() async {
+    final available = 6 - _existingImageUrls.length - _newImages.length;
+    if (available <= 0) {
+      _showImageLimitMessage();
+      return;
+    }
+    final selected = await _imagePicker.pickMultiImage();
+    if (!mounted || selected.isEmpty) return;
+    setState(() => _newImages.addAll(selected.take(available)));
+    if (selected.length > available) _showImageLimitMessage();
+  }
+
+  void _showImageLimitMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('You can add up to 6 images.')),
+    );
   }
 
   @override
@@ -80,27 +130,41 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
     try {
       final existingService = widget.service;
       final now = DateTime.now();
-      late final String vendorId;
-      late final String vendorName;
-
-      if (existingService == null) {
-        final vendorDoc = await FirebaseFirestore.instance
-            .collection('vendors')
-            .doc(currentUser.uid)
-            .get();
-
-        final vendorData = vendorDoc.data() ?? {};
-        vendorId = currentUser.uid;
-        vendorName =
-            vendorData['businessName']?.toString().trim().isNotEmpty == true
-            ? vendorData['businessName'].toString().trim()
-            : (vendorData['name']?.toString().trim().isNotEmpty == true
-                  ? vendorData['name'].toString().trim()
-                  : currentUser.email ?? 'Vendor');
-      } else {
-        vendorId = existingService.vendorId;
-        vendorName = existingService.vendorName;
+      final vendorDoc = await FirebaseFirestore.instance
+          .collection('vendors')
+          .doc(currentUser.uid)
+          .get();
+      final vendorData = vendorDoc.data() ?? {};
+      final vendorId = currentUser.uid;
+      final businessName = vendorData['businessName']?.toString().trim() ?? '';
+      final profileName = vendorData['name']?.toString().trim() ?? '';
+      final vendorName = businessName.isNotEmpty
+          ? businessName
+          : profileName.isNotEmpty
+          ? profileName
+          : existingService?.vendorName.trim().isNotEmpty == true
+          ? existingService!.vendorName.trim()
+          : currentUser.email ?? 'Vendor';
+      final profileCategory = vendorData['category']?.toString().trim() ?? '';
+      final vendorCategory = profileCategory.isNotEmpty
+          ? profileCategory
+          : existingService?.category.trim() ?? '';
+      if (vendorCategory.isEmpty) {
+        throw StateError(
+          'Your vendor profile does not have a service category. Update your business information before adding a service.',
+        );
       }
+
+      final uploadedUrls = <String>[];
+      for (final image in _newImages) {
+        uploadedUrls.add(
+          await _storageService.uploadServiceImage(
+            vendorId: vendorId,
+            image: image,
+          ),
+        );
+      }
+      final completeImageUrls = [..._existingImageUrls, ...uploadedUrls];
 
       final service = ServiceModel(
         id: existingService?.id ?? '',
@@ -108,13 +172,14 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
         vendorName: vendorName,
         name: _serviceNameController.text.trim(),
         description: _descriptionController.text.trim(),
-        category: _categoryController.text.trim(),
+        category: vendorCategory,
         location: _locationController.text.trim(),
         price: _parsePrice(_priceController.text),
-        imageUrls: existingService?.imageUrls ?? const [],
+        imageUrls: completeImageUrls,
         averageRating: existingService?.averageRating ?? 0,
         totalReviews: existingService?.totalReviews ?? 0,
         isActive: _status == 'Active',
+        isFeatured: existingService?.isFeatured ?? false,
         createdAt: existingService?.createdAt ?? now,
         updatedAt: _isUpdateMode ? now : null,
       );
@@ -185,11 +250,109 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                           controller: _serviceNameController,
                         ),
 
-                        _TextInput(
-                          label: 'Category',
-                          hint: 'Photography, Venue, Makeup...',
-                          controller: _categoryController,
+                        const Text(
+                          'Service Images',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _isSaving ? null : _pickImages,
+                            icon: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                            ),
+                            label: const Text('Select images'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_existingImageUrls.isNotEmpty ||
+                            _newImages.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            height: 110,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: [
+                                ..._existingImageUrls.asMap().entries.map(
+                                  (entry) => _ImagePreview(
+                                    image: Image.network(
+                                      entry.value,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.broken_image_outlined,
+                                      ),
+                                    ),
+                                    onRemove: _isSaving
+                                        ? null
+                                        : () => setState(
+                                            () => _existingImageUrls.removeAt(
+                                              entry.key,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                ..._newImages.asMap().entries.map(
+                                  (entry) => FutureBuilder<Uint8List>(
+                                    future: entry.value.readAsBytes(),
+                                    builder: (context, snapshot) => _ImagePreview(
+                                      image: snapshot.hasData
+                                          ? Image.memory(
+                                              snapshot.data!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            ),
+                                      onRemove: _isSaving
+                                          ? null
+                                          : () => setState(
+                                              () => _newImages.removeAt(
+                                                entry.key,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+
+                        TextFormField(
+                          controller: _categoryController,
+                          readOnly: true,
+                          enableInteractiveSelection: false,
+                          decoration: _inputDecoration('Category').copyWith(
+                            helperText:
+                                'Taken from your vendor registration information.',
+                            prefixIcon: const Icon(Icons.category_outlined),
+                            suffixIcon: _isLoadingCategory
+                                ? const Padding(
+                                    padding: EdgeInsets.all(14),
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                : const Icon(Icons.lock_outline, size: 19),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
 
                         _TextInput(
                           label: 'Location',
@@ -272,6 +435,35 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                   ],
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImagePreview extends StatelessWidget {
+  final Widget image;
+  final VoidCallback? onRemove;
+  const _ImagePreview({required this.image, required this.onRemove});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(width: 104, height: 104, child: image),
+          ),
+          Positioned(
+            top: 3,
+            right: 3,
+            child: IconButton.filled(
+              visualDensity: VisualDensity.compact,
+              onPressed: onRemove,
+              icon: const Icon(Icons.close, size: 16),
             ),
           ),
         ],

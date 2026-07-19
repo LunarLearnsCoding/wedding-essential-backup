@@ -63,6 +63,8 @@ class AuthService {
     batch.set(customerRef, {...customer.toMap(), 'status': 'active'});
 
     await batch.commit();
+    await credential.user?.sendEmailVerification();
+    await _auth.signOut();
     return credential;
   }
 
@@ -124,6 +126,9 @@ class AuthService {
 
     await batch.commit();
 
+    await credential.user?.sendEmailVerification();
+    await _auth.signOut();
+
     return credential;
   }
 
@@ -132,10 +137,25 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    return await _auth.signInWithEmailAndPassword(
+    final credential = await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
+    await credential.user?.reload();
+    final user = _auth.currentUser;
+    if (user != null && !user.emailVerified) {
+      try {
+        await user.sendEmailVerification();
+      } on FirebaseAuthException catch (error) {
+        if (error.code != 'too-many-requests') rethrow;
+      }
+      await _auth.signOut();
+      throw FirebaseAuthException(
+        code: 'email-not-verified',
+        message: 'Verify your email before signing in.',
+      );
+    }
+    return credential;
   }
 
   // LOGOUT
@@ -145,7 +165,12 @@ class AuthService {
 
   // RESET PASSWORD
   Future<void> resetPassword(String email) async {
-    await _auth.sendPasswordResetEmail(email: email);
+    final normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) {
+      throw const FormatException('Enter the email address for your account.');
+    }
+
+    await _auth.sendPasswordResetEmail(email: normalizedEmail);
   }
 
   // GET USER ROLE

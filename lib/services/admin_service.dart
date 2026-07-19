@@ -22,6 +22,61 @@ class AdminService {
     return query.snapshots().map((snapshot) => snapshot.size);
   }
 
+  Stream<int> customerCountStream() {
+    return _collection('users').snapshots().map((snapshot) {
+      return snapshot.docs.where((doc) {
+        final role = (doc.data()['role'] ?? '').toString().toLowerCase();
+        return role.isEmpty || role == 'customer' || role == 'user';
+      }).length;
+    });
+  }
+
+  Stream<int> approvedVendorCountStream() {
+    return _collection('vendors').snapshots().map((snapshot) {
+      return snapshot.docs.where((doc) {
+        final data = doc.data();
+        final status = (data['approvalStatus'] ?? data['status'] ?? '')
+            .toString()
+            .toLowerCase();
+        return data['isApproved'] == true || status == 'approved';
+      }).length;
+    });
+  }
+
+  Stream<int> pendingVendorCountStream() {
+    return _collection('vendors').snapshots().map((snapshot) {
+      return snapshot.docs.where((doc) {
+        final data = doc.data();
+        final status = (data['approvalStatus'] ?? data['status'] ?? '')
+            .toString()
+            .toLowerCase();
+        return data['isApproved'] != true &&
+            (status.isEmpty || status == 'pending');
+      }).length;
+    });
+  }
+
+  Stream<int> activeServiceCountStream() {
+    return _collection('services').snapshots().map((snapshot) {
+      return snapshot.docs.where((doc) {
+        final data = doc.data();
+        final status = (data['status'] ?? '').toString().toLowerCase();
+        return data['isActive'] != false &&
+            status != 'inactive' &&
+            status != 'hidden';
+      }).length;
+    });
+  }
+
+  Stream<int> publishedBlogCountStream() {
+    return _collection('blogs').snapshots().map((snapshot) {
+      return snapshot.docs.where((doc) {
+        return (doc.data()['status'] ?? '').toString().toLowerCase() ==
+            'published';
+      }).length;
+    });
+  }
+
   Stream<double> revenueStream() {
     return _collection('bookings').snapshots().map((snapshot) {
       double total = 0;
@@ -140,6 +195,22 @@ class AdminService {
     });
   }
 
+  Future<void> featureVendorUntil(String vendorId, DateTime featuredUntil) {
+    return updateDocument('vendors', vendorId, {
+      'isFeatured': true,
+      'featuredAt': FieldValue.serverTimestamp(),
+      'featuredUntil': Timestamp.fromDate(featuredUntil),
+    });
+  }
+
+  Future<void> removeFeaturedVendor(String vendorId) {
+    return updateDocument('vendors', vendorId, {
+      'isFeatured': false,
+      'featuredAt': null,
+      'featuredUntil': null,
+    });
+  }
+
   Future<void> updateBookingStatus(String bookingId, String status) {
     return updateDocument('bookings', bookingId, {'status': status});
   }
@@ -150,5 +221,17 @@ class AdminService {
 
   Future<void> updateBlogStatus(String blogId, String status) {
     return updateDocument('blogs', blogId, {'status': status});
+  }
+
+  Future<void> createBlog(Map<String, dynamic> data) async {
+    await _collection('blogs').add({
+      ...data,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateBlog(String blogId, Map<String, dynamic> data) {
+    return updateDocument('blogs', blogId, data);
   }
 }

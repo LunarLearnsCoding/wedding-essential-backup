@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/admin_app_colors.dart';
 import '../../models/admin_models.dart';
 import '../../services/admin_service.dart';
+import 'widgets/admin_data_table.dart';
 import 'widgets/admin_empty_state.dart';
-import 'widgets/admin_formatters.dart';
 import 'widgets/admin_helpers.dart';
-import 'widgets/admin_record_card.dart';
 import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
@@ -26,8 +26,7 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
     return Column(
       children: [
         AdminSearchBar(
-          hintText:
-              'Search vendors by business name, owner, category, or status',
+          hintText: 'Search vendors by business, owner, category, or status',
           onChanged: (value) => setState(() => _search = value),
         ),
         const SizedBox(height: 16),
@@ -46,14 +45,34 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
                 );
               }
 
-              final docs = snapshot.data?.docs ?? [];
-              final vendors = docs
+              final vendors = (snapshot.data?.docs ?? [])
                   .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where(
-                    (item) => AdminHelpers.matchesSearch(item.data, _search),
-                  )
+                  .where((item) {
+                    return AdminHelpers.matchesValues(_search, [
+                      item.stringValue([
+                        'businessName',
+                        'companyName',
+                        'vendorName',
+                        'name',
+                      ]),
+                      item.stringValue([
+                        'ownerName',
+                        'contactName',
+                        'fullName',
+                        'name',
+                      ]),
+                      item.stringValue(['email']),
+                      item.stringValue(['phone', 'phoneNumber']),
+                      item.stringValue(['category', 'serviceCategory', 'type']),
+                      item.stringValue(
+                        ['status', 'approvalStatus'],
+                        fallback: item.boolValue(['isApproved'])
+                            ? 'approved'
+                            : 'pending',
+                      ),
+                    ]);
+                  })
                   .toList();
-
               if (vendors.isEmpty) {
                 return const AdminEmptyState(
                   title: 'No vendors found',
@@ -62,12 +81,20 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
                 );
               }
 
-              return ListView.separated(
-                itemCount: vendors.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final item = vendors[index];
-                  final businessName = item.stringValue([
+              return AdminDataTable(
+                minWidth: 1120,
+                columns: const [
+                  DataColumn(label: Text('#')),
+                  DataColumn(label: Text('BUSINESS')),
+                  DataColumn(label: Text('OWNER')),
+                  DataColumn(label: Text('CONTACT')),
+                  DataColumn(label: Text('CATEGORY')),
+                  DataColumn(label: Text('STATUS')),
+                  DataColumn(label: Text('ACTIONS')),
+                ],
+                rows: vendors.asMap().entries.map((entry) {
+                  final item = entry.value;
+                  final business = item.stringValue([
                     'businessName',
                     'companyName',
                     'vendorName',
@@ -77,115 +104,107 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
                     'ownerName',
                     'contactName',
                     'fullName',
-                  ], fallback: 'Owner not provided');
+                    'name',
+                  ], fallback: '—');
+                  final email = item.stringValue(['email'], fallback: '—');
+                  final phone = item.stringValue([
+                    'phone',
+                    'phoneNumber',
+                  ], fallback: '—');
                   final category = item.stringValue([
                     'category',
                     'serviceCategory',
                     'type',
                   ], fallback: 'General');
-                  final email = item.stringValue(['email']);
-                  final phone = item.stringValue(['phone', 'phoneNumber']);
                   final status = item.stringValue(
                     ['status', 'approvalStatus'],
                     fallback: item.boolValue(['isApproved'])
                         ? 'approved'
                         : 'pending',
                   );
-                  final createdAt = item.dateValue([
-                    'createdAt',
-                    'registeredAt',
-                  ]);
 
-                  return AdminRecordCard(
-                    leadingIcon: Icons.storefront_outlined,
-                    title: businessName,
-                    subtitle: '$owner • $email',
-                    trailing: AdminStatusChip(label: status),
-                    meta: [
-                      AdminMetaPill(
-                        icon: Icons.category_outlined,
-                        label: category,
+                  return DataRow(
+                    cells: [
+                      DataCell(Text('${entry.key + 1}')),
+                      DataCell(Text(business)),
+                      DataCell(Text(owner)),
+                      DataCell(
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [Text(email), Text(phone)],
+                        ),
                       ),
-                      AdminMetaPill(icon: Icons.phone_outlined, label: phone),
-                      AdminMetaPill(
-                        icon: Icons.calendar_today_outlined,
-                        label: AdminFormatters.date(createdAt),
-                      ),
-                    ],
-                    actions: [
-                      FilledButton.icon(
-                        onPressed: () async {
-                          try {
-                            await widget.service.approveVendor(item.id);
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(context, 'Vendor approved');
-                          } catch (error) {
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(
-                              context,
-                              error.toString(),
-                              isError: true,
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.check_circle_outline),
-                        label: const Text('Approve'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          try {
-                            await widget.service.rejectVendor(item.id);
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(context, 'Vendor rejected');
-                          } catch (error) {
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(
-                              context,
-                              error.toString(),
-                              isError: true,
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.cancel_outlined),
-                        label: const Text('Reject'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final confirmed = await AdminHelpers.confirm(
-                            context,
-                            title: 'Delete vendor?',
-                            message:
-                                'This will permanently delete this vendor document.',
-                            confirmText: 'Delete',
-                          );
-                          if (!confirmed) return;
-                          try {
-                            await widget.service.deleteDocument(
-                              'vendors',
-                              item.id,
-                            );
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(context, 'Vendor deleted');
-                          } catch (error) {
-                            if (!mounted) return;
-                            AdminHelpers.showSnack(
-                              context,
-                              error.toString(),
-                              isError: true,
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Delete'),
+                      DataCell(Text(category)),
+                      DataCell(AdminStatusChip(label: status)),
+                      DataCell(
+                        AdminTableActions(
+                          children: [
+                            AdminTableAction(
+                              tooltip: 'Approve',
+                              icon: Icons.check_circle_outline,
+                              color: AdminAppColors.success,
+                              onPressed: () => _updateStatus(item.id, true),
+                            ),
+                            AdminTableAction(
+                              tooltip: 'Reject',
+                              icon: Icons.cancel_outlined,
+                              color: AdminAppColors.warning,
+                              onPressed: () => _updateStatus(item.id, false),
+                            ),
+                            AdminTableAction(
+                              tooltip: 'Delete',
+                              icon: Icons.delete_outline,
+                              color: AdminAppColors.danger,
+                              onPressed: () => _deleteVendor(item.id),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   );
-                },
+                }).toList(),
               );
             },
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _updateStatus(String id, bool approve) async {
+    try {
+      if (approve) {
+        await widget.service.approveVendor(id);
+      } else {
+        await widget.service.rejectVendor(id);
+      }
+      if (!mounted) return;
+      AdminHelpers.showSnack(
+        context,
+        approve ? 'Vendor approved' : 'Vendor rejected',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      AdminHelpers.showSnack(context, error.toString(), isError: true);
+    }
+  }
+
+  Future<void> _deleteVendor(String id) async {
+    final confirmed = await AdminHelpers.confirm(
+      context,
+      title: 'Delete vendor?',
+      message: 'This will permanently delete this vendor document.',
+      confirmText: 'Delete',
+    );
+    if (!confirmed) return;
+    try {
+      await widget.service.deleteDocument('vendors', id);
+      if (!mounted) return;
+      AdminHelpers.showSnack(context, 'Vendor deleted');
+    } catch (error) {
+      if (!mounted) return;
+      AdminHelpers.showSnack(context, error.toString(), isError: true);
+    }
   }
 }

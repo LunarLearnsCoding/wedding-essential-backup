@@ -66,8 +66,9 @@ class AuthProvider extends ChangeNotifier {
       _setLoading(true);
 
       await _authService.login(email: email, password: password);
-    } finally {
-      // Don't set loading false here because _authSubscription will handle it
+    } catch (_) {
+      _setLoading(false);
+      rethrow;
     }
   }
 

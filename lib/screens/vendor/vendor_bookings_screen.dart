@@ -81,9 +81,9 @@ class _VendorBookingsScreenState extends State<VendorBookingsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final bookings =
-              (snapshot.data ?? []).map(_BookingItem.fromModel).toList()
-                ..sort((a, b) => a.rawEventDate.compareTo(b.rawEventDate));
+          final models = List<BookingModel>.from(snapshot.data ?? const [])
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          final bookings = models.map(_BookingItem.fromModel).toList();
           final filteredBookings = _filteredBookings(bookings);
 
           return Column(

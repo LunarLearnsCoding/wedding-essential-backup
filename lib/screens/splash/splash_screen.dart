@@ -74,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> checkUserAndNavigate() async {
-    final user = FirebaseAuth.instance.currentUser;
+    var user = FirebaseAuth.instance.currentUser;
 
     if (!mounted) return;
 
@@ -87,6 +87,18 @@ class _SplashScreenState extends State<SplashScreen>
     }
 
     try {
+      await user.reload();
+      user = FirebaseAuth.instance.currentUser;
+      if (user == null || !user.emailVerified) {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+        return;
+      }
+
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)

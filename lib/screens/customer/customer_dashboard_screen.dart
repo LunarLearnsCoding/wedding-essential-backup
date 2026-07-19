@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +8,10 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/firestore_collections.dart';
 import '../../core/utils/firestore_parsers.dart';
 import '../../core/widgets/app_bottom_nav.dart';
-import '../../models/service_model.dart';
+import '../../models/vendor_model.dart';
+import '../../models/blog_model.dart';
+import '../../services/blog_service.dart';
+import 'blog_details_screen.dart';
 import 'browse_services_screen.dart';
 import 'checklist_screen.dart';
 import 'customer_bookings_screen.dart';
@@ -14,7 +19,7 @@ import 'customer_inquiries_screen.dart';
 import 'customer_profile_screen.dart';
 import 'guest_list_screen.dart';
 import 'notification_screen.dart';
-import 'service_details_screen.dart';
+import 'vendor_details_screen.dart';
 import 'wedding_details_editor.dart';
 
 class CustomerDashboardScreen extends StatefulWidget {
@@ -58,25 +63,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               .get();
     final profileData = customerDoc.data() ?? userDoc?.data() ?? {};
 
-    final servicesSnapshot = await firestore
-        .collection(FirestoreCollections.services)
-        .where('isActive', isEqualTo: true)
-        .get();
-    final services = servicesSnapshot.docs
-        .map((doc) => ServiceModel.fromMap(doc.id, doc.data()))
-        .toList();
-
-    services.sort((a, b) {
-      final ratingCompare = b.averageRating.compareTo(a.averageRating);
-      if (ratingCompare != 0) return ratingCompare;
-      return b.createdAt.compareTo(a.createdAt);
-    });
-
     return _DashboardData(
       firstName: _firstName(profileData['name']),
       weddingDate: dateTimeFromFirestore(profileData['weddingDate']),
       weddingVenue: _stringValue(profileData['weddingVenue']),
-      featuredService: services.isEmpty ? null : services.first,
     );
   }
 
@@ -118,14 +108,6 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             children: [
               _FixedHeroHeader(
                 data: data,
-                onNotificationsTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationsScreen(),
-                    ),
-                  );
-                },
                 onWeddingTap: () async {
                   final saved = await showWeddingDetailsEditor(
                     context: context,
@@ -172,9 +154,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: crossAxisCount,
-                                  mainAxisSpacing: 12,
-                                  crossAxisSpacing: 12,
-                                  childAspectRatio: 0.95,
+                                  mainAxisSpacing: 10,
+                                  crossAxisSpacing: 10,
+                                  childAspectRatio: 1.35,
                                 ),
                             itemBuilder: (context, index) {
                               final category = categories[index];
@@ -197,7 +179,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           );
                         },
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 22),
                       _SectionHeader(
                         title: 'Wedding Planning',
                         actionText: 'View all',
@@ -212,9 +194,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       ),
                       const SizedBox(height: 14),
                       _PlanningGrid(),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 22),
                       _SectionHeader(
-                        title: 'Featured Services',
+                        title: 'Featured Vendors',
                         actionText: 'Browse',
                         onTap: () {
                           Navigator.push(
@@ -226,7 +208,18 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         },
                       ),
                       const SizedBox(height: 14),
-                      _FeaturedServiceCard(service: data.featuredService),
+                      const _FeaturedVendorsLive(),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Wedding Tips & Blogs',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const _PublishedBlogsLive(),
                     ],
                   ),
                 ),
@@ -318,19 +311,14 @@ class _DashboardError extends StatelessWidget {
 
 class _FixedHeroHeader extends StatelessWidget {
   final _DashboardData data;
-  final VoidCallback onNotificationsTap;
   final VoidCallback onWeddingTap;
 
-  const _FixedHeroHeader({
-    required this.data,
-    required this.onNotificationsTap,
-    required this.onWeddingTap,
-  });
+  const _FixedHeroHeader({required this.data, required this.onWeddingTap});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 52, 22, 22),
+      padding: const EdgeInsets.fromLTRB(22, 48, 22, 18),
       decoration: const BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.only(
@@ -338,127 +326,77 @@ class _FixedHeroHeader extends StatelessWidget {
           bottomRight: Radius.circular(32),
         ),
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _timeGreeting(),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      data.firstName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: '${_timeGreeting()}, '),
+                  TextSpan(
+                    text: data.firstName,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: onNotificationsTap,
-                child: Stack(
-                  children: [
-                    Container(
-                      height: 46,
-                      width: 46,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(
-                        Icons.notifications_none_outlined,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Positioned(
-                      right: 9,
-                      top: 9,
-                      child: Container(
-                        height: 9,
-                        width: 9,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(width: 14),
           InkWell(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(16),
             onTap: onWeddingTap,
             child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.favorite, color: Colors.white, size: 30),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Wedding Countdown',
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _weddingCountdownText(data.weddingDate),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (data.weddingVenue.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            data.weddingVenue,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   const Icon(
-                    Icons.edit_calendar_outlined,
-                    color: Colors.white,
-                    size: 22,
+                    Icons.calendar_month_rounded,
+                    color: AppColors.primary,
+                    size: 21,
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'WEDDING',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        _compactWeddingCountdown(data.weddingDate),
+                        style: const TextStyle(
+                          color: AppColors.primaryDark,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -490,7 +428,7 @@ class _SectionHeader extends StatelessWidget {
           title,
           style: const TextStyle(
             color: AppColors.textPrimary,
-            fontSize: 21,
+            fontSize: 19,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -572,9 +510,9 @@ class _PlanningGrid extends StatelessWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: constraints.maxWidth < 360 ? 1.0 : 1.15,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: constraints.maxWidth < 360 ? 1.3 : 1.55,
           padding: EdgeInsets.zero,
           children: [
             _PlanningCard(
@@ -648,19 +586,19 @@ class _PlanningCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: AppColors.primary, size: 30),
+            Icon(icon, color: AppColors.primary, size: 25),
             const Spacer(),
             Text(
               title,
@@ -688,123 +626,171 @@ class _PlanningCard extends StatelessWidget {
   }
 }
 
-class _FeaturedServiceCard extends StatelessWidget {
-  final ServiceModel? service;
+class _FeaturedVendorsLive extends StatefulWidget {
+  const _FeaturedVendorsLive();
 
-  const _FeaturedServiceCard({required this.service});
+  @override
+  State<_FeaturedVendorsLive> createState() => _FeaturedVendorsLiveState();
+}
+
+class _FeaturedVendorsLiveState extends State<_FeaturedVendorsLive> {
+  Timer? _expiryTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _expiryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _expiryTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final service = this.service;
-    if (service == null) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection(FirestoreCollections.vendors)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return const _FeaturedVendorCard(vendor: null);
+        }
+        final vendors =
+            (snapshot.data?.docs ?? const [])
+                .map((doc) => VendorModel.fromMap(doc.id, doc.data()))
+                .where(
+                  (vendor) =>
+                      (vendor.isApproved ||
+                          vendor.approvalStatus.toLowerCase() == 'approved') &&
+                      vendor.isFeatured &&
+                      (vendor.featuredUntil == null ||
+                          vendor.featuredUntil!.isAfter(DateTime.now())),
+                )
+                .toList()
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        if (vendors.isEmpty) {
+          return const _FeaturedVendorCard(vendor: null);
+        }
+        return Column(
+          children: [
+            for (var index = 0; index < vendors.length; index++) ...[
+              _FeaturedVendorCard(vendor: vendors[index]),
+              if (index != vendors.length - 1) const SizedBox(height: 10),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FeaturedVendorCard extends StatelessWidget {
+  const _FeaturedVendorCard({required this.vendor});
+
+  final VendorModel? vendor;
+
+  @override
+  Widget build(BuildContext context) {
+    final vendor = this.vendor;
+    if (vendor == null) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.border),
         ),
-        child: const Column(
-          children: [
-            Icon(Icons.search_off_outlined, color: AppColors.primary, size: 34),
-            SizedBox(height: 10),
-            Text(
-              'No active services yet',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Featured services will appear here once vendors publish them.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-            ),
-          ],
+        child: const Text(
+          'No featured vendors yet.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.textSecondary),
         ),
       );
     }
-
+    final name = vendor.businessName.trim().isNotEmpty
+        ? vendor.businessName.trim()
+        : vendor.name.trim();
     return InkWell(
-      borderRadius: BorderRadius.circular(24),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ServiceDetailsScreen(serviceId: service.id),
-          ),
-        );
-      },
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VendorDetailsScreen(vendorId: vendor.id),
+        ),
+      ),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [
-            _FeaturedServiceImage(service: service),
+            CircleAvatar(
+              radius: 27,
+              backgroundColor: AppColors.selectedSurface,
+              child: Text(
+                name.isEmpty ? 'V' : name.substring(0, 1).toUpperCase(),
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    service.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    service.vendorName,
+                    name.isEmpty ? 'Vendor' : name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.primaryDark,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
+                  Text(
+                    vendor.category.trim().isEmpty
+                        ? 'Wedding service provider'
+                        : vendor.category.trim(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: AppColors.primaryDark),
+                  ),
+                  const SizedBox(height: 7),
                   Row(
                     children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        color: AppColors.textSecondary,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          service.location,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                          ),
+                      const Icon(Icons.star, color: Colors.amber, size: 17),
+                      Text(
+                        ' ${vendor.averageRating.toStringAsFixed(1)} (${vendor.totalReviews} reviews)',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Rs. ${service.price.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      color: AppColors.primaryDark,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
                 ],
               ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textSecondary,
             ),
           ],
         ),
@@ -813,45 +799,135 @@ class _FeaturedServiceCard extends StatelessWidget {
   }
 }
 
-class _FeaturedServiceImage extends StatelessWidget {
-  final ServiceModel service;
-
-  const _FeaturedServiceImage({required this.service});
+class _PublishedBlogsLive extends StatelessWidget {
+  const _PublishedBlogsLive();
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = service.imageUrls.isEmpty ? '' : service.imageUrls.first;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: SizedBox(
-        height: 96,
-        width: 96,
-        child: imageUrl.trim().isEmpty
-            ? const _FeaturedImagePlaceholder()
-            : Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const _FeaturedImagePlaceholder();
-                },
-              ),
-      ),
+    return StreamBuilder<List<BlogModel>>(
+      stream: BlogService().getPublishedBlogs(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final blogs = snapshot.data ?? const <BlogModel>[];
+        if (snapshot.hasError || blogs.isEmpty) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const Text(
+              'No published wedding articles yet.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            for (var index = 0; index < blogs.length; index++) ...[
+              _BlogSummaryCard(blog: blogs[index]),
+              if (index != blogs.length - 1) const SizedBox(height: 10),
+            ],
+          ],
+        );
+      },
     );
   }
 }
 
-class _FeaturedImagePlaceholder extends StatelessWidget {
-  const _FeaturedImagePlaceholder();
+class _BlogSummaryCard extends StatelessWidget {
+  final BlogModel blog;
+
+  const _BlogSummaryCard({required this.blog});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.selectedSurface,
-      child: const Icon(
-        Icons.image_outlined,
-        color: AppColors.primary,
-        size: 34,
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => BlogDetailsScreen(blog: blog)),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 74,
+              height: 74,
+              decoration: BoxDecoration(
+                color: AppColors.selectedSurface,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: blog.imageUrl.trim().isEmpty
+                  ? const Icon(Icons.article_outlined, color: AppColors.primary)
+                  : Image.network(
+                      blog.imageUrl.trim(),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.article_outlined,
+                        color: AppColors.primary,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    blog.category,
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    blog.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    blog.summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textSecondary,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -861,20 +937,17 @@ class _DashboardData {
   final String firstName;
   final DateTime? weddingDate;
   final String weddingVenue;
-  final ServiceModel? featuredService;
 
   const _DashboardData({
     required this.firstName,
     required this.weddingDate,
     required this.weddingVenue,
-    required this.featuredService,
   });
 
   const _DashboardData.empty()
     : firstName = 'Customer',
       weddingDate = null,
-      weddingVenue = '',
-      featuredService = null;
+      weddingVenue = '';
 }
 
 String _firstName(dynamic rawName) {
@@ -894,10 +967,8 @@ String _timeGreeting() {
   return 'Good evening';
 }
 
-String _weddingCountdownText(DateTime? weddingDate) {
-  if (weddingDate == null) {
-    return 'Add your wedding date to start planning';
-  }
+String _compactWeddingCountdown(DateTime? weddingDate) {
+  if (weddingDate == null) return 'Set date';
 
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
@@ -908,7 +979,7 @@ String _weddingCountdownText(DateTime? weddingDate) {
   );
   final days = weddingDay.difference(today).inDays;
 
-  if (days > 0) return '$days days to your wedding';
-  if (days == 0) return 'Your wedding is today';
-  return 'Wedding date has passed';
+  if (days > 0) return '$days days';
+  if (days == 0) return 'Today';
+  return 'Date passed';
 }

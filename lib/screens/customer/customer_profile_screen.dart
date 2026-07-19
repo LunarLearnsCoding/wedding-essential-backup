@@ -7,11 +7,13 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/firestore_collections.dart';
 import '../../core/utils/firestore_parsers.dart';
 import '../../core/widgets/app_bottom_nav.dart';
+import '../../core/widgets/app_information_sheet.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'browse_services_screen.dart';
 import 'customer_dashboard_screen.dart';
 import 'notification_screen.dart';
+import 'wishlist_screen.dart';
 
 class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({super.key});
@@ -125,6 +127,16 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   Future<void> _logout(BuildContext context) async {
+    final confirmed = await showAppConfirmationSheet(
+      context,
+      title: 'Log out?',
+      message: 'Are you sure you want to sign out of your customer account?',
+      confirmLabel: 'Log out',
+      icon: Icons.logout_rounded,
+      isDestructive: true,
+    );
+    if (!context.mounted || !confirmed) return;
+
     await context.read<AuthProvider>().logout();
 
     if (!context.mounted) return;
@@ -153,11 +165,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     _refreshProfile(customerId);
   }
 
-  Future<void> _confirmPasswordReset(
-    BuildContext context,
-    _CustomerProfileData profile,
-  ) async {
-    final email = profile.email.trim();
+  Future<void> _confirmPasswordReset(BuildContext context) async {
+    final email = FirebaseAuth.instance.currentUser?.email?.trim() ?? '';
     if (email.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -165,22 +174,141 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Reset password?'),
-          content: Text('Send a password reset email to $email?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Send'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                  child: const Icon(
+                    Icons.lock_reset_rounded,
+                    color: AppColors.primaryDark,
+                    size: 27,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Change your password',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'We’ll email you a secure link to choose a new password.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 13,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.email_outlined,
+                        color: AppColors.primaryDark,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Text(
+                          email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetContext, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primaryDark,
+                          side: const BorderSide(color: AppColors.border),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(sheetContext, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                        child: const Text(
+                          'Send reset link',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -195,12 +323,19 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Password reset email sent to $email.')),
       );
-    } catch (error) {
+    } on FirebaseAuthException catch (error) {
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send reset email: $error')),
-      );
+      final message = switch (error.code) {
+        'too-many-requests' =>
+          'Too many reset attempts. Please wait and try again.',
+        'network-request-failed' =>
+          'Could not connect. Check your internet connection and try again.',
+        _ => 'Could not send the reset email. Please try again.',
+      };
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -288,11 +423,24 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   _ProfileMenuCard(
                     children: [
                       _ProfileMenuItem(
+                        icon: Icons.favorite_border_rounded,
+                        title: 'Favorites',
+                        subtitle: 'View your saved services',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const WishlistScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _ProfileMenuItem(
                         icon: Icons.lock_outline,
                         title: 'Privacy & Security',
                         subtitle: 'Send a password reset email',
                         onTap: () {
-                          _confirmPasswordReset(context, profile);
+                          _confirmPasswordReset(context);
                         },
                       ),
                       _ProfileMenuItem(

@@ -19,6 +19,7 @@ class ServiceModel {
   final int totalReviews;
 
   final bool isActive;
+  final bool isFeatured;
 
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -36,11 +37,14 @@ class ServiceModel {
     required this.averageRating,
     required this.totalReviews,
     required this.isActive,
+    this.isFeatured = false,
     required this.createdAt,
     this.updatedAt,
   });
 
   factory ServiceModel.fromMap(String id, Map<String, dynamic> map) {
+    final parsedImageUrls = stringListFromFirestore(map['imageUrls']);
+    final legacyImageUrl = map['imageUrl']?.toString().trim() ?? '';
     return ServiceModel(
       id: id,
       vendorId: map['vendorId'] ?? '',
@@ -50,10 +54,15 @@ class ServiceModel {
       category: map['category'] ?? '',
       location: map['location'] ?? '',
       price: doubleFromFirestore(map['price']),
-      imageUrls: stringListFromFirestore(map['imageUrls']),
+      imageUrls: parsedImageUrls.isNotEmpty
+          ? parsedImageUrls
+          : legacyImageUrl.isEmpty
+          ? const []
+          : [legacyImageUrl],
       averageRating: doubleFromFirestore(map['averageRating']),
       totalReviews: intFromFirestore(map['totalReviews']),
       isActive: boolFromFirestore(map['isActive'], fallback: true),
+      isFeatured: boolFromFirestore(map['isFeatured']),
       createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
       updatedAt: dateTimeFromFirestore(map['updatedAt']),
     );
@@ -72,6 +81,7 @@ class ServiceModel {
       'averageRating': averageRating,
       'totalReviews': totalReviews,
       'isActive': isActive,
+      'isFeatured': isFeatured,
       'status': isActive ? 'active' : 'inactive',
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),

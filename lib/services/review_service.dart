@@ -46,7 +46,6 @@ class ReviewService {
     final reviewReference = _firestore
         .collection(FirestoreCollections.reviews)
         .doc(booking.id);
-    String serviceIdForRating = booking.serviceId;
     String vendorIdForRating = booking.vendorId;
     var serviceNameForReview = '';
 
@@ -82,7 +81,6 @@ class ReviewService {
         serviceName = serviceSnapshot.data()?['name']?.toString().trim() ?? '';
       }
       serviceNameForReview = serviceName;
-      serviceIdForRating = latestBooking.serviceId;
       vendorIdForRating = latestBooking.vendorId;
 
       transaction.set(reviewReference, {
@@ -98,12 +96,6 @@ class ReviewService {
       });
     });
 
-    try {
-      await _updateServiceRating(serviceIdForRating);
-    } catch (error, stackTrace) {
-      debugPrint('Failed to update service rating: $error');
-      debugPrintStack(stackTrace: stackTrace);
-    }
     try {
       await _updateVendorRating(vendorIdForRating);
     } catch (error, stackTrace) {
@@ -126,7 +118,6 @@ class ReviewService {
         .collection(FirestoreCollections.reviews)
         .add(review.toMap());
 
-    await _updateServiceRating(review.serviceId);
     await _updateVendorRating(review.vendorId);
   }
 
@@ -160,6 +151,7 @@ class ReviewService {
         .map((snapshot) {
           return snapshot.docs
               .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
+              .where((review) => review.isVisible)
               .toList();
         });
   }
@@ -172,6 +164,7 @@ class ReviewService {
         .map((snapshot) {
           return snapshot.docs
               .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
+              .where((review) => review.isVisible)
               .toList();
         });
   }
@@ -224,6 +217,7 @@ class ReviewService {
         .map((snapshot) {
           return snapshot.docs
               .map((doc) => ReviewModel.fromMap(doc.id, doc.data()))
+              .where((review) => review.isVisible)
               .toList();
         });
   }
@@ -248,7 +242,6 @@ class ReviewService {
         .doc(reviewId)
         .delete();
 
-    await _updateServiceRating(serviceId);
     await _updateVendorRating(vendorId);
   }
 
@@ -260,31 +253,6 @@ class ReviewService {
     );
   }
 
-  Future<void> _updateServiceRating(String serviceId) async {
-    final snapshot = await _firestore
-        .collection(FirestoreCollections.reviews)
-        .where('serviceId', isEqualTo: serviceId)
-        .get();
-
-    double totalRating = 0;
-
-    for (final doc in snapshot.docs) {
-      totalRating += doubleFromFirestore(doc.data()['rating']);
-    }
-
-    final totalReviews = snapshot.docs.length;
-    final averageRating = totalReviews == 0 ? 0.0 : totalRating / totalReviews;
-
-    await _firestore
-        .collection(FirestoreCollections.services)
-        .doc(serviceId)
-        .update({
-          'averageRating': averageRating,
-          'totalReviews': totalReviews,
-          'updatedAt': Timestamp.now(),
-        });
-  }
-
   Future<void> _updateVendorRating(String vendorId) async {
     final snapshot = await _firestore
         .collection(FirestoreCollections.reviews)
@@ -294,10 +262,16 @@ class ReviewService {
     double totalRating = 0;
 
     for (final doc in snapshot.docs) {
-      totalRating += doubleFromFirestore(doc.data()['rating']);
+      final data = doc.data();
+      if (data['status']?.toString().toLowerCase() == 'hidden') continue;
+      totalRating += doubleFromFirestore(data['rating']);
     }
 
-    final totalReviews = snapshot.docs.length;
+    final totalReviews = snapshot.docs
+        .where(
+          (doc) => doc.data()['status']?.toString().toLowerCase() != 'hidden',
+        )
+        .length;
     final averageRating = totalReviews == 0 ? 0.0 : totalRating / totalReviews;
 
     await _firestore
@@ -323,6 +297,7 @@ ReviewModel _reviewWithServiceName(ReviewModel review, String serviceName) {
     rating: review.rating,
     reviewText: review.reviewText,
     vendorReplied: review.vendorReplied,
+    status: review.status,
     createdAt: review.createdAt,
   );
 }

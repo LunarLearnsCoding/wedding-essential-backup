@@ -1,15 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_information_sheet.dart';
 import '../../core/constants/firestore_collections.dart';
 import '../../models/app_enums.dart';
 import '../../models/booking_model.dart';
 import '../../models/inquiry_model.dart';
 import '../../services/booking_service.dart';
+import '../../services/favorites_service.dart';
 import '../../services/inquiry_service.dart';
+import 'vendor_details_screen.dart';
 
 class ServiceDetailsScreen extends StatefulWidget {
   final String serviceId;
@@ -241,12 +242,12 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
                   if (!context.mounted) return;
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'This service is already booked for the selected date and time. Please choose another time.',
-                      ),
-                    ),
+                  await showAppInformationSheet(
+                    context,
+                    title: 'Time slot unavailable',
+                    message:
+                        'This service already has a booking for the selected date and time. Please choose another available time.',
+                    icon: Icons.event_busy_outlined,
                   );
                   return;
                 }
@@ -424,126 +425,94 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
         return Scaffold(
           backgroundColor: AppColors.background,
-          body: Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _HeroSection(
-                      imageUrl: _imageValue(serviceData),
-                      category: _stringValue(serviceData, 'category'),
-                    ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ServiceImageGallery(
+                  serviceId: widget.serviceId,
+                  vendorId: _stringValue(serviceData, 'vendorId'),
+                  imageUrls: _serviceImages(serviceData),
+                ),
 
-                    Transform.translate(
-                      offset: const Offset(0, -22),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(22, 22, 22, 30),
-                        decoration: const BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(26),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _TitleArea(serviceData: serviceData),
-
-                            const SizedBox(height: 14),
-
-                            _RatingLocationRow(serviceData: serviceData),
-
-                            const SizedBox(height: 16),
-
-                            _TagWrap(serviceData: serviceData),
-
-                            const SizedBox(height: 24),
-
-                            const _SectionTitle('About'),
-
-                            const SizedBox(height: 10),
-
-                            Text(
-                              _stringValue(
-                                serviceData,
-                                'description',
-                                fallback:
-                                    'No description has been added for this service yet.',
-                              ),
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 15,
-                                height: 1.6,
-                              ),
-                            ),
-
-                            _SocialLogoLinksSection(serviceData: serviceData),
-
-                            const SizedBox(height: 14),
-
-                            const _SectionTitle('Reach Out'),
-
-                            const SizedBox(height: 18),
-
-                            _SocialLogoLinksSection(serviceData: serviceData),
-
-                            const SizedBox(height: 26),
-
-                            const _SectionTitle('Packages'),
-
-                            const SizedBox(height: 14),
-
-                            _PackageList(serviceData: serviceData),
-
-                            const SizedBox(height: 28),
-
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const _SectionTitle('Reviews'),
-                                SizedBox(
-                                  height: 48,
-                                  child: OutlinedButton.icon(
-                                    onPressed: () {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Coming soon!'),
-                                        ),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.chat_bubble_outline),
-                                    label: const Text('See all'),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            _ReviewsList(serviceId: widget.serviceId),
-                          ],
-                        ),
+                Transform.translate(
+                  offset: const Offset(0, -22),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 30),
+                    decoration: const BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(26),
                       ),
                     ),
-                  ],
-                ),
-              ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _stringValue(serviceData, 'category'),
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
 
-              Positioned(
-                left: 22,
-                right: 22,
-                bottom: 16,
-                child: _BottomActionBar(
-                  onInquiry: () => _showInquirySheet(serviceData),
-                  onBookNow: () => _showBookingSheet(serviceData),
+                        const SizedBox(height: 10),
+
+                        _TitleArea(serviceData: serviceData),
+
+                        const SizedBox(height: 6),
+
+                        _VendorLocationRow(serviceData: serviceData),
+
+                        const SizedBox(height: 16),
+
+                        _StartingPrice(serviceData: serviceData),
+
+                        const SizedBox(height: 20),
+
+                        const _SectionTitle('About'),
+
+                        const SizedBox(height: 10),
+
+                        Text(
+                          _stringValue(
+                            serviceData,
+                            'description',
+                            fallback:
+                                'No description has been added for this service yet.',
+                          ),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 15,
+                            height: 1.6,
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        _VendorInfoSection(
+                          vendorId: _stringValue(serviceData, 'vendorId'),
+                          fallbackName: _stringValue(
+                            serviceData,
+                            'vendorName',
+                            fallback: 'Vendor',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+          bottomNavigationBar: SafeArea(
+            minimum: const EdgeInsets.fromLTRB(22, 8, 22, 16),
+            child: _BottomActionBar(
+              onInquiry: () => _showInquirySheet(serviceData),
+              onBookNow: () => _showBookingSheet(serviceData),
+            ),
           ),
         );
       },
@@ -551,21 +520,65 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   }
 }
 
-class _HeroSection extends StatelessWidget {
-  final String imageUrl;
-  final String category;
+class _ServiceImageGallery extends StatefulWidget {
+  final String serviceId;
+  final String vendorId;
+  final List<String> imageUrls;
+  const _ServiceImageGallery({
+    required this.serviceId,
+    required this.vendorId,
+    required this.imageUrls,
+  });
+  @override
+  State<_ServiceImageGallery> createState() => _ServiceImageGalleryState();
+}
 
-  const _HeroSection({required this.imageUrl, required this.category});
+class _ServiceImageGalleryState extends State<_ServiceImageGallery> {
+  final FavoritesService _favoritesService = FavoritesService();
+  late Stream<bool> _favoriteStream;
+  int _currentPage = 0;
+  bool _isToggling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _favoriteStream = _favoritesService.isFavorite(widget.serviceId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ServiceImageGallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.serviceId != widget.serviceId) {
+      _favoriteStream = _favoritesService.isFavorite(widget.serviceId);
+    }
+  }
+
+  Future<void> _toggle() async {
+    if (_isToggling) return;
+    setState(() => _isToggling = true);
+    try {
+      await _favoritesService.toggleFavorite(
+        serviceId: widget.serviceId,
+        vendorId: widget.vendorId,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update favorites.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isToggling = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 310,
-      width: double.infinity,
+    return AspectRatio(
+      aspectRatio: 16 / 10,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          imageUrl.isEmpty
+          widget.imageUrls.isEmpty
               ? Container(
                   color: AppColors.selectedSurface,
                   child: const Icon(
@@ -574,96 +587,126 @@ class _HeroSection extends StatelessWidget {
                     color: AppColors.primary,
                   ),
                 )
-              : Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) {
-                    return Container(
+              : PageView.builder(
+                  itemCount: widget.imageUrls.length,
+                  onPageChanged: (index) =>
+                      setState(() => _currentPage = index),
+                  itemBuilder: (context, index) => Image.network(
+                    widget.imageUrls[index],
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
                       color: AppColors.selectedSurface,
-                      child: const Icon(
-                        Icons.broken_image_outlined,
-                        size: 70,
-                        color: AppColors.primary,
-                      ),
+                      child: const Icon(Icons.broken_image_outlined, size: 60),
+                    ),
+                  ),
+                ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 10, top: 8, right: 10),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: _CircleIconButton(
+                  icon: Icons.arrow_back_ios_new,
+                  iconColor: Colors.white,
+                  backgroundColor: Colors.black38,
+                  onTap: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 10, top: 8, right: 10),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: StreamBuilder<bool>(
+                  stream: _favoriteStream,
+                  builder: (context, snapshot) {
+                    final isInitiallyLoading =
+                        snapshot.connectionState == ConnectionState.waiting;
+                    return _CircleIconButton(
+                      icon: snapshot.data == true
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      iconColor: snapshot.data == true
+                          ? AppColors.primary
+                          : Colors.white,
+                      backgroundColor: snapshot.data == true
+                          ? Colors.white
+                          : Colors.black38,
+                      onTap: isInitiallyLoading || _isToggling ? null : _toggle,
                     );
                   },
                 ),
-
-          Container(color: Colors.black.withValues(alpha: 0.25)),
-
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
-              child: Row(
-                children: [
-                  _CircleIconButton(
-                    icon: Icons.arrow_back_ios_new,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  const Spacer(),
-                  _CircleIconButton(
-                    icon: Icons.favorite_border,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Coming soon!')),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 10),
-                  _CircleIconButton(
-                    icon: Icons.share_outlined,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Coming soon!')),
-                      );
-                    },
-                  ),
-                ],
               ),
             ),
           ),
-
-          Positioned(
-            left: 22,
-            bottom: 36,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(50),
-              ),
-              child: Text(
-                category.isEmpty ? 'Service' : category,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
+          if (widget.imageUrls.length > 1)
+            Positioned(
+              bottom: 14,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  widget.imageUrls.length,
+                  (index) => Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _currentPage
+                          ? Colors.white
+                          : Colors.white54,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _CircleIconButton extends StatelessWidget {
-  final dynamic icon;
-  final VoidCallback onTap;
+// ignore: unused_element
 
-  const _CircleIconButton({required this.icon, required this.onTap});
+class _CircleIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color backgroundColor;
+  final VoidCallback? onTap;
+
+  const _CircleIconButton({
+    required this.icon,
+    required this.iconColor,
+    required this.backgroundColor,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: Colors.black.withValues(alpha: 0.35),
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: IconButton(
         onPressed: onTap,
         icon: Icon(icon),
-        iconSize: 20,
-        color: Colors.white,
+        iconSize: 26,
+        color: iconColor,
+        disabledColor: iconColor,
       ),
     );
   }
@@ -676,75 +719,44 @@ class _TitleArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _stringValue(serviceData, 'name'),
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                _stringValue(serviceData, 'vendorName'),
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.bookmark_border),
-          color: AppColors.primary,
-        ),
-      ],
+    return Text(
+      _stringValue(serviceData, 'name'),
+      style: const TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: 26,
+        fontWeight: FontWeight.w900,
+      ),
     );
   }
 }
 
-class _RatingLocationRow extends StatelessWidget {
+class _VendorLocationRow extends StatelessWidget {
   final Map<String, dynamic> serviceData;
 
-  const _RatingLocationRow({required this.serviceData});
+  const _VendorLocationRow({required this.serviceData});
 
   @override
   Widget build(BuildContext context) {
-    final rating = _doubleValue(serviceData, 'averageRating');
-    final reviewCount = _intValue(serviceData, 'totalReviews');
-
     return Row(
       children: [
-        const Icon(Icons.star, color: Colors.amber, size: 18),
-        const SizedBox(width: 4),
-        Text(
-          rating.toStringAsFixed(1),
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
+        Flexible(
+          flex: 4,
+          child: Text(
+            _stringValue(serviceData, 'vendorName', fallback: 'Vendor'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-        const SizedBox(width: 4),
-        Text(
-          '($reviewCount reviews)',
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-        ),
-        const SizedBox(width: 12),
-        Container(height: 18, width: 1, color: AppColors.border),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         const Icon(
           Icons.location_on_outlined,
           size: 17,
-          color: AppColors.primary,
+          color: AppColors.textSecondary,
         ),
         const SizedBox(width: 4),
         Expanded(
@@ -752,7 +764,11 @@ class _RatingLocationRow extends StatelessWidget {
             _stringValue(serviceData, 'location'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.primary, fontSize: 13),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
@@ -760,309 +776,69 @@ class _RatingLocationRow extends StatelessWidget {
   }
 }
 
-class _TagWrap extends StatelessWidget {
-  final Map<String, dynamic> serviceData;
-
-  const _TagWrap({required this.serviceData});
-
-  @override
-  Widget build(BuildContext context) {
-    final tags = _listValue(serviceData, 'tags');
-
-    if (tags.isEmpty) {
-      final category = _stringValue(serviceData, 'category');
-
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _TagChip(text: category.isEmpty ? 'Wedding' : category),
-          const _TagChip(text: 'Indoor'),
-          const _TagChip(text: 'Outdoor'),
-        ],
-      );
-    }
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: tags.map((tag) => _TagChip(text: tag)).toList(),
-    );
-  }
-}
-
-class _TagChip extends StatelessWidget {
-  final String text;
-
-  const _TagChip({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.selectedSurface,
-        borderRadius: BorderRadius.circular(50),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: AppColors.primary,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _PackageList extends StatelessWidget {
-  final Map<String, dynamic> serviceData;
-
-  const _PackageList({required this.serviceData});
-
-  @override
-  Widget build(BuildContext context) {
-    final packages = serviceData['packages'];
-
-    if (packages is List && packages.isNotEmpty) {
-      return Column(
-        children: packages.map((package) {
-          final packageData = Map<String, dynamic>.from(package as Map);
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: _PackageCard(
-              title: _stringValue(packageData, 'title', fallback: 'Package'),
-              price: _stringValue(
-                packageData,
-                'price',
-                fallback:
-                    'Rs. ${_doubleValue(serviceData, 'price').toStringAsFixed(0)}',
-              ),
-              features: _listValue(packageData, 'features'),
-            ),
-          );
-        }).toList(),
-      );
-    }
-
-    return _PackageCard(
-      title: 'Standard',
-      price: 'Rs. ${_doubleValue(serviceData, 'price').toStringAsFixed(0)}',
-      features: const [
-        'Basic wedding service',
-        'Vendor coordination',
-        'Customizable package',
-      ],
-    );
-  }
-}
-
-class _PackageCard extends StatelessWidget {
-  final String title;
-  final String price;
-  final List<String> features;
-
-  const _PackageCard({
-    required this.title,
-    required this.price,
-    required this.features,
+class _VendorInfoSection extends StatelessWidget {
+  final String vendorId;
+  final String fallbackName;
+  const _VendorInfoSection({
+    required this.vendorId,
+    required this.fallbackName,
   });
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.selectedSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primary, width: 1.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Text(
-                price,
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...features.map(
-            (feature) => Padding(
-              padding: const EdgeInsets.only(bottom: 7),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '•',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 18,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      feature,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReviewsList extends StatelessWidget {
-  final String serviceId;
-
-  const _ReviewsList({required this.serviceId});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
-          .collection('reviews')
-          .where('serviceId', isEqualTo: serviceId)
-          .limit(3)
+          .collection(FirestoreCollections.vendors)
+          .doc(vendorId)
           .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final reviews = snapshot.data?.docs ?? [];
-
-        if (reviews.isEmpty) {
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Text(
-              'No reviews yet.',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          );
-        }
-
-        return Column(
-          children: reviews.map((doc) {
-            final data = doc.data();
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _ReviewCard(reviewData: data),
-            );
-          }).toList(),
+      builder: (context, vendorSnapshot) {
+        final vendorData = vendorSnapshot.data?.data() ?? {};
+        final businessName = _stringValue(vendorData, 'businessName');
+        final vendorName = _stringValue(
+          vendorData,
+          'name',
+          fallback: fallbackName,
+        );
+        return Card(
+          child: ListTile(
+            leading: const Icon(Icons.storefront_outlined),
+            title: Text(businessName.isEmpty ? vendorName : businessName),
+            trailing: const Text('View Vendor Profile'),
+            onTap: vendorId.isEmpty
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => VendorDetailsScreen(vendorId: vendorId),
+                    ),
+                  ),
+          ),
         );
       },
     );
   }
 }
 
-class _ReviewCard extends StatelessWidget {
-  final Map<String, dynamic> reviewData;
-
-  const _ReviewCard({required this.reviewData});
-
+class _StartingPrice extends StatelessWidget {
+  final Map<String, dynamic> serviceData;
+  const _StartingPrice({required this.serviceData});
   @override
   Widget build(BuildContext context) {
-    final name = _stringValue(reviewData, 'customerName', fallback: 'Customer');
-    final rating = _doubleValue(reviewData, 'rating');
-
+    final price = _doubleValue(serviceData, 'price');
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.selectedSurface,
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            backgroundColor: AppColors.primary,
-            child: Text(
-              name.isEmpty ? 'C' : name[0].toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: List.generate(
-                    5,
-                    (index) => Icon(
-                      index < rating.round() ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
-                      size: 15,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _stringValue(
-                    reviewData,
-                    'comment',
-                    fallback: 'No review comment added.',
-                  ),
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.45,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: Text(
+        price > 0
+            ? 'Starting from Rs. ${price.toStringAsFixed(0)}'
+            : 'Price not provided',
+        style: const TextStyle(
+          color: AppColors.primaryDark,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1224,40 +1000,17 @@ double _doubleValue(Map<String, dynamic> data, String key) {
   return double.tryParse(value.toString()) ?? 0;
 }
 
-int _intValue(Map<String, dynamic> data, String key) {
-  final value = data[key];
-
-  if (value is int) return value;
-
-  if (value is num) return value.toInt();
-
-  return int.tryParse(value.toString()) ?? 0;
-}
-
-List<String> _listValue(Map<String, dynamic> data, String key) {
-  final value = data[key];
-
-  if (value is List) {
-    return value.map((item) => item.toString()).toList();
+List<String> _serviceImages(Map<String, dynamic> data) {
+  final images = data['imageUrls'];
+  if (images is Iterable) {
+    final urls = images
+        .map((item) => item.toString().trim())
+        .where((url) => url.isNotEmpty)
+        .toList();
+    if (urls.isNotEmpty) return urls;
   }
-
-  return [];
-}
-
-String _imageValue(Map<String, dynamic> data) {
-  final imageUrl = data['imageUrl'];
-
-  if (imageUrl is String && imageUrl.trim().isNotEmpty) {
-    return imageUrl.trim();
-  }
-
-  final images = data['images'];
-
-  if (images is List && images.isNotEmpty) {
-    return images.first.toString();
-  }
-
-  return '';
+  final legacy = data['imageUrl']?.toString().trim() ?? '';
+  return legacy.isEmpty ? const [] : [legacy];
 }
 
 DateTime _normalizeBookingDateTime(DateTime dateTime) {
@@ -1270,245 +1023,4 @@ DateTime _normalizeBookingDateTime(DateTime dateTime) {
   );
 }
 
-class _SocialLogoLinksSection extends StatelessWidget {
-  final Map<String, dynamic> serviceData;
-
-  const _SocialLogoLinksSection({required this.serviceData});
-
-  @override
-  Widget build(BuildContext context) {
-    final website = _socialValue(
-      serviceData,
-      'website',
-      fallbackKeys: ['websiteUrl', 'vendorWebsite'],
-    );
-
-    final instagram = _socialValue(
-      serviceData,
-      'instagram',
-      fallbackKeys: ['instagramUrl', 'vendorInstagram'],
-    );
-
-    final facebook = _socialValue(
-      serviceData,
-      'facebook',
-      fallbackKeys: ['facebookUrl', 'vendorFacebook'],
-    );
-
-    final tiktok = _socialValue(
-      serviceData,
-      'tiktok',
-      fallbackKeys: ['tiktokUrl', 'vendorTiktok'],
-    );
-
-    final whatsapp = _socialValue(
-      serviceData,
-      'whatsapp',
-      fallbackKeys: ['whatsappUrl', 'vendorWhatsapp'],
-    );
-
-    final phone = _socialValue(
-      serviceData,
-      'phone',
-      fallbackKeys: ['vendorPhone', 'contactNumber'],
-    );
-
-    final email = _socialValue(
-      serviceData,
-      'email',
-      fallbackKeys: ['vendorEmail', 'contactEmail'],
-    );
-
-    final hasLinks = [
-      website,
-      instagram,
-      facebook,
-      tiktok,
-      whatsapp,
-      phone,
-      email,
-    ].any((value) => value.trim().isNotEmpty);
-
-    if (!hasLinks) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle('Connect'),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            if (website.isNotEmpty)
-              _SocialLogoButton(
-                icon: FontAwesomeIcons.globe,
-                tooltip: 'Website',
-                onTap: () => _openNormalLink(context, website),
-              ),
-            if (instagram.isNotEmpty)
-              _SocialLogoButton(
-                icon: FontAwesomeIcons.instagram,
-                tooltip: 'Instagram',
-                onTap: () => _openNormalLink(context, instagram),
-              ),
-            if (facebook.isNotEmpty)
-              _SocialLogoButton(
-                icon: FontAwesomeIcons.facebookF,
-                tooltip: 'Facebook',
-                onTap: () => _openNormalLink(context, facebook),
-              ),
-            if (tiktok.isNotEmpty)
-              _SocialLogoButton(
-                icon: FontAwesomeIcons.tiktok,
-                tooltip: 'TikTok',
-                onTap: () => _openNormalLink(context, tiktok),
-              ),
-            if (whatsapp.isNotEmpty)
-              _SocialLogoButton(
-                icon: FontAwesomeIcons.whatsapp,
-                tooltip: 'WhatsApp',
-                onTap: () => _openWhatsApp(context, whatsapp),
-              ),
-            if (phone.isNotEmpty)
-              _SocialLogoButton(
-                icon: FontAwesomeIcons.phone,
-                tooltip: 'Call',
-                onTap: () => _openPhone(context, phone),
-              ),
-            if (email.isNotEmpty)
-              _SocialLogoButton(
-                icon: FontAwesomeIcons.envelope,
-                tooltip: 'Email',
-                onTap: () => _openEmail(context, email),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SocialLogoButton extends StatelessWidget {
-  final dynamic icon;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  const _SocialLogoButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: AppColors.selectedSurface,
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: Container(
-            height: 46,
-            width: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Center(
-              child: FaIcon(icon, size: 20, color: AppColors.primary),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-String _socialValue(
-  Map<String, dynamic> data,
-  String key, {
-  List<String> fallbackKeys = const [],
-}) {
-  final socialLinks = data['socialLinks'];
-
-  if (socialLinks is Map && socialLinks[key] != null) {
-    final value = socialLinks[key].toString().trim();
-
-    if (value.isNotEmpty) {
-      return value;
-    }
-  }
-
-  for (final fallbackKey in fallbackKeys) {
-    final value = data[fallbackKey];
-
-    if (value != null && value.toString().trim().isNotEmpty) {
-      return value.toString().trim();
-    }
-  }
-
-  return '';
-}
-
-Future<void> _openNormalLink(BuildContext context, String link) async {
-  String fixedLink = link.trim();
-
-  if (!fixedLink.startsWith('http://') && !fixedLink.startsWith('https://')) {
-    fixedLink = 'https://$fixedLink';
-  }
-
-  final uri = Uri.tryParse(fixedLink);
-
-  if (uri == null) {
-    _showLinkError(context);
-    return;
-  }
-
-  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-
-  if (!opened && context.mounted) {
-    _showLinkError(context);
-  }
-}
-
-Future<void> _openWhatsApp(BuildContext context, String value) async {
-  String link = value.trim();
-
-  if (!link.startsWith('http://') && !link.startsWith('https://')) {
-    final number = link.replaceAll(RegExp(r'[^0-9]'), '');
-    link = 'https://wa.me/$number';
-  }
-
-  await _openNormalLink(context, link);
-}
-
-Future<void> _openPhone(BuildContext context, String phone) async {
-  final uri = Uri(scheme: 'tel', path: phone.trim());
-
-  final opened = await launchUrl(uri);
-
-  if (!opened && context.mounted) {
-    _showLinkError(context);
-  }
-}
-
-Future<void> _openEmail(BuildContext context, String email) async {
-  final uri = Uri(scheme: 'mailto', path: email.trim());
-
-  final opened = await launchUrl(uri);
-
-  if (!opened && context.mounted) {
-    _showLinkError(context);
-  }
-}
-
-void _showLinkError(BuildContext context) {
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const SnackBar(content: Text('Could not open this link')));
-}
+// ignore: unused_element

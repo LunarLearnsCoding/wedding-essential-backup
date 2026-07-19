@@ -12,6 +12,7 @@ class ReviewModel {
   final double rating;
   final String reviewText;
   final bool vendorReplied;
+  final String status;
   final DateTime createdAt;
 
   ReviewModel({
@@ -25,6 +26,7 @@ class ReviewModel {
     required this.rating,
     required this.reviewText,
     this.vendorReplied = false,
+    this.status = 'published',
     required this.createdAt,
   });
 
@@ -40,6 +42,7 @@ class ReviewModel {
       rating: doubleFromFirestore(map['rating']),
       reviewText: map['reviewText'] ?? '',
       vendorReplied: boolFromFirestore(map['vendorReplied']),
+      status: map['status']?.toString() ?? 'published',
       createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
     );
   }
@@ -55,7 +58,10 @@ class ReviewModel {
       'rating': rating,
       'reviewText': reviewText,
       'vendorReplied': vendorReplied,
+      'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
+
+  bool get isVisible => status.toLowerCase().trim() != 'hidden';
 }

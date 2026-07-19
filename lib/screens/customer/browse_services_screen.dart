@@ -1,44 +1,52 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/service_categories.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../models/service_model.dart';
+import '../../models/vendor_model.dart';
 import '../../providers/service_provider.dart';
+import '../../services/vendor_service.dart';
 import 'customer_dashboard_screen.dart';
 import 'customer_profile_screen.dart';
 import 'notification_screen.dart';
 import 'service_details_screen.dart';
+import 'vendor_details_screen.dart';
+
+enum BrowseMode { vendors, services }
 
 class BrowseServicesScreen extends StatefulWidget {
   final String initialCategory;
+  final BrowseMode initialMode;
 
-  const BrowseServicesScreen({super.key, this.initialCategory = 'All'});
+  const BrowseServicesScreen({
+    super.key,
+    this.initialCategory = 'All',
+    this.initialMode = BrowseMode.services,
+  });
 
   @override
   State<BrowseServicesScreen> createState() => _BrowseServicesScreenState();
 }
 
 class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
-  final searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final VendorService _vendorService = VendorService();
 
-  late String selectedCategory;
-  String selectedSort = 'Top Rated';
+  late BrowseMode _mode;
+  late String _selectedCategory;
+  String _serviceSort = 'Price';
+  String _vendorSort = 'Top Rated';
 
-  final categories = [
-    'All',
-    'Photography',
-    'Venue',
-    'Decoration',
-    'Makeup',
-    'Catering',
-    'Music',
-  ];
+  static const _categories = ['All', ...serviceCategories];
 
   @override
   void initState() {
     super.initState();
-    selectedCategory = categories.contains(widget.initialCategory)
+    _mode = widget.initialMode;
+    _selectedCategory = _categories.contains(widget.initialCategory)
         ? widget.initialCategory
         : 'All';
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -50,82 +58,125 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
 
   @override
   void dispose() {
-    searchController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  List<ServiceModel> _filterServices(List<ServiceModel> services) {
-    final searchText = searchController.text.toLowerCase();
-
-    final filtered = services.where((service) {
+  List<ServiceModel> _services(List<ServiceModel> allServices) {
+    final query = _searchController.text.toLowerCase().trim();
+    final services = allServices.where((service) {
       final matchesCategory =
-          selectedCategory == 'All' || service.category == selectedCategory;
-
+          _selectedCategory == 'All' || service.category == _selectedCategory;
       final matchesSearch =
-          service.name.toLowerCase().contains(searchText) ||
-          service.vendorName.toLowerCase().contains(searchText) ||
-          service.location.toLowerCase().contains(searchText);
-
+          query.isEmpty ||
+          service.name.toLowerCase().contains(query) ||
+          service.vendorName.toLowerCase().contains(query) ||
+          service.category.toLowerCase().contains(query) ||
+          service.location.toLowerCase().contains(query);
       return matchesCategory && matchesSearch;
     }).toList();
 
-    if (selectedSort == 'Price') {
-      filtered.sort((a, b) => a.price.compareTo(b.price));
+    if (_serviceSort == 'Price') {
+      services.sort((a, b) => a.price.compareTo(b.price));
     } else {
-      filtered.sort((a, b) => b.averageRating.compareTo(a.averageRating));
+      services.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
     }
-
-    return filtered;
+    return services;
   }
 
-  void _toggleSort() {
-    setState(() {
-      selectedSort = selectedSort == 'Top Rated' ? 'Price' : 'Top Rated';
-    });
+  List<VendorModel> _vendors(QuerySnapshot snapshot) {
+    final query = _searchController.text.toLowerCase().trim();
+    final vendors = snapshot.docs
+        .where((doc) => doc.data() is Map<String, dynamic>)
+        .map((doc) {
+          final data = doc.data()! as Map<String, dynamic>;
+          return VendorModel.fromMap(doc.id, data);
+        })
+        .where(
+          (vendor) =>
+              vendor.isApproved &&
+              vendor.approvalStatus.toLowerCase() == 'approved',
+        )
+        .where((vendor) {
+          return query.isEmpty ||
+              vendor.businessName.toLowerCase().contains(query) ||
+              vendor.name.toLowerCase().contains(query) ||
+              vendor.category.toLowerCase().contains(query) ||
+              vendor.locations.any(
+                (location) => location.toLowerCase().contains(query),
+              );
+        })
+        .toList();
+
+    if (_vendorSort == 'Top Rated') {
+      vendors.sort((a, b) => b.averageRating.compareTo(a.averageRating));
+    } else {
+      vendors.sort(
+        (a, b) => _vendorDisplayName(
+          a,
+        ).toLowerCase().compareTo(_vendorDisplayName(b).toLowerCase()),
+      );
+    }
+    return vendors;
   }
 
   void _handleBottomNav(int index) {
-    if (index == 0) {
+    final destination = switch (index) {
+      0 => const CustomerDashboardScreen(),
+      2 => const NotificationsScreen(),
+      3 => const CustomerProfileScreen(),
+      _ => null,
+    };
+    if (destination != null) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const CustomerDashboardScreen()),
-      );
-    } else if (index == 2) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-      );
-    } else if (index == 3) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const CustomerProfileScreen()),
+        MaterialPageRoute(builder: (_) => destination),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final allServices = context.watch<ServiceProvider>().services;
-    final services = _filterServices(allServices);
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
             const _BrowseHeader(),
-
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 14),
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+              child: SegmentedButton<BrowseMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: BrowseMode.vendors,
+                    label: Text('Vendors'),
+                  ),
+                  ButtonSegment(
+                    value: BrowseMode.services,
+                    label: Text('Services'),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (selection) {
+                  setState(() => _mode = selection.first);
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
               child: TextField(
-                controller: searchController,
+                controller: _searchController,
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
-                  hintText: 'Search vendors, services...',
+                  hintText: _mode == BrowseMode.services
+                      ? 'Search services...'
+                      : 'Search vendors...',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: IconButton(
                     onPressed: () {
-                      searchController.clear();
+                      _searchController.clear();
                       setState(() {});
                     },
                     icon: const Icon(Icons.close),
@@ -133,132 +184,55 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
                 ),
               ),
             ),
-
             Expanded(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '${services.length} services found',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: _toggleSort,
-                          icon: const Icon(Icons.tune, size: 17),
-                          label: Text('Sort: $selectedSort'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primaryDark,
-                            backgroundColor: AppColors.surface,
-                            side: const BorderSide(color: AppColors.border),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
+              child: _mode == BrowseMode.services
+                  ? _ServicesView(
+                      services: _services(
+                        context.watch<ServiceProvider>().services,
+                      ),
+                      categories: _categories,
+                      selectedCategory: _selectedCategory,
+                      sort: _serviceSort,
+                      onCategoryChanged: (category) {
+                        setState(() => _selectedCategory = category);
+                      },
+                      onSort: () {
+                        setState(() {
+                          _serviceSort = _serviceSort == 'Price'
+                              ? 'Name'
+                              : 'Price';
+                        });
+                      },
+                    )
+                  : StreamBuilder<QuerySnapshot>(
+                      stream: _vendorService.getApprovedVendors(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text(
+                              'Failed to load vendors: ${snapshot.error}',
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(
-                    height: 44,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 22),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: categories.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 10),
-                      itemBuilder: (context, index) {
-                        final category = categories[index];
-                        final selected = selectedCategory == category;
-
-                        return ChoiceChip(
-                          label: Text(category),
-                          selected: selected,
-                          onSelected: (_) {
+                          );
+                        }
+                        return _VendorsView(
+                          vendors: _vendors(snapshot.data!),
+                          sort: _vendorSort,
+                          onSort: () {
                             setState(() {
-                              selectedCategory = category;
+                              _vendorSort = _vendorSort == 'Top Rated'
+                                  ? 'Name'
+                                  : 'Top Rated';
                             });
                           },
-                          selectedColor: AppColors.primary,
-                          backgroundColor: AppColors.surface,
-                          labelStyle: TextStyle(
-                            color: selected
-                                ? Colors.white
-                                : AppColors.primaryDark,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          side: const BorderSide(color: AppColors.border),
                         );
                       },
                     ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Featured Vendors',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 21,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Coming soon!')),
-                            );
-                          },
-                          child: const Text(
-                            'See all',
-                            style: TextStyle(
-                              color: AppColors.primaryDark,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  Expanded(
-                    child: services.isEmpty
-                        ? const Center(child: Text('No matching services'))
-                        : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(22, 4, 22, 24),
-                            itemCount: services.length,
-                            itemBuilder: (context, index) {
-                              final service = services[index];
-
-                              return _ServiceListCard(
-                                service: service,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ServiceDetailsScreen(
-                                        serviceId: service.id,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -281,12 +255,12 @@ class _BrowseHeader extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.maybePop(context),
             icon: const Icon(Icons.arrow_back_ios_new),
           ),
           const SizedBox(width: 6),
           const Text(
-            'Browse Services',
+            'Browse',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 26,
@@ -299,170 +273,262 @@ class _BrowseHeader extends StatelessWidget {
   }
 }
 
-class _ServiceListCard extends StatelessWidget {
-  final ServiceModel service;
-  final VoidCallback onTap;
+class _ServicesView extends StatelessWidget {
+  final List<ServiceModel> services;
+  final List<String> categories;
+  final String selectedCategory;
+  final String sort;
+  final ValueChanged<String> onCategoryChanged;
+  final VoidCallback onSort;
 
-  const _ServiceListCard({required this.service, required this.onTap});
+  const _ServicesView({
+    required this.services,
+    required this.categories,
+    required this.selectedCategory,
+    required this.sort,
+    required this.onCategoryChanged,
+    required this.onSort,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
+    return Column(
+      children: [
+        _ResultsHeader(
+          text: '${services.length} services found',
+          sort: sort,
+          onSort: onSort,
+        ),
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              final selected = selectedCategory == category;
+              return ChoiceChip(
+                label: Text(category),
+                selected: selected,
+                onSelected: (_) => onCategoryChanged(category),
+                selectedColor: AppColors.primary,
+                backgroundColor: AppColors.surface,
+                labelStyle: TextStyle(
+                  color: selected ? Colors.white : AppColors.primaryDark,
+                  fontWeight: FontWeight.w700,
+                ),
+                side: const BorderSide(color: AppColors.border),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: services.isEmpty
+              ? const Center(child: Text('No matching services'))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 24),
+                  itemCount: services.length,
+                  itemBuilder: (context, index) {
+                    final service = services[index];
+                    return _ServiceCard(
+                      service: service,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ServiceDetailsScreen(serviceId: service.id),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VendorsView extends StatelessWidget {
+  final List<VendorModel> vendors;
+  final String sort;
+  final VoidCallback onSort;
+
+  const _VendorsView({
+    required this.vendors,
+    required this.sort,
+    required this.onSort,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _ResultsHeader(
+          text: '${vendors.length} vendors found',
+          sort: sort,
+          onSort: onSort,
+        ),
+        Expanded(
+          child: vendors.isEmpty
+              ? const Center(child: Text('No matching vendors'))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 24),
+                  itemCount: vendors.length,
+                  itemBuilder: (context, index) {
+                    final vendor = vendors[index];
+                    return _VendorCard(
+                      vendor: vendor,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              VendorDetailsScreen(vendorId: vendor.id),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ResultsHeader extends StatelessWidget {
+  final String text;
+  final String sort;
+  final VoidCallback onSort;
+
+  const _ResultsHeader({
+    required this.text,
+    required this.sort,
+    required this.onSort,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: onSort,
+            icon: const Icon(Icons.tune, size: 17),
+            label: Text('Sort: $sort'),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _ServiceCard extends StatelessWidget {
+  final ServiceModel service;
+  final VoidCallback onTap;
+
+  const _ServiceCard({required this.service, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return _BrowseCard(
+      onTap: onTap,
+      imageUrl: service.imageUrls.isEmpty ? '' : service.imageUrls.first,
+      title: service.name,
+      subtitle: service.vendorName,
+      details: '${service.category} • ${service.location}',
+      trailing: 'From Rs. ${service.price.toStringAsFixed(0)}',
+    );
+  }
+}
+
+class _VendorCard extends StatelessWidget {
+  final VendorModel vendor;
+  final VoidCallback onTap;
+
+  const _VendorCard({required this.vendor, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _vendorDisplayName(vendor);
+    final bio = vendor.bio.trim();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Stack(
-                children: [
-                  Container(
-                    height: 104,
-                    width: 112,
-                    decoration: BoxDecoration(
-                      color: AppColors.selectedSurface,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.image_outlined,
-                      color: AppColors.primary,
-                      size: 34,
-                    ),
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: AppColors.selectedSurface,
+                child: Text(
+                  name.isEmpty ? 'V' : name[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w900,
                   ),
-                  Positioned(
-                    left: 8,
-                    bottom: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: Text(
-                        service.category,
-                        style: const TextStyle(
-                          color: AppColors.primaryDark,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-
               const SizedBox(width: 14),
-
               Expanded(
-                child: SizedBox(
-                  height: 104,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        service.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
                       ),
-
-                      const SizedBox(height: 4),
-
-                      Text(
-                        service.vendorName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.primaryDark,
-                          fontSize: 12,
-                        ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.location_on_outlined,
-                            size: 14,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 3),
-                          Expanded(
-                            child: Text(
-                              service.location,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const Spacer(),
-
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 15),
-                          const SizedBox(width: 3),
-                          Text(
-                            service.averageRating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            '(${service.totalReviews})',
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 11,
-                            ),
-                          ),
-                          const Spacer(),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                'From Rs. ${service.price.toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  color: AppColors.primaryDark,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const Text(
-                                'starting package',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      vendor.category,
+                      style: const TextStyle(color: AppColors.primaryDark),
+                    ),
+                    if (bio.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(bio, maxLines: 2, overflow: TextOverflow.ellipsis),
                     ],
-                  ),
+                    const SizedBox(height: 7),
+                    Text(
+                      vendor.locations.join(', '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.amber, size: 17),
+                        Text(
+                          ' ${vendor.averageRating.toStringAsFixed(1)} (${vendor.totalReviews})',
+                        ),
+                        const Spacer(),
+                        if (vendor.phone.trim().isNotEmpty)
+                          const Icon(Icons.phone_outlined, size: 18),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'View Profile',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -471,4 +537,104 @@ class _ServiceListCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _BrowseCard extends StatelessWidget {
+  final VoidCallback onTap;
+  final String imageUrl;
+  final String title;
+  final String subtitle;
+  final String details;
+  final String trailing;
+
+  const _BrowseCard({
+    required this.onTap,
+    required this.imageUrl,
+    required this.title,
+    required this.subtitle,
+    required this.details,
+    required this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: SizedBox(
+                  height: 96,
+                  width: 104,
+                  child: imageUrl.isEmpty
+                      ? const ColoredBox(
+                          color: AppColors.selectedSurface,
+                          child: Icon(
+                            Icons.image_outlined,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const ColoredBox(
+                            color: AppColors.selectedSurface,
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: AppColors.primaryDark),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(details, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 8),
+                    Text(
+                      trailing,
+                      style: const TextStyle(
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _vendorDisplayName(VendorModel vendor) {
+  final businessName = vendor.businessName.trim();
+  if (businessName.isNotEmpty) return businessName;
+  final name = vendor.name.trim();
+  return name.isEmpty ? 'Vendor' : name;
 }

@@ -29,6 +29,175 @@ class _LoginScreenState extends State<LoginScreen> {
   bool hidePassword = true;
   String selectedRole = 'Customer';
 
+  Future<void> _forgotPassword() async {
+    final resetEmailController = TextEditingController(
+      text: emailController.text.trim(),
+    );
+    String? validationMessage;
+
+    final email = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            12,
+            24,
+            24 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.lock_reset_rounded,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Reset your password',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Enter the email linked to your account and we’ll send you a reset link.',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: resetEmailController,
+                keyboardType: TextInputType.emailAddress,
+                autofocus: true,
+                autocorrect: false,
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: 'Email address',
+                  hintText: 'you@example.com',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  errorText: validationMessage,
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final value = resetEmailController.text
+                            .trim()
+                            .toLowerCase();
+                        final isValid = RegExp(
+                          r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                        ).hasMatch(value);
+                        if (!isValid) {
+                          setSheetState(() {
+                            validationMessage = 'Enter a valid email address.';
+                          });
+                          return;
+                        }
+                        Navigator.pop(sheetContext, value);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      child: const Text('Send link'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    resetEmailController.dispose();
+
+    if (!mounted || email == null) return;
+
+    try {
+      await context.read<AuthProvider>().authService.resetPassword(email);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Reset request sent for $email. Check your inbox and spam folder.',
+          ),
+        ),
+      );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      final message = switch (error.code) {
+        'invalid-email' => 'Enter a valid email address.',
+        'too-many-requests' =>
+          'Too many reset attempts. Please wait and try again.',
+        'network-request-failed' =>
+          'Could not connect. Check your internet connection and try again.',
+        _ => 'Could not send the reset email. Please try again.',
+      };
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
   Future<void> _login() async {
     try {
       final authProvider = context.read<AuthProvider>();
@@ -157,12 +326,24 @@ class _LoginScreenState extends State<LoginScreen> {
           content: Text('Invalid user role. Please contact support.'),
         ),
       );
-    } catch (e) {
+    } on FirebaseAuthException catch (error) {
       if (!mounted) return;
-
+      final message = switch (error.code) {
+        'email-not-verified' =>
+          'Verify your email first. We sent a new verification link if allowed.',
+        'user-not-found' ||
+        'invalid-credential' => 'No account matches that email and password.',
+        'wrong-password' => 'The password is incorrect.',
+        'invalid-email' => 'Enter a valid email address.',
+        'too-many-requests' =>
+          'Too many sign-in attempts. Please wait and try again.',
+        'network-request-failed' =>
+          'Could not connect. Check your internet connection and try again.',
+        _ => error.message ?? 'Could not sign in. Please try again.',
+      };
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -282,7 +463,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: _forgotPassword,
                   child: const Text(
                     'Forgot password?',
                     style: TextStyle(
@@ -301,42 +482,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: isLoading ? null : _login,
               ),
 
-              const SizedBox(height: 30),
-
-              Row(
-                children: const [
-                  Expanded(child: Divider(color: AppColors.border)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 14),
-                    child: Text(
-                      'or',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: AppColors.border)),
-                ],
-              ),
-
-              const SizedBox(height: 28),
-
-              OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 56),
-                  backgroundColor: AppColors.surface,
-                  foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.border),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ),
-                child: const Text(
-                  'Continue with Google',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-
-              const SizedBox(height: 26),
+              const SizedBox(height: 22),
 
               Center(
                 child: TextButton(

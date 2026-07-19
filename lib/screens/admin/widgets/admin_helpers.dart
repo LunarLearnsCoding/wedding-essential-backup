@@ -11,6 +11,14 @@ class AdminHelpers {
     );
   }
 
+  static bool matchesValues(String query, Iterable<Object?> values) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return true;
+    return values.any(
+      (value) => value?.toString().toLowerCase().contains(normalized) ?? false,
+    );
+  }
+
   static void showSnack(
     BuildContext context,
     String message, {
