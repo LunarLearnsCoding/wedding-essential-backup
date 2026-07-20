@@ -30,12 +30,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final pages = [
       AdminPanelPage(
         title: 'Overview',
-        subtitle: 'Track users, vendors, services, reviews, and revenue.',
+        subtitle: 'Track customers, vendors, services, and reviews.',
         icon: Icons.dashboard_rounded,
         child: _AdminOverview(service: _adminService),
       ),
       AdminPanelPage(
-        title: 'Users',
+        title: 'Customers',
         subtitle: 'Manage customer accounts and account status.',
         icon: Icons.people_alt_outlined,
         child: AdminUsersScreen(service: _adminService),

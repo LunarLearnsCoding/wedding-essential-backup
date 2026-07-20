@@ -3,7 +3,7 @@ import '../core/utils/firestore_parsers.dart';
 import 'app_enums.dart';
 
 class UserModel {
-  final String id;
+  final String id; 
   final String name;
   final String email;
   final String phone;
@@ -13,14 +13,14 @@ class UserModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  UserModel({
+  UserModel({                         // Constructor for the UserModel class
     required this.id,
     required this.name,
     required this.email,
     required this.phone,
     required this.role,
     this.profileImageUrl,
-    this.isActive = true,
+    this.isActive = true,   //default value for isActive is true
     required this.createdAt,
     this.updatedAt,
   });

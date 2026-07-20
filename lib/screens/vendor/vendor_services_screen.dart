@@ -1,38 +1,15 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/firestore_collections.dart';
 import '../../core/widgets/app_information_sheet.dart';
 import '../../models/service_model.dart';
 import '../../services/service_service.dart';
 import '../../core/widgets/vendor_bottom_nav.dart';
 import 'vendor_service_form_screen.dart';
 
-class VendorServicesScreen extends StatefulWidget {
+class VendorServicesScreen extends StatelessWidget {
   const VendorServicesScreen({super.key});
-
-  @override
-  State<VendorServicesScreen> createState() => _VendorServicesScreenState();
-}
-
-class _VendorServicesScreenState extends State<VendorServicesScreen> {
-  bool _didRunDiagnostics = false;
-
-  @override
-  void initState() {
-    super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null || _didRunDiagnostics) return;
-
-      _didRunDiagnostics = true;
-      debugVendorServices(currentUser.uid);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,39 +97,6 @@ class _VendorServicesScreenState extends State<VendorServicesScreen> {
       ),
       bottomNavigationBar: const VendorBottomNav(currentIndex: 1),
     );
-  }
-}
-
-Future<void> debugVendorServices(String vendorId) async {
-  try {
-    final allSnapshot = await FirebaseFirestore.instance
-        .collection(FirestoreCollections.services)
-        .get();
-
-    debugPrint('CURRENT VENDOR UID: "$vendorId"');
-    debugPrint('FIREBASE PROJECT ID: ${Firebase.app().options.projectId}');
-    debugPrint('SERVICES COLLECTION: ${FirestoreCollections.services}');
-    debugPrint('ALL SERVICE COUNT: ${allSnapshot.docs.length}');
-
-    for (final doc in allSnapshot.docs) {
-      final value = doc.data()['vendorId'];
-      debugPrint(
-        'SERVICE ${doc.id}: vendorId="$value", type=${value.runtimeType}',
-      );
-    }
-
-    final filteredSnapshot = await FirebaseFirestore.instance
-        .collection(FirestoreCollections.services)
-        .where('vendorId', isEqualTo: vendorId)
-        .get();
-
-    debugPrint('FILTERED SERVICE COUNT: ${filteredSnapshot.docs.length}');
-  } on FirebaseException catch (error) {
-    debugPrint(
-      'SERVICE DIAGNOSTIC FIREBASE ERROR: '
-      'code=${error.code}, message=${error.message}',
-    );
-    rethrow;
   }
 }
 

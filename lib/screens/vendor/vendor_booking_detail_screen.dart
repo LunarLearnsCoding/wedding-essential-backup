@@ -36,9 +36,6 @@ class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
   Future<void> _updateStatus(BookingStatus newStatus) async {
     if (_isUpdatingStatus) return;
 
-    debugPrint('DETAIL STATUS CALLBACK: ${newStatus.name}');
-    debugPrint('UPDATING BOOKING: ${widget.bookingId}');
-
     setState(() {
       _isUpdatingStatus = true;
     });
@@ -48,8 +45,6 @@ class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
         bookingId: widget.bookingId,
         status: newStatus,
       );
-
-      debugPrint('FIRESTORE UPDATE SUCCESS');
 
       final refreshedBooking = await _bookingService.getBooking(
         widget.bookingId,

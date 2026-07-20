@@ -408,13 +408,11 @@ class _BookingCard extends StatelessWidget {
                         ],
                       ),
 
-                      const SizedBox(height: 4),
-
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
 
                       _SmallInfoRow(
                         icon: Icons.business_center_outlined,
-                        text: '${booking.service} • ${booking.packageName}',
+                        text: booking.service,
                       ),
 
                       _SmallInfoRow(
@@ -642,9 +640,7 @@ class _BookingItem {
   final String id;
   final String customerName;
   final String service;
-  final String packageName;
   final String eventDate;
-  final DateTime rawEventDate;
   final String amount;
   final String status;
   final String avatar;
@@ -653,9 +649,7 @@ class _BookingItem {
     required this.id,
     required this.customerName,
     required this.service,
-    required this.packageName,
     required this.eventDate,
-    required this.rawEventDate,
     required this.amount,
     required this.status,
     required this.avatar,
@@ -673,26 +667,10 @@ class _BookingItem {
       id: booking.id,
       customerName: customerName,
       service: serviceName,
-      packageName: 'Standard Package',
       eventDate: DateFormat('dd MMM yyyy').format(booking.eventDate),
-      rawEventDate: booking.eventDate,
       amount: 'Rs. ${NumberFormat('#,##0').format(booking.servicePrice)}',
       status: _bookingStatusLabel(booking.status),
       avatar: customerName.substring(0, 1).toUpperCase(),
-    );
-  }
-
-  _BookingItem copyWith({String? status, DateTime? rawEventDate}) {
-    return _BookingItem(
-      id: id,
-      customerName: customerName,
-      service: service,
-      packageName: packageName,
-      eventDate: eventDate,
-      rawEventDate: rawEventDate ?? this.rawEventDate,
-      amount: amount,
-      status: status ?? this.status,
-      avatar: avatar,
     );
   }
 }
