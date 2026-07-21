@@ -12,7 +12,10 @@ import '../../core/widgets/support_contact_card.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'browse_services_screen.dart';
+import 'checklist_screen.dart';
+import 'customer_bookings_screen.dart';
 import 'customer_dashboard_screen.dart';
+import 'guest_list_screen.dart';
 import 'notification_screen.dart';
 import 'wishlist_screen.dart';
 
@@ -398,6 +401,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         child: _StatCard(
                           value: profile.stats.bookings.toString(),
                           label: 'Bookings',
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CustomerBookingsScreen(),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -405,6 +414,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         child: _StatCard(
                           value: profile.stats.guests.toString(),
                           label: 'Guests',
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const GuestListScreen(),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -413,6 +428,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           value:
                               '${profile.stats.completedTasks}/${profile.stats.totalTasks}',
                           label: 'Tasks Done',
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ChecklistScreen(),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -869,40 +890,51 @@ class _ChecklistCounts {
 class _StatCard extends StatelessWidget {
   final String value;
   final String label;
+  final VoidCallback onTap;
 
-  const _StatCard({required this.value, required this.label});
+  const _StatCard({
+    required this.value,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 84,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
+        side: const BorderSide(color: AppColors.border),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontSize: 23,
-              fontWeight: FontWeight.w800,
-            ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          height: 84,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 23,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

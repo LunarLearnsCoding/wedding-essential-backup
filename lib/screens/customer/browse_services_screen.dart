@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/firebase_storage_image.dart';
 import '../../core/constants/service_categories.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../models/service_model.dart';
@@ -15,7 +16,7 @@ import 'notification_screen.dart';
 import 'service_details_screen.dart';
 import 'vendor_details_screen.dart';
 
-enum BrowseMode { vendors, services }
+enum BrowseMode { featured, vendors, services }
 
 class BrowseServicesScreen extends StatefulWidget {
   final String initialCategory;
@@ -86,8 +87,12 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
     return services;
   }
 
-  List<VendorModel> _vendors(QuerySnapshot snapshot) {
+  List<VendorModel> _vendors(
+    QuerySnapshot snapshot, {
+    bool featuredOnly = false,
+  }) {
     final query = _searchController.text.toLowerCase().trim();
+    final now = DateTime.now();
     final vendors = snapshot.docs
         .where((doc) => doc.data() is Map<String, dynamic>)
         .map((doc) {
@@ -98,6 +103,13 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
           (vendor) =>
               vendor.isApproved &&
               vendor.approvalStatus.toLowerCase() == 'approved',
+        )
+        .where(
+          (vendor) =>
+              !featuredOnly ||
+              (vendor.isFeatured &&
+                  vendor.featuredUntil != null &&
+                  vendor.featuredUntil!.isAfter(now)),
         )
         .where((vendor) {
           return query.isEmpty ||
@@ -150,8 +162,12 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
               child: SegmentedButton<BrowseMode>(
                 segments: const [
                   ButtonSegment(
+                    value: BrowseMode.featured,
+                    label: Text('Featured'),
+                  ),
+                  ButtonSegment(
                     value: BrowseMode.vendors,
-                    label: Text('Vendors'),
+                    label: Text('Browse'),
                   ),
                   ButtonSegment(
                     value: BrowseMode.services,
@@ -172,6 +188,8 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
                 decoration: InputDecoration(
                   hintText: _mode == BrowseMode.services
                       ? 'Search services...'
+                      : _mode == BrowseMode.featured
+                      ? 'Search featured vendors...'
                       : 'Search vendors...',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: IconButton(
@@ -221,7 +239,10 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
                           );
                         }
                         return _VendorsView(
-                          vendors: _vendors(snapshot.data!),
+                          vendors: _vendors(
+                            snapshot.data!,
+                            featuredOnly: _mode == BrowseMode.featured,
+                          ),
                           sort: _vendorSort,
                           onSort: () {
                             setState(() {
@@ -580,10 +601,10 @@ class _BrowseCard extends StatelessWidget {
                             color: AppColors.primary,
                           ),
                         )
-                      : Image.network(
-                          imageUrl,
+                      : FirebaseStorageImage(
+                          source: imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const ColoredBox(
+                          errorBuilder: (_) => const ColoredBox(
                             color: AppColors.selectedSurface,
                             child: Icon(Icons.broken_image_outlined),
                           ),

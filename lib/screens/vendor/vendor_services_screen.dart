@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/firebase_storage_image.dart';
 import '../../core/widgets/app_information_sheet.dart';
 import '../../models/service_model.dart';
 import '../../services/service_service.dart';
@@ -296,10 +297,10 @@ class _ServiceImageHeader extends StatelessWidget {
             width: double.infinity,
             height: 150,
             child: hasImage
-                ? Image.network(
-                    imageUrl,
+                ? FirebaseStorageImage(
+                    source: imageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
+                    errorBuilder: (context) {
                       return const _ServiceImagePlaceholder();
                     },
                   )

@@ -1,0 +1,188 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isVendor() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor';
+    }
+
+    function isCustomer() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer';
+    }
+
+    function isInquiryParticipant(data) {
+      return isSignedIn()
+        && (data.customerId == request.auth.uid || data.vendorId == request.auth.uid);
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /customers/{customerId} {
+      allow read: if isOwner(customerId) || isAdmin();
+      allow create: if isOwner(customerId);
+      allow update: if isOwner(customerId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /vendors/{vendorId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(vendorId);
+      allow update: if isOwner(vendorId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /services/{serviceId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isVendor() || isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn();
+      allow create: if isCustomer() || isAdmin();
+      allow update: if isSignedIn() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /inquiries/{inquiryId} {
+      allow read: if isInquiryParticipant(resource.data) || isAdmin();
+
+      allow create: if isCustomer()
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.vendorId is string
+        && request.resource.data.vendorId.size() > 0
+        && request.resource.data.status == 'pending';
+
+      allow update: if isAdmin()
+        || (
+          isInquiryParticipant(resource.data)
+          && request.resource.data.customerId == resource.data.customerId
+          && request.resource.data.vendorId == resource.data.vendorId
+          && request.resource.data.status == 'pending'
+          && (
+            (
+              request.auth.uid == resource.data.customerId
+              && request.resource.data.unreadForCustomer == false
+              && request.resource.data.unreadForVendor == true
+            )
+            || (
+              request.auth.uid == resource.data.vendorId
+              && request.resource.data.unreadForCustomer == true
+              && request.resource.data.unreadForVendor == false
+            )
+          )
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'lastMessage',
+              'lastMessageAt',
+              'updatedAt',
+              'status',
+              'closedAt',
+              'unreadForCustomer',
+              'unreadForVendor'
+            ])
+        )
+        || (
+          isOwner(resource.data.customerId)
+          && request.resource.data.customerId == resource.data.customerId
+          && request.resource.data.vendorId == resource.data.vendorId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['customerName', 'customerEmail', 'updatedAt'])
+        )
+        || (
+          isOwner(resource.data.customerId)
+          && request.resource.data.unreadForCustomer == false
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['unreadForCustomer'])
+        )
+        || (
+          isOwner(resource.data.vendorId)
+          && request.resource.data.unreadForVendor == false
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['unreadForVendor'])
+        );
+
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        function parentAfter() {
+          return getAfter(/databases/$(database)/documents/inquiries/$(inquiryId)).data;
+        }
+
+        allow read: if isInquiryParticipant(
+          get(/databases/$(database)/documents/inquiries/$(inquiryId)).data
+        ) || isAdmin();
+
+        allow create: if isInquiryParticipant(parentAfter())
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 4000
+          && request.resource.data.createdAt is timestamp;
+
+        allow update, delete: if false;
+      }
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if isSignedIn();
+      allow create, update: if isCustomer() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /guests/{guestId} {
+      allow read, delete: if isSignedIn()
+        && resource.data.customerId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.customerId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.customerId == request.auth.uid
+        && request.resource.data.customerId == request.auth.uid;
+    }
+
+    match /checklistTasks/{taskId} {
+      allow read, delete: if isSignedIn()
+        && resource.data.customerId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.customerId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.customerId == request.auth.uid
+        && request.resource.data.customerId == request.auth.uid;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn();
+    }
+  }
+}

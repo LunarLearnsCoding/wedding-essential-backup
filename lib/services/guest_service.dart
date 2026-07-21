@@ -10,13 +10,6 @@ class GuestService {
     await _firestore.collection(FirestoreCollections.guests).add(guest.toMap());
   }
 
-  Future<void> updateGuest(GuestModel guest) async {
-    await _firestore
-        .collection(FirestoreCollections.guests)
-        .doc(guest.id)
-        .update(guest.toMap());
-  }
-
   Future<void> deleteGuest(String guestId) async {
     await _firestore
         .collection(FirestoreCollections.guests)

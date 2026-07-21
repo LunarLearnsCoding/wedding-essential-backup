@@ -16,7 +16,6 @@ import 'vendor_bookings_screen.dart';
 import 'vendor_inquiries_screen.dart';
 import 'vendor_notifications_screen.dart';
 import 'vendor_reviews_screen.dart';
-import 'vendor_service_form_screen.dart';
 import 'vendor_services_screen.dart';
 
 class VendorDashboardScreen extends StatelessWidget {
@@ -72,7 +71,7 @@ class VendorDashboardScreen extends StatelessWidget {
             .where((booking) => booking.status == BookingStatus.pending)
             .length,
         pendingInquiries: inquiries
-            .where((inquiry) => inquiry.status == InquiryStatus.pending)
+            .where((inquiry) => inquiry.status != InquiryStatus.cancelled)
             .length,
         totalReviews: reviewsSnapshot.docs.length,
       );
@@ -136,25 +135,6 @@ class VendorDashboardScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _StatsGrid(data: data),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () =>
-                              _open(context, const VendorServiceFormScreen()),
-                          icon: const Icon(Icons.add_business_outlined),
-                          label: const Text('Add Service'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 24),
                       _RecentNotifications(vendorId: currentUser.uid),
                     ],
@@ -243,7 +223,7 @@ class _StatsGrid extends StatelessWidget {
               onTap: () => _open(context, const VendorBookingsScreen()),
             ),
             _StatCard(
-              title: 'Pending Inquiries',
+              title: 'Chats',
               value: data.pendingInquiries.toString(),
               icon: Icons.message_outlined,
               onTap: () => _open(context, const VendorInquiriesScreen()),

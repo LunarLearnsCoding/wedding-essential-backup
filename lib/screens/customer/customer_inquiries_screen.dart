@@ -1,98 +1,76 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/widgets/app_information_sheet.dart';
-import '../../models/app_enums.dart';
 import '../../models/inquiry_model.dart';
 import '../../services/inquiry_service.dart';
+import '../shared/inquiry_chat_screen.dart';
 
-class CustomerInquiriesScreen extends StatelessWidget {
+class CustomerInquiriesScreen extends StatefulWidget {
   const CustomerInquiriesScreen({super.key});
 
-  static final InquiryService _inquiryService = InquiryService();
+  @override
+  State<CustomerInquiriesScreen> createState() =>
+      _CustomerInquiriesScreenState();
+}
 
-  Future<void> _cancelInquiry(
-    BuildContext context,
-    InquiryModel inquiry,
-  ) async {
-    final confirm = await showAppConfirmationSheet(
-      context,
-      title: 'Cancel inquiry?',
-      message: 'Are you sure you want to cancel this inquiry?',
-      confirmLabel: 'Cancel inquiry',
-      isDestructive: true,
-    );
-
-    if (!confirm) return;
-
-    try {
-      await _inquiryService.cancelInquiry(inquiry);
-
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Inquiry cancelled')));
-    } catch (error) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_cancellationErrorMessage(error))));
-    }
-  }
+class _CustomerInquiriesScreenState extends State<CustomerInquiriesScreen> {
+  final InquiryService _service = InquiryService();
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-
     if (user == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(title: const Text('My Inquiries')),
-        body: const Center(child: Text('Please login to view your inquiries.')),
+        appBar: AppBar(title: const Text('My Chats')),
+        body: const Center(child: Text('Please login to view your chats.')),
       );
     }
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('My Inquiries')),
+      appBar: AppBar(title: const Text('My Chats')),
       body: StreamBuilder<List<InquiryModel>>(
-        stream: _inquiryService.getCustomerInquiries(user.uid),
+        stream: _service.getCustomerInquiries(user.uid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError) {
-            final error = snapshot.error;
-            final message = error is FirebaseException
-                ? error.message ?? error.code
-                : error.toString();
-            return _InquiryMessageState(
+            return _MessageState(
               icon: Icons.error_outline,
-              title: 'Could not load inquiries',
-              message: message,
+              title: 'Could not load chats',
+              message: snapshot.error.toString(),
             );
           }
 
-          final inquiries = snapshot.data ?? [];
-
-          if (inquiries.isEmpty) {
-            return const _EmptyInquiriesView();
+          final chats = snapshot.data ?? [];
+          if (chats.isEmpty) {
+            return const _MessageState(
+              icon: Icons.forum_outlined,
+              title: 'No chats yet',
+              message:
+                  'Contact a vendor from a service page to start a conversation.',
+            );
           }
 
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-            itemCount: inquiries.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 14),
+            itemCount: chats.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final inquiry = inquiries[index];
-
-              return _InquiryCard(
-                inquiry: inquiry,
-                onCancel: () => _cancelInquiry(context, inquiry),
+              final chat = chats[index];
+              return _ChatCard(
+                chat: chat,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        InquiryChatScreen(inquiryId: chat.id, isVendor: false),
+                  ),
+                ),
               );
             },
           );
@@ -102,294 +80,141 @@ class CustomerInquiriesScreen extends StatelessWidget {
   }
 }
 
-class _EmptyInquiriesView extends StatelessWidget {
-  const _EmptyInquiriesView();
+class _ChatCard extends StatelessWidget {
+  final InquiryModel chat;
+  final VoidCallback onTap;
+
+  const _ChatCard({required this.chat, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              height: 92,
-              width: 92,
-              decoration: BoxDecoration(
-                color: AppColors.selectedSurface,
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: const Icon(
-                Icons.chat_bubble_outline,
-                size: 44,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'No inquiries yet',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Your service inquiries will appear here after you contact a vendor.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary, height: 1.5),
-            ),
-          ],
-        ),
-      ),
+    final vendorName = _value(chat.vendorName, 'Vendor');
+    final preview = _value(
+      chat.lastMessage,
+      _value(chat.vendorReply, _value(chat.message, 'Open conversation')),
     );
-  }
-}
+    final time = chat.lastMessageAt ?? chat.updatedAt ?? chat.createdAt;
 
-class _InquiryCard extends StatelessWidget {
-  final InquiryModel inquiry;
-  final VoidCallback onCancel;
-
-  const _InquiryCard({required this.inquiry, required this.onCancel});
-
-  @override
-  Widget build(BuildContext context) {
-    final serviceName = _displayValue(inquiry.serviceName, 'Wedding Service');
-    final vendorName = _displayValue(inquiry.vendorName, 'Vendor');
-    final message = inquiry.message.trim();
-    final vendorReply = inquiry.vendorReply.trim();
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: const BorderSide(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(15),
+          child: Row(
             children: [
-              Container(
-                height: 48,
-                width: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.selectedSurface,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.mark_chat_unread_outlined,
-                  color: AppColors.primary,
-                ),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: AppColors.selectedSurface,
+                    child: Text(
+                      vendorName.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  if (chat.unreadForCustomer)
+                    Positioned(
+                      right: -1,
+                      top: -1,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.surface,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 13),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      serviceName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            vendorName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          DateFormat('MMM d, h:mm a').format(time),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
-                      vendorName,
+                      _value(chat.serviceName, 'Wedding service'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 13,
+                        color: AppColors.primaryDark,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            preview,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              _StatusBadge(status: inquiry.status),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
-
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const Icon(
-                Icons.schedule_outlined,
-                size: 17,
-                color: AppColors.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _formatDate(inquiry.createdAt),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          const Text(
-            'Your Message',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-
-          const SizedBox(height: 7),
-
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Text(
-              message.isEmpty ? 'No message added.' : message,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-          ),
-
-          if (vendorReply.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Text(
-              'Vendor Reply',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 7),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.selectedSurface,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                vendorReply,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ],
-
-          if (inquiry.status == InquiryStatus.pending) ...[
-            const SizedBox(height: 18),
-            SizedBox(
-              height: 46,
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onCancel,
-                icon: const Icon(Icons.close, size: 18),
-                label: const Text('Cancel Inquiry'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final InquiryStatus status;
-
-  const _StatusBadge({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (status) {
-      InquiryStatus.pending => 'Pending',
-      InquiryStatus.replied => 'Replied',
-      InquiryStatus.closed => 'Closed',
-      InquiryStatus.cancelled => 'Cancelled',
-    };
-
-    Color backgroundColor;
-    Color textColor;
-
-    switch (status) {
-      case InquiryStatus.replied:
-        backgroundColor = Colors.green.shade50;
-        textColor = Colors.green.shade700;
-        break;
-      case InquiryStatus.cancelled:
-        backgroundColor = Colors.red.shade50;
-        textColor = Colors.red.shade700;
-        break;
-      case InquiryStatus.closed:
-        backgroundColor = Colors.grey.shade200;
-        textColor = Colors.grey.shade700;
-        break;
-      case InquiryStatus.pending:
-        backgroundColor = AppColors.selectedSurface;
-        textColor = AppColors.primary;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(50),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
         ),
       ),
     );
   }
 }
 
-String _displayValue(String value, String fallback) {
-  final text = value.trim();
-  return text.isEmpty ? fallback : text;
-}
-
-class _InquiryMessageState extends StatelessWidget {
+class _MessageState extends StatelessWidget {
   final IconData icon;
   final String title;
   final String message;
 
-  const _InquiryMessageState({
+  const _MessageState({
     required this.icon,
     required this.title,
     required this.message,
@@ -410,15 +235,18 @@ class _InquiryMessageState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+                fontSize: 19,
+                fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 7),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                height: 1.45,
+              ),
             ),
           ],
         ),
@@ -427,17 +255,7 @@ class _InquiryMessageState extends StatelessWidget {
   }
 }
 
-String _formatDate(DateTime date) {
-  final day = date.day.toString().padLeft(2, '0');
-  final month = date.month.toString().padLeft(2, '0');
-  final year = date.year.toString();
-
-  return '$year-$month-$day';
-}
-
-String _cancellationErrorMessage(Object error) {
-  if (error is StateError) {
-    return error.message.toString();
-  }
-  return 'Failed to cancel inquiry: $error';
+String _value(String value, String fallback) {
+  final text = value.trim();
+  return text.isEmpty ? fallback : text;
 }

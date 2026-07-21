@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/firebase_storage_image.dart';
 import '../../core/widgets/app_information_sheet.dart';
 import '../../core/constants/firestore_collections.dart';
 import '../../models/app_enums.dart';
@@ -10,6 +11,7 @@ import '../../models/inquiry_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/favorites_service.dart';
 import '../../services/inquiry_service.dart';
+import '../shared/inquiry_chat_screen.dart';
 import 'vendor_details_screen.dart';
 
 class ServiceDetailsScreen extends StatefulWidget {
@@ -50,9 +52,27 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     return _stringValue(userDoc.data() ?? {}, 'phone');
   }
 
+  Future<String> _loadCustomerName(String customerId) async {
+    final customerDoc = await firestore
+        .collection(FirestoreCollections.customers)
+        .doc(customerId)
+        .get();
+    final customerName = _stringValue(customerDoc.data() ?? {}, 'name');
+
+    if (customerName.isNotEmpty) return customerName;
+
+    final userDoc = await firestore
+        .collection(FirestoreCollections.users)
+        .doc(customerId)
+        .get();
+
+    return _stringValue(userDoc.data() ?? {}, 'name');
+  }
+
   Future<void> _showInquirySheet(Map<String, dynamic> serviceData) async {
     final messageController = TextEditingController();
     bool isSending = false;
+    String? createdInquiryId;
 
     await showModalBottomSheet(
       context: context,
@@ -85,15 +105,19 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               });
 
               try {
-                final customerName = user.displayName?.trim().isNotEmpty == true
+                final profileName = await _loadCustomerName(user.uid);
+                final customerName = profileName.isNotEmpty
+                    ? profileName
+                    : user.displayName?.trim().isNotEmpty == true
                     ? user.displayName!.trim()
-                    : (user.email ?? 'Customer');
+                    : 'Customer';
 
-                await _inquiryService.createInquiry(
+                createdInquiryId = await _inquiryService.createInquiry(
                   InquiryModel(
                     id: '',
                     customerId: user.uid,
                     customerName: customerName,
+                    customerEmail: user.email ?? '',
                     vendorId: _stringValue(serviceData, 'vendorId'),
                     serviceId: widget.serviceId,
                     serviceName: _stringValue(serviceData, 'name'),
@@ -102,7 +126,6 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                     createdAt: DateTime.now(),
                   ),
                   additionalData: {
-                    'customerEmail': user.email ?? '',
                     'vendorName': _stringValue(serviceData, 'vendorName'),
                   },
                 );
@@ -110,10 +133,6 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                 if (!mounted) return;
 
                 Navigator.pop(sheetContext);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Inquiry sent successfully')),
-                );
               } catch (error) {
                 setModalState(() {
                   isSending = false;
@@ -167,6 +186,16 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     );
 
     messageController.dispose();
+
+    if (createdInquiryId != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              InquiryChatScreen(inquiryId: createdInquiryId!, isVendor: false),
+        ),
+      );
+    }
   }
 
   Future<void> _showBookingSheet(Map<String, dynamic> serviceData) async {
@@ -591,10 +620,10 @@ class _ServiceImageGalleryState extends State<_ServiceImageGallery> {
                   itemCount: widget.imageUrls.length,
                   onPageChanged: (index) =>
                       setState(() => _currentPage = index),
-                  itemBuilder: (context, index) => Image.network(
-                    widget.imageUrls[index],
+                  itemBuilder: (context, index) => FirebaseStorageImage(
+                    source: widget.imageUrls[index],
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (_) => Container(
                       color: AppColors.selectedSurface,
                       child: const Icon(Icons.broken_image_outlined, size: 60),
                     ),

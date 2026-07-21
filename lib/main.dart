@@ -10,8 +10,6 @@ import 'app.dart';
 import 'providers/auth_provider.dart';
 import 'providers/service_provider.dart';
 import 'providers/booking_provider.dart';
-import 'providers/review_provider.dart';
-import 'providers/blog_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,8 +33,6 @@ Future<void> main() async {
           update: (_, auth, booking) =>
               booking!..updateUser(auth.currentUser?.id),
         ),
-        ChangeNotifierProvider(create: (_) => ReviewProvider()),
-        ChangeNotifierProvider(create: (_) => BlogProvider()),
       ],
       child: const MyApp(),
     ),

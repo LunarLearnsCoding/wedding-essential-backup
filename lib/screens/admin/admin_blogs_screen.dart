@@ -1,12 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/admin_app_colors.dart';
 import '../../models/admin_models.dart';
 import '../../services/admin_service.dart';
-import '../../services/storage_service.dart';
 import 'widgets/admin_empty_state.dart';
 import 'widgets/admin_formatters.dart';
 import 'widgets/admin_helpers.dart';
@@ -245,11 +241,6 @@ class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
     if (!mounted || result == null) return;
     try {
       final values = Map<String, dynamic>.from(result.values);
-      if (result.image != null) {
-        values['imageUrl'] = await StorageService().uploadBlogImage(
-          image: result.image!,
-        );
-      }
       if (item == null) {
         await widget.service.createBlog(values);
       } else {
@@ -353,10 +344,9 @@ class _BlogStatusTab extends StatelessWidget {
 }
 
 class _BlogEditorResult {
-  const _BlogEditorResult({required this.values, this.image});
+  const _BlogEditorResult({required this.values});
 
   final Map<String, dynamic> values;
-  final XFile? image;
 }
 
 class _BlogEditorSheet extends StatefulWidget {
@@ -370,14 +360,11 @@ class _BlogEditorSheet extends StatefulWidget {
 
 class _BlogEditorSheetState extends State<_BlogEditorSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _imagePicker = ImagePicker();
   late final TextEditingController _title;
   late final TextEditingController _category;
   late final TextEditingController _author;
   late final TextEditingController _content;
   late final String _existingImageUrl;
-  XFile? _selectedImage;
-  Uint8List? _selectedImageBytes;
   late String _status;
 
   @override
@@ -427,30 +414,8 @@ class _BlogEditorSheetState extends State<_BlogEditorSheet> {
           'content': _content.text.trim(),
           'status': _status,
         },
-        image: _selectedImage,
       ),
     );
-  }
-
-  Future<void> _pickImage() async {
-    try {
-      final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-      if (image == null) return;
-      final bytes = await image.readAsBytes();
-      if (!mounted) return;
-      setState(() {
-        _selectedImage = image;
-        _selectedImageBytes = bytes;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to select that image.')),
-      );
-    }
   }
 
   @override
@@ -522,17 +487,6 @@ class _BlogEditorSheetState extends State<_BlogEditorSheet> {
                 ],
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Cover image',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 8),
-              _BlogImagePicker(
-                imageBytes: _selectedImageBytes,
-                existingImageUrl: _existingImageUrl,
-                onTap: _pickImage,
-              ),
-              const SizedBox(height: 14),
               _BlogField(
                 controller: _content,
                 label: 'Full article content',
@@ -568,85 +522,6 @@ class _BlogEditorSheetState extends State<_BlogEditorSheet> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BlogImagePicker extends StatelessWidget {
-  const _BlogImagePicker({
-    required this.imageBytes,
-    required this.existingImageUrl,
-    required this.onTap,
-  });
-
-  final Uint8List? imageBytes;
-  final String existingImageUrl;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasImage = imageBytes != null || existingImageUrl.trim().isNotEmpty;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 165,
-        width: double.infinity,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AdminAppColors.surfaceSoft,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AdminAppColors.border),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (imageBytes != null)
-              Image.memory(imageBytes!, fit: BoxFit.cover)
-            else if (existingImageUrl.trim().isNotEmpty)
-              Image.network(
-                existingImageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            Container(
-              color: hasImage ? Colors.black.withAlpha(65) : Colors.transparent,
-            ),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    hasImage ? Icons.edit_rounded : Icons.add_photo_alternate,
-                    color: hasImage ? Colors.white : AdminAppColors.primary,
-                    size: 32,
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    hasImage ? 'Change cover image' : 'Choose cover image',
-                    style: TextStyle(
-                      color: hasImage
-                          ? Colors.white
-                          : AdminAppColors.primaryDark,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (!hasImage) ...[
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Select an image from this device',
-                      style: TextStyle(
-                        color: AdminAppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -7,24 +7,6 @@ class FavoritesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  Future<void> addToFavorites({
-    required String serviceId,
-    required String vendorId,
-  }) async {
-    final uid = _requireUser().uid;
-    final normalizedServiceId = serviceId.trim();
-    await _firestore
-        .collection(FirestoreCollections.favorites)
-        .doc('${uid}_$normalizedServiceId')
-        .set({
-          'customerId': uid,
-          'serviceId': normalizedServiceId,
-          'vendorId': vendorId,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-    await _mirrorFavorite(uid, normalizedServiceId, isSaved: true);
-  }
-
   Future<void> removeFromFavorites(String serviceId) async {
     final uid = _requireUser().uid;
     final normalizedServiceId = serviceId.trim();

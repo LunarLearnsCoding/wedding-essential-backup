@@ -359,7 +359,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
-      final message = switch (error.code) {
+      final message = switch (error.code) {    //Auth error handling with specific messages
         'email-not-verified' =>
           'Verify your email first. We sent a new verification link if allowed.',
         'user-not-found' ||

@@ -6,6 +6,7 @@ class InquiryModel {
   final String id;
   final String customerId;
   final String customerName;
+  final String customerEmail;
   final String vendorId;
   final String vendorName;
   final String serviceId;
@@ -16,11 +17,18 @@ class InquiryModel {
   final DateTime createdAt;
   final DateTime? vendorReplyAt;
   final DateTime? updatedAt;
+  final String lastMessage;
+  final DateTime? lastMessageAt;
+  final DateTime? closedAt;
+  final bool isRealtimeChat;
+  final bool unreadForCustomer;
+  final bool unreadForVendor;
 
   InquiryModel({
     required this.id,
     required this.customerId,
     required this.customerName,
+    this.customerEmail = '',
     required this.vendorId,
     this.vendorName = '',
     required this.serviceId,
@@ -31,6 +39,12 @@ class InquiryModel {
     required this.createdAt,
     this.vendorReplyAt,
     this.updatedAt,
+    this.lastMessage = '',
+    this.lastMessageAt,
+    this.closedAt,
+    this.isRealtimeChat = false,
+    this.unreadForCustomer = false,
+    this.unreadForVendor = false,
   });
 
   factory InquiryModel.fromMap(String id, Map<String, dynamic> map) {
@@ -38,6 +52,7 @@ class InquiryModel {
       id: id,
       customerId: map['customerId'] ?? '',
       customerName: map['customerName'] ?? '',
+      customerEmail: map['customerEmail'] ?? '',
       vendorId: map['vendorId'] ?? '',
       vendorName: map['vendorName'] ?? '',
       serviceId: map['serviceId'] ?? '',
@@ -48,6 +63,12 @@ class InquiryModel {
       createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
       vendorReplyAt: dateTimeFromFirestore(map['vendorReplyAt']),
       updatedAt: dateTimeFromFirestore(map['updatedAt']),
+      lastMessage: map['lastMessage']?.toString() ?? '',
+      lastMessageAt: dateTimeFromFirestore(map['lastMessageAt']),
+      closedAt: dateTimeFromFirestore(map['closedAt']),
+      isRealtimeChat: map['isRealtimeChat'] == true,
+      unreadForCustomer: map['unreadForCustomer'] == true,
+      unreadForVendor: map['unreadForVendor'] == true,
     );
   }
 
@@ -55,6 +76,7 @@ class InquiryModel {
     return {
       'customerId': customerId,
       'customerName': customerName,
+      'customerEmail': customerEmail,
       'vendorId': vendorId,
       'vendorName': vendorName,
       'serviceId': serviceId,
@@ -67,6 +89,14 @@ class InquiryModel {
           ? null
           : Timestamp.fromDate(vendorReplyAt!),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
+      'lastMessage': lastMessage,
+      'lastMessageAt': lastMessageAt == null
+          ? null
+          : Timestamp.fromDate(lastMessageAt!),
+      'closedAt': closedAt == null ? null : Timestamp.fromDate(closedAt!),
+      'isRealtimeChat': isRealtimeChat,
+      'unreadForCustomer': unreadForCustomer,
+      'unreadForVendor': unreadForVendor,
     };
   }
 }

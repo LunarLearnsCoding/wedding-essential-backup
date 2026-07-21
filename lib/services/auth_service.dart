@@ -196,9 +196,4 @@ class AuthService {
     final role = await getUserRole();
     return role == 'vendor';
   }
-
-  Future<bool> isCustomer() async {
-    final role = await getUserRole();
-    return role == 'customer';
-  }
 }

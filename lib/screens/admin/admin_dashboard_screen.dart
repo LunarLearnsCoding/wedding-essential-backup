@@ -61,7 +61,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       AdminPanelPage(
         title: 'Reviews',
         subtitle: 'Moderate ratings, reviews, and customer feedback.',
-        icon: Icons.star_border_rounded,
+        icon: Icons.rate_review_outlined,
         child: AdminReviewsScreen(service: _adminService),
       ),
       AdminPanelPage(
@@ -150,7 +150,7 @@ class _AdminOverview extends StatelessWidget {
             AdminStatCard(
               title: 'Reviews',
               subtitle: 'Submitted customer reviews',
-              icon: Icons.star_border_rounded,
+              icon: Icons.rate_review_outlined,
               color: AdminAppColors.primaryDark,
               stream: service.countStream('reviews'),
             ),

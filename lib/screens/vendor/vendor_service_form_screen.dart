@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/firebase_storage_image.dart';
 import '../../models/service_model.dart';
 import '../../services/service_service.dart';
 import '../../services/storage_service.dart';
@@ -83,7 +85,11 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
       _showImageLimitMessage();
       return;
     }
-    final selected = await _imagePicker.pickMultiImage();
+    final selected = await _imagePicker.pickMultiImage(
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 75,
+    );
     if (!mounted || selected.isEmpty) return;
     setState(() => _newImages.addAll(selected.take(available)));
     if (selected.length > available) _showImageLimitMessage();
@@ -155,15 +161,18 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
         );
       }
 
-      final uploadedUrls = <String>[];
-      for (final image in _newImages) {
-        uploadedUrls.add(
-          await _storageService.uploadServiceImage(
-            vendorId: vendorId,
-            image: image,
-          ),
-        );
-      }
+      final uploadedUrls = await Future.wait(
+        _newImages.map(
+          (image) => _storageService
+              .uploadServiceImage(vendorId: vendorId, image: image)
+              .timeout(
+                const Duration(seconds: 45),
+                onTimeout: () => throw TimeoutException(
+                  'The image upload took too long. Check your connection and try again.',
+                ),
+              ),
+        ),
+      );
       final completeImageUrls = [..._existingImageUrls, ...uploadedUrls];
 
       final service = ServiceModel(
@@ -285,10 +294,10 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                               children: [
                                 ..._existingImageUrls.asMap().entries.map(
                                   (entry) => _ImagePreview(
-                                    image: Image.network(
-                                      entry.value,
+                                    image: FirebaseStorageImage(
+                                      source: entry.value,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const Icon(
+                                      errorBuilder: (_) => const Icon(
                                         Icons.broken_image_outlined,
                                       ),
                                     ),

@@ -4,11 +4,23 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/admin_app_colors.dart';
 import '../../core/constants/admin_account.dart';
+import '../../services/admin_auth_service.dart';
 import 'package:wedding_essentialsapp/screens/admin/admin_login_screen.dart';
 import 'package:wedding_essentialsapp/screens/admin/admin_dashboard_screen.dart';
 
-class AdminGuard extends StatelessWidget {
+class AdminGuard extends StatefulWidget {
   const AdminGuard({super.key});
+
+  @override
+  State<AdminGuard> createState() => _AdminGuardState();
+}
+
+class _AdminGuardState extends State<AdminGuard> {
+  Future<Map<String, dynamic>?>? _recovery;
+
+  Future<Map<String, dynamic>?> _recoverAdminProfile(User user) {
+    return _recovery ??= AdminAuthService().ensureAdminProfile(user);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +44,31 @@ class AdminGuard extends StatelessWidget {
         }
 
         final data = snapshot.data?.data();
+        if (data == null &&
+            user.email?.trim().toLowerCase() == adminAccountEmail) {
+          return FutureBuilder<Map<String, dynamic>?>(
+            future: _recoverAdminProfile(user),
+            builder: (context, recoverySnapshot) {
+              if (recoverySnapshot.connectionState != ConnectionState.done) {
+                return const Scaffold(
+                  backgroundColor: AdminAppColors.background,
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (recoverySnapshot.hasError) {
+                return _AdminAccessMessage(
+                  icon: Icons.error_outline,
+                  title: 'Admin profile recovery failed',
+                  message: recoverySnapshot.error.toString(),
+                );
+              }
+              return const Scaffold(
+                backgroundColor: AdminAppColors.background,
+                body: Center(child: CircularProgressIndicator()),
+              );
+            },
+          );
+        }
         final role = (data?['role'] ?? '').toString().toLowerCase();
         final isAdmin =
             role == 'admin' &&

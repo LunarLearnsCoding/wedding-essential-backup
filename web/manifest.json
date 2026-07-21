@@ -1,6 +1,6 @@
 {
-    "name": "wedding_essentialsapp",
-    "short_name": "wedding_essentialsapp",
+    "name": "Wedding Essentials",
+    "short_name": "Wedding Essentials",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

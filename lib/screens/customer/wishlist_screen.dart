@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/firebase_storage_image.dart';
 import '../../models/service_model.dart';
 import '../../services/favorites_service.dart';
 import 'service_details_screen.dart';
@@ -188,11 +189,10 @@ class _FavoriteCardState extends State<_FavoriteCard> {
                   height: 92,
                   child: imageUrl.isEmpty
                       ? const _ImagePlaceholder()
-                      : Image.network(
-                          imageUrl,
+                      : FirebaseStorageImage(
+                          source: imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const _ImagePlaceholder(),
+                          errorBuilder: (_) => const _ImagePlaceholder(),
                         ),
                 ),
               ),

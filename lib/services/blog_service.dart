@@ -8,24 +8,6 @@ class BlogService {
 
   // BLOGS
 
-  Future<void> addBlog(BlogModel blog) async {
-    await _firestore.collection(FirestoreCollections.blogs).add(blog.toMap());
-  }
-
-  Future<void> updateBlog(BlogModel blog) async {
-    await _firestore
-        .collection(FirestoreCollections.blogs)
-        .doc(blog.id)
-        .update(blog.toMap());
-  }
-
-  Future<void> deleteBlog(String blogId) async {
-    await _firestore
-        .collection(FirestoreCollections.blogs)
-        .doc(blogId)
-        .delete();
-  }
-
   Stream<List<BlogModel>> getAllBlogs() {
     return _firestore
         .collection(FirestoreCollections.blogs)
@@ -42,18 +24,5 @@ class BlogService {
     return getAllBlogs().map(
       (blogs) => blogs.where((blog) => blog.isPublished).toList(),
     );
-  }
-
-  Future<BlogModel?> getBlogById(String blogId) async {
-    final doc = await _firestore
-        .collection(FirestoreCollections.blogs)
-        .doc(blogId)
-        .get();
-
-    if (!doc.exists || doc.data() == null) {
-      return null;
-    }
-
-    return BlogModel.fromMap(doc.id, doc.data()!);
   }
 }

@@ -333,13 +333,6 @@ class BookingService {
       debugPrintStack(stackTrace: stackTrace);
     }
   }
-
-  Future<void> deleteBooking(String bookingId) async {
-    await _firestore
-        .collection(FirestoreCollections.bookings)
-        .doc(bookingId)
-        .delete();
-  }
 }
 
 DateTime _normalizeBookingDateTime(DateTime dateTime) {

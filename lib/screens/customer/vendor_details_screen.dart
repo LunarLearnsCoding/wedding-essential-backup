@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/firebase_storage_image.dart';
 import '../../core/constants/firestore_collections.dart';
 import '../../models/review_model.dart';
 import '../../models/service_model.dart';
@@ -608,18 +609,18 @@ class _ServiceImage extends StatelessWidget {
     }
     return ClipRRect(
       borderRadius: BorderRadius.circular(15),
-      child: Image.network(
-        service.imageUrls.first,
+      child: SizedBox(
         width: 104,
         height: 108,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
-          width: 104,
-          height: 108,
-          color: AppColors.selectedSurface,
-          child: const Icon(
-            Icons.broken_image_outlined,
-            color: AppColors.primary,
+        child: FirebaseStorageImage(
+          source: service.imageUrls.first,
+          fit: BoxFit.cover,
+          errorBuilder: (_) => Container(
+            color: AppColors.selectedSurface,
+            child: const Icon(
+              Icons.broken_image_outlined,
+              color: AppColors.primary,
+            ),
           ),
         ),
       ),

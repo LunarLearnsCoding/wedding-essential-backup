@@ -113,36 +113,6 @@ class ReviewService {
         .map((snapshot) => snapshot.exists);
   }
 
-  Future<void> addReview(ReviewModel review) async {
-    await _firestore
-        .collection(FirestoreCollections.reviews)
-        .add(review.toMap());
-
-    await _updateVendorRating(review.vendorId);
-  }
-
-  Future<void> addReviewFromFields({
-    required String vendorId,
-    required String serviceId,
-    required String customerId,
-    required String customerName,
-    required double rating,
-    required String reviewText,
-  }) async {
-    final review = ReviewModel(
-      id: '',
-      serviceId: serviceId,
-      vendorId: vendorId,
-      customerId: customerId,
-      customerName: customerName,
-      rating: rating,
-      reviewText: reviewText,
-      createdAt: DateTime.now(),
-    );
-
-    await addReview(review);
-  }
-
   Stream<List<ReviewModel>> getReviewsByService(String serviceId) {
     return _firestore
         .collection(FirestoreCollections.reviews)

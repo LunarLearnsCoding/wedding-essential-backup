@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/admin_account.dart';
+import '../../services/admin_auth_service.dart';
 import 'admin_dashboard_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -53,14 +53,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         return;
       }
 
-      final uid = credential.user!.uid;
-
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-
-      final userData = userDoc.data();
+      final userData = await AdminAuthService().ensureAdminProfile(
+        credential.user!,
+      );
 
       if (userData == null ||
           userData['role'] != 'admin' ||
@@ -93,6 +88,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         } else {
           _errorMessage = e.message ?? 'Login failed. Please try again.';
         }
+      });
+    } on FirebaseException catch (e) {
+      setState(() {
+        _errorMessage = e.code == 'permission-denied'
+            ? 'The admin profile is missing and Firestore rules blocked its recovery. Restore the admin users document in Firebase Console.'
+            : e.message ?? 'Firebase could not complete the admin login.';
       });
     } catch (e) {
       setState(() {

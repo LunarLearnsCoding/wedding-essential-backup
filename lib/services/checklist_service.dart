@@ -12,13 +12,6 @@ class ChecklistService {
         .add(task.toMap());
   }
 
-  Future<void> updateTask(ChecklistTaskModel task) async {
-    await _firestore
-        .collection(FirestoreCollections.checklistTasks)
-        .doc(task.id)
-        .update(task.toMap());
-  }
-
   Future<void> deleteTask(String taskId) async {
     await _firestore
         .collection(FirestoreCollections.checklistTasks)

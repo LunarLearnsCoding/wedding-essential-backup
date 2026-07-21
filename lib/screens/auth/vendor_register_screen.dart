@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/service_categories.dart';
+import '../../core/utils/validators.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
 import '../../core/widgets/legal_agreement.dart';
@@ -49,7 +51,7 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
         name: ownerNameController.text.trim(),
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
-        phone: phoneController.text.trim(),
+        phone: normalizeNepaliPhoneNumber(phoneController.text),
         businessName: businessNameController.text.trim(),
         category: selectedCategory,
         locations: [locationController.text.trim()],
@@ -286,17 +288,11 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
                   hint: '+977 98XXXXXXXX',
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Phone number is required';
-                    }
-
-                    if (value.trim().length < 10) {
-                      return 'Enter a valid phone number';
-                    }
-
-                    return null;
-                  },
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
+                    LengthLimitingTextInputFormatter(15),
+                  ],
+                  validator: validateNepaliPhoneNumber,
                 ),
 
                 const SizedBox(height: 18),

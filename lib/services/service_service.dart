@@ -105,19 +105,6 @@ class ServiceService {
         });
   }
 
-  Future<ServiceModel?> getServiceById(String serviceId) async {
-    final doc = await _firestore
-        .collection(FirestoreCollections.services)
-        .doc(serviceId)
-        .get();
-
-    if (!doc.exists || doc.data() == null) {
-      return null;
-    }
-
-    return ServiceModel.fromMap(doc.id, doc.data()!);
-  }
-
   Stream<List<ServiceModel>> filterServices({
     String? category,
     String? location,

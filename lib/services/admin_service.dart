@@ -1,4 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import 'admin_auth_service.dart';
 
 class AdminService {
   AdminService({FirebaseFirestore? firestore})
@@ -74,27 +77,6 @@ class AdminService {
         return (doc.data()['status'] ?? '').toString().toLowerCase() ==
             'published';
       }).length;
-    });
-  }
-
-  Stream<double> revenueStream() {
-    return _collection('bookings').snapshots().map((snapshot) {
-      double total = 0;
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final status = (data['status'] ?? '').toString().toLowerCase();
-        final isCompleted = status == 'completed' || status == 'paid';
-        if (!isCompleted) continue;
-
-        final rawAmount =
-            data['totalAmount'] ?? data['amount'] ?? data['price'];
-        if (rawAmount is num) {
-          total += rawAmount.toDouble();
-        } else if (rawAmount is String) {
-          total += double.tryParse(rawAmount) ?? 0;
-        }
-      }
-      return total;
     });
   }
 
@@ -319,23 +301,33 @@ class AdminService {
     return updateDocument('bookings', bookingId, {'status': status});
   }
 
-  Future<void> updateInquiryStatus(String inquiryId, String status) {
-    return updateDocument('inquiries', inquiryId, {'status': status});
-  }
-
   Future<void> updateBlogStatus(String blogId, String status) {
-    return updateDocument('blogs', blogId, {'status': status});
+    return updateBlog(blogId, {'status': status});
   }
 
-  Future<void> createBlog(Map<String, dynamic> data) async {
-    await _collection('blogs').add({
+  Future<String> createBlog(Map<String, dynamic> data) async {
+    await _ensureAdminProfile();
+    final document = await _collection('blogs').add({
       ...data,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    return document.id;
   }
 
-  Future<void> updateBlog(String blogId, Map<String, dynamic> data) {
-    return updateDocument('blogs', blogId, data);
+  Future<void> updateBlog(String blogId, Map<String, dynamic> data) async {
+    await _ensureAdminProfile();
+    await _collection('blogs').doc(blogId).set({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _ensureAdminProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw StateError('Your admin session has expired. Please sign in again.');
+    }
+    await AdminAuthService(firestore: _firestore).ensureAdminProfile(user);
   }
 }

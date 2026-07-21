@@ -1,1 +1,25 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"wedding-essentials-app-01","appId":"1:636351449021:android:6e60da5a6c38620e29f4d4","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"wedding-essentials-app-01","configurations":{"android":"1:636351449021:android:6e60da5a6c38620e29f4d4","web":"1:636351449021:web:c531c2ee704e2cce29f4d4"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "wedding-essentials-app-01",
+          "appId": "1:636351449021:android:6e60da5a6c38620e29f4d4",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "wedding-essentials-app-01",
+          "configurations": {
+            "android": "1:636351449021:android:6e60da5a6c38620e29f4d4",
+            "web": "1:636351449021:web:c531c2ee704e2cce29f4d4"
+          }
+        }
+      }
+    }
+  }
+}
