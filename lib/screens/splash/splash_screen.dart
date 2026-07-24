@@ -121,8 +121,12 @@ class _SplashScreenState extends State<SplashScreen>
       final role = userData['role']?.toString().toLowerCase() ?? '';
       final userStatus =
           userData['status']?.toString().toLowerCase() ?? 'active';
+      final isActive = userData['isActive'] != false;
 
-      if (userStatus == 'suspended' || userStatus == 'blocked') {
+      if (!isActive ||
+          userStatus == 'inactive' ||
+          userStatus == 'suspended' ||
+          userStatus == 'blocked') {
         await FirebaseAuth.instance.signOut();
 
         if (!mounted) return;

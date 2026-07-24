@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
@@ -9,11 +10,13 @@ class FirebaseStorageImage extends StatefulWidget {
     required this.source,
     this.fit = BoxFit.cover,
     this.errorBuilder,
+    this.enablePreview = false,
   });
 
   final String source;
   final BoxFit fit;
   final WidgetBuilder? errorBuilder;
+  final bool enablePreview;
 
   @override
   State<FirebaseStorageImage> createState() => _FirebaseStorageImageState();
@@ -36,15 +39,44 @@ class _FirebaseStorageImageState extends State<FirebaseStorageImage> {
 
   void _loadSource() {
     final source = widget.source.trim();
-    _imageBytes = source.startsWith('gs://')
-        ? FirebaseStorage.instance.refFromURL(source).getData(20 * 1024 * 1024)
-        : null;
+    if (source.startsWith('gs://')) {
+      _imageBytes = FirebaseStorage.instance
+          .refFromURL(source)
+          .getData(20 * 1024 * 1024);
+      return;
+    }
+    if (source.startsWith('firestore-image://')) {
+      final imageId = source.substring('firestore-image://'.length);
+      _imageBytes = FirebaseFirestore.instance
+          .collection('service_images')
+          .doc(imageId)
+          .get()
+          .then((snapshot) => snapshot.data()?['bytes'])
+          .then((value) => value is Blob ? value.bytes : null);
+      return;
+    }
+    _imageBytes = null;
   }
 
   @override
   Widget build(BuildContext context) {
+    final image = _buildImage(context);
+    if (!widget.enablePreview || widget.source.trim().isEmpty) return image;
+    return Semantics(
+      button: true,
+      label: 'Open image preview',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _showPreview(context),
+        child: image,
+      ),
+    );
+  }
+
+  Widget _buildImage(BuildContext context) {
     final source = widget.source.trim();
-    if (!source.startsWith('gs://')) {
+    if (!source.startsWith('gs://') &&
+        !source.startsWith('firestore-image://')) {
       return Image.network(
         source,
         fit: widget.fit,
@@ -56,11 +88,50 @@ class _FirebaseStorageImageState extends State<FirebaseStorageImage> {
       future: _imageBytes,
       builder: (context, snapshot) {
         if (snapshot.hasError) return _error(context);
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
         }
+        if (!snapshot.hasData) return _error(context);
         return Image.memory(snapshot.data!, fit: widget.fit);
       },
+    );
+  }
+
+  Future<void> _showPreview(BuildContext context) {
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 5,
+                child: Center(
+                  child: FirebaseStorageImage(
+                    source: widget.source,
+                    fit: BoxFit.contain,
+                    errorBuilder: widget.errorBuilder,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 18,
+              right: 18,
+              child: SafeArea(
+                child: IconButton.filled(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(dialogContext),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -604,6 +604,7 @@ class _BrowseCard extends StatelessWidget {
                       : FirebaseStorageImage(
                           source: imageUrl,
                           fit: BoxFit.cover,
+                          enablePreview: true,
                           errorBuilder: (_) => const ColoredBox(
                             color: AppColors.selectedSurface,
                             child: Icon(Icons.broken_image_outlined),

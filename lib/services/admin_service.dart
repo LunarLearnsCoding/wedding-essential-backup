@@ -120,61 +120,121 @@ class AdminService {
 
   Future<void> approveVendor(String vendorId) async {
     final batch = _firestore.batch();
-
-    final vendorRef = _firestore.collection('vendors').doc(vendorId);
-
-    final userRef = _firestore.collection('users').doc(vendorId);
-
+    final vendorRef = _collection('vendors').doc(vendorId);
+    final userRef = _collection('users').doc(vendorId);
     batch.set(vendorRef, {
       'isApproved': true,
       'approvalStatus': 'approved',
+      'status': 'approved',
       'approvedAt': FieldValue.serverTimestamp(),
+      'rejectedAt': null,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-
     batch.set(userRef, {
       'status': 'active',
+      'isActive': true,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-
     await batch.commit();
   }
 
   Future<void> rejectVendor(String vendorId) async {
     final batch = _firestore.batch();
-
-    final vendorRef = _firestore.collection('vendors').doc(vendorId);
-
-    final userRef = _firestore.collection('users').doc(vendorId);
-
+    final vendorRef = _collection('vendors').doc(vendorId);
+    final userRef = _collection('users').doc(vendorId);
     batch.set(vendorRef, {
       'isApproved': false,
       'approvalStatus': 'rejected',
-      'rejectedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    batch.set(userRef, {
       'status': 'rejected',
+      'rejectedAt': FieldValue.serverTimestamp(),
+      'approvedAt': null,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-
+    batch.set(userRef, {
+      'status': 'inactive',
+      'isActive': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     await batch.commit();
   }
 
-  Future<void> suspendUser(String userId) {
-    return updateDocument('users', userId, {'status': 'suspended'});
+  Future<void> suspendUser(String userId) async {
+    final batch = _firestore.batch();
+    final values = {
+      'status': 'suspended',
+      'isActive': false,
+      'suspendedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    batch.set(
+      _collection('users').doc(userId),
+      values,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      _collection('customers').doc(userId),
+      values,
+      SetOptions(merge: true),
+    );
+    await batch.commit();
   }
 
-  Future<void> activateUser(String userId) {
-    return updateDocument('users', userId, {'status': 'active'});
+  Future<void> activateUser(String userId) async {
+    final batch = _firestore.batch();
+    final values = {
+      'status': 'active',
+      'isActive': true,
+      'suspendedAt': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    batch.set(
+      _collection('users').doc(userId),
+      values,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      _collection('customers').doc(userId),
+      values,
+      SetOptions(merge: true),
+    );
+    await batch.commit();
+  }
+
+  Future<void> deleteUserData(String userId) async {
+    final batch = _firestore.batch();
+    batch.delete(_collection('users').doc(userId));
+    batch.delete(_collection('customers').doc(userId));
+    batch.delete(_collection('vendors').doc(userId));
+    await batch.commit();
   }
 
   Future<void> updateServiceStatus(String serviceId, bool isActive) {
     return updateDocument('services', serviceId, {
       'isActive': isActive,
-      'status': isActive ? 'active' : 'inactive',
+      'status': isActive ? 'active' : 'hidden',
+      'hiddenAt': isActive ? null : FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> deleteService(String serviceId) async {
+    final serviceRef = _collection('services').doc(serviceId);
+    final snapshot = await serviceRef.get();
+    final batch = _firestore.batch();
+    batch.delete(serviceRef);
+
+    final imageUrls = snapshot.data()?['imageUrls'];
+    if (imageUrls is Iterable) {
+      for (final value in imageUrls) {
+        final source = value.toString().trim();
+        const prefix = 'firestore-image://';
+        if (!source.startsWith(prefix)) continue;
+        final imageId = source.substring(prefix.length).trim();
+        if (imageId.isEmpty || imageId.contains('/')) continue;
+        batch.delete(_collection('service_images').doc(imageId));
+      }
+    }
+
+    await batch.commit();
   }
 
   Future<void> featureVendorUntil(

@@ -33,7 +33,7 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
         const SizedBox(height: 16),
         Expanded(
           child: StreamBuilder(
-            stream: widget.service.collectionStream('services'),
+            stream: widget.service.plainCollectionStream('services'),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -46,25 +46,33 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
                 );
               }
 
-              final services = (snapshot.data?.docs ?? [])
-                  .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where((item) {
-                    final active = item.boolValue(['isActive'], fallback: true);
-                    return AdminHelpers.matchesValues(_search, [
-                      item.stringValue(['title', 'serviceName', 'name']),
-                      item.stringValue([
-                        'vendorName',
-                        'businessName',
-                        'vendorId',
-                      ]),
-                      item.stringValue(['category', 'serviceCategory']),
-                      item.numberValue(['price', 'startingPrice', 'amount']),
-                      item.stringValue([
-                        'status',
-                      ], fallback: active ? 'active' : 'inactive'),
-                    ]);
-                  })
-                  .toList();
+              final services =
+                  (snapshot.data?.docs ?? [])
+                      .map((doc) => AdminCollectionItem.fromDoc(doc))
+                      .where((item) {
+                        final active = item.boolValue([
+                          'isActive',
+                        ], fallback: true);
+                        return AdminHelpers.matchesValues(_search, [
+                          item.stringValue(['title', 'serviceName', 'name']),
+                          item.stringValue([
+                            'vendorName',
+                            'businessName',
+                            'vendorId',
+                          ]),
+                          item.stringValue(['category', 'serviceCategory']),
+                          item.numberValue([
+                            'price',
+                            'startingPrice',
+                            'amount',
+                          ]),
+                          item.stringValue([
+                            'status',
+                          ], fallback: active ? 'active' : 'inactive'),
+                        ]);
+                      })
+                      .toList()
+                    ..sort((a, b) => _createdAt(b).compareTo(_createdAt(a)));
               if (services.isEmpty) {
                 return const AdminEmptyState(
                   title: 'No services found',
@@ -149,6 +157,10 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
     );
   }
 
+  DateTime _createdAt(AdminCollectionItem item) =>
+      item.dateValue(['createdAt', 'publishedAt', 'listedAt']) ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+
   Future<void> _toggleActive(String id, {required bool active}) async {
     try {
       await widget.service.updateServiceStatus(id, !active);
@@ -172,7 +184,7 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
     );
     if (!confirmed) return;
     try {
-      await widget.service.deleteDocument('services', id);
+      await widget.service.deleteService(id);
       if (!mounted) return;
       AdminHelpers.showSnack(context, 'Service deleted');
     } catch (error) {

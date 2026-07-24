@@ -1,9 +1,7 @@
-import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -33,7 +31,7 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
 
   String _status = 'Active';
   bool _isSaving = false;
-  bool _isLoadingCategory = true;
+  bool _isLoadingProfileDetails = true;
   final ImagePicker _imagePicker = ImagePicker();
   final StorageService _storageService = StorageService();
   final List<XFile> _newImages = [];
@@ -48,22 +46,22 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
       widget.service?.imageUrls ?? const [],
     );
     _categoryController.text = widget.service?.category.trim() ?? '';
-    _loadVendorCategory();
+    _locationController.text = widget.service?.location.trim() ?? '';
+    _loadVendorProfileDetails();
 
     final service = widget.service;
     if (service == null) return;
 
     _serviceNameController.text = service.name;
-    _locationController.text = service.location;
     _priceController.text = service.price.toStringAsFixed(0);
     _descriptionController.text = service.description;
     _status = service.isActive ? 'Active' : 'Paused';
   }
 
-  Future<void> _loadVendorCategory() async {
+  Future<void> _loadVendorProfileDetails() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      if (mounted) setState(() => _isLoadingCategory = false);
+      if (mounted) setState(() => _isLoadingProfileDetails = false);
       return;
     }
     try {
@@ -71,12 +69,26 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
           .collection('vendors')
           .doc(currentUser.uid)
           .get();
-      final category = vendorDoc.data()?['category']?.toString().trim() ?? '';
+      final data = vendorDoc.data() ?? {};
+      final category = data['category']?.toString().trim() ?? '';
+      final location = _profileLocation(data);
       if (!mounted) return;
       if (category.isNotEmpty) _categoryController.text = category;
+      if (location.isNotEmpty) _locationController.text = location;
     } finally {
-      if (mounted) setState(() => _isLoadingCategory = false);
+      if (mounted) setState(() => _isLoadingProfileDetails = false);
     }
+  }
+
+  String _profileLocation(Map<String, dynamic> data) {
+    final locations = data['locations'];
+    if (locations is Iterable) {
+      return locations
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .join(', ');
+    }
+    return data['location']?.toString().trim() ?? '';
   }
 
   Future<void> _pickImages() async {
@@ -86,9 +98,9 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
       return;
     }
     final selected = await _imagePicker.pickMultiImage(
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 75,
+      maxWidth: 900,
+      maxHeight: 900,
+      imageQuality: 55,
     );
     if (!mounted || selected.isEmpty) return;
     setState(() => _newImages.addAll(selected.take(available)));
@@ -155,22 +167,27 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
       final vendorCategory = profileCategory.isNotEmpty
           ? profileCategory
           : existingService?.category.trim() ?? '';
+      final profileLocation = _profileLocation(vendorData);
+      final vendorLocation = profileLocation.isNotEmpty
+          ? profileLocation
+          : existingService?.location.trim() ?? '';
       if (vendorCategory.isEmpty) {
         throw StateError(
           'Your vendor profile does not have a service category. Update your business information before adding a service.',
         );
       }
+      if (vendorLocation.isEmpty) {
+        throw StateError(
+          'Your vendor profile does not have a location. Update your business information before adding a service.',
+        );
+      }
 
       final uploadedUrls = await Future.wait(
         _newImages.map(
-          (image) => _storageService
-              .uploadServiceImage(vendorId: vendorId, image: image)
-              .timeout(
-                const Duration(seconds: 45),
-                onTimeout: () => throw TimeoutException(
-                  'The image upload took too long. Check your connection and try again.',
-                ),
-              ),
+          (image) => _storageService.uploadServiceImage(
+            vendorId: vendorId,
+            image: image,
+          ),
         ),
       );
       final completeImageUrls = [..._existingImageUrls, ...uploadedUrls];
@@ -182,7 +199,7 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
         name: _serviceNameController.text.trim(),
         description: _descriptionController.text.trim(),
         category: vendorCategory,
-        location: _locationController.text.trim(),
+        location: vendorLocation,
         price: _parsePrice(_priceController.text),
         imageUrls: completeImageUrls,
         averageRating: existingService?.averageRating ?? 0,
@@ -347,7 +364,7 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                             helperText:
                                 'Taken from your vendor registration information.',
                             prefixIcon: const Icon(Icons.category_outlined),
-                            suffixIcon: _isLoadingCategory
+                            suffixIcon: _isLoadingProfileDetails
                                 ? const Padding(
                                     padding: EdgeInsets.all(14),
                                     child: SizedBox(
@@ -363,11 +380,29 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        _TextInput(
-                          label: 'Location',
-                          hint: 'Kathmandu, Lalitpur, Pokhara...',
+                        TextFormField(
                           controller: _locationController,
+                          readOnly: true,
+                          enableInteractiveSelection: false,
+                          decoration: _inputDecoration('Location').copyWith(
+                            helperText:
+                                'Taken from your vendor registration information.',
+                            prefixIcon: const Icon(Icons.location_on_outlined),
+                            suffixIcon: _isLoadingProfileDetails
+                                ? const Padding(
+                                    padding: EdgeInsets.all(14),
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                : const Icon(Icons.lock_outline, size: 19),
+                          ),
                         ),
+                        const SizedBox(height: 14),
 
                         _TextInput(
                           label: 'Base Price',
@@ -601,6 +636,9 @@ class _TextInput extends StatelessWidget {
         keyboardType: label.toLowerCase().contains('price')
             ? TextInputType.number
             : TextInputType.text,
+        inputFormatters: label.toLowerCase().contains('price')
+            ? [FilteringTextInputFormatter.digitsOnly]
+            : null,
         validator: requiredField
             ? (value) {
                 if (value == null || value.trim().isEmpty) {

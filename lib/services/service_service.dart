@@ -23,19 +23,36 @@ class ServiceService {
     final serviceReference = _firestore
         .collection(FirestoreCollections.services)
         .doc(serviceId);
+    final serviceSnapshot = await serviceReference.get();
+    final imageReferences = <DocumentReference<Map<String, dynamic>>>[];
+    final imageUrls = serviceSnapshot.data()?['imageUrls'];
+    if (imageUrls is Iterable) {
+      for (final value in imageUrls) {
+        final source = value.toString().trim();
+        const prefix = 'firestore-image://';
+        if (!source.startsWith(prefix)) continue;
+        final imageId = source.substring(prefix.length).trim();
+        if (imageId.isEmpty || imageId.contains('/')) continue;
+        imageReferences.add(
+          _firestore.collection('service_images').doc(imageId),
+        );
+      }
+    }
     final bookings = await _firestore
         .collection(FirestoreCollections.bookings)
         .where('serviceId', isEqualTo: serviceId)
         .get();
 
-    final references = bookings.docs
-        .where(
-          (doc) =>
-              (doc.data()['status'] ?? '').toString().toLowerCase() !=
-              'completed',
-        )
-        .map((doc) => doc.reference)
-        .toList();
+    final references =
+        bookings.docs
+            .where(
+              (doc) =>
+                  (doc.data()['status'] ?? '').toString().toLowerCase() !=
+                  'completed',
+            )
+            .map((doc) => doc.reference)
+            .toList()
+          ..addAll(imageReferences);
     var offset = 0;
     var serviceDeleted = false;
     while (offset < references.length) {

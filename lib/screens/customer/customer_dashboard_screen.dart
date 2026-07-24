@@ -12,7 +12,6 @@ import '../../models/vendor_model.dart';
 import '../../models/blog_model.dart';
 import '../../models/review_model.dart';
 import '../../services/blog_service.dart';
-import '../../services/inquiry_service.dart';
 import '../../services/review_service.dart';
 import 'blog_details_screen.dart';
 import 'browse_services_screen.dart';
@@ -65,20 +64,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               .doc(customerId)
               .get();
     final profileData = customerDoc.data() ?? userDoc?.data() ?? {};
-    final customerName = _stringValue(profileData['name']);
-    final profileEmail = _stringValue(profileData['email']);
-    final customerEmail = profileEmail.isEmpty
-        ? FirebaseAuth.instance.currentUser?.email ?? ''
-        : profileEmail;
-
-    await InquiryService().repairCustomerIdentity(
-      customerId: customerId,
-      customerName: customerName,
-      customerEmail: customerEmail,
-    );
 
     return _DashboardData(
-      firstName: _firstName(customerName),
+      firstName: _firstName(profileData['name']),
       weddingDate: dateTimeFromFirestore(profileData['weddingDate']),
       weddingVenue: _stringValue(profileData['weddingVenue']),
     );
@@ -194,20 +182,29 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         },
                       ),
                       const SizedBox(height: 22),
-                      _SectionHeader(title: 'Wedding Planning'),
-                      const SizedBox(height: 14),
-                      _PlanningGrid(),
-                      const SizedBox(height: 22),
                       _SectionHeader(
-                        title: 'Featured Vendors',
+                        title: 'Wedding Planning',
                         actionText: 'View all',
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const BrowseServicesScreen(
-                                initialMode: BrowseMode.featured,
-                              ),
+                              builder: (_) => const BrowseServicesScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      _PlanningGrid(),
+                      const SizedBox(height: 22),
+                      _SectionHeader(
+                        title: 'Featured Vendors',
+                        actionText: 'Browse',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const BrowseServicesScreen(),
                             ),
                           );
                         },
@@ -415,10 +412,14 @@ class _FixedHeroHeader extends StatelessWidget {
 
 class _SectionHeader extends StatelessWidget {
   final String title;
-  final String? actionText;
-  final VoidCallback? onTap;
+  final String actionText;
+  final VoidCallback onTap;
 
-  const _SectionHeader({required this.title, this.actionText, this.onTap});
+  const _SectionHeader({
+    required this.title,
+    required this.actionText,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -433,17 +434,16 @@ class _SectionHeader extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-        if (actionText != null)
-          TextButton(
-            onPressed: onTap,
-            child: Text(
-              actionText!,
-              style: const TextStyle(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.w700,
-              ),
+        TextButton(
+          onPressed: onTap,
+          child: Text(
+            actionText,
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontWeight: FontWeight.w700,
             ),
           ),
+        ),
       ],
     );
   }
@@ -542,7 +542,7 @@ class _PlanningGrid extends StatelessWidget {
               },
             ),
             _PlanningCard(
-              title: 'My Chats',
+              title: 'My Inquiries',
               subtitle: 'Track inquiry status',
               icon: Icons.message_outlined,
               onTap: () {

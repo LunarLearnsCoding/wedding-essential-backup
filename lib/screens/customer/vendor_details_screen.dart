@@ -615,6 +615,7 @@ class _ServiceImage extends StatelessWidget {
         child: FirebaseStorageImage(
           source: service.imageUrls.first,
           fit: BoxFit.cover,
+          enablePreview: true,
           errorBuilder: (_) => Container(
             color: AppColors.selectedSurface,
             child: const Icon(

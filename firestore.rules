@@ -18,12 +18,14 @@ service cloud.firestore {
 
     function isVendor() {
       return isSignedIn()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor';
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
     }
 
     function isCustomer() {
       return isSignedIn()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer';
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
     }
 
     function isInquiryParticipant(data) {
@@ -55,6 +57,18 @@ service cloud.firestore {
     match /services/{serviceId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isVendor() || isAdmin();
+    }
+
+    match /service_images/{imageId} {
+      allow read: if isSignedIn();
+      allow create: if isVendor()
+        && request.resource.data.vendorId == request.auth.uid
+        && request.resource.data.bytes is bytes
+        && request.resource.data.bytes.size() <= 768000
+        && request.resource.data.size() <= 5;
+      allow update: if false;
+      allow delete: if isAdmin()
+        || (isVendor() && resource.data.vendorId == request.auth.uid);
     }
 
     match /bookings/{bookingId} {

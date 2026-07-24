@@ -32,7 +32,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: 'Overview',
         subtitle: 'Track customers, vendors, services, and reviews.',
         icon: Icons.dashboard_rounded,
-        child: _AdminOverview(service: _adminService),
+        child: _AdminOverview(
+          service: _adminService,
+          onPageSelected: (index) => setState(() => _selectedIndex = index),
+        ),
       ),
       AdminPanelPage(
         title: 'Customers',
@@ -99,9 +102,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 }
 
 class _AdminOverview extends StatelessWidget {
-  const _AdminOverview({required this.service});
+  const _AdminOverview({required this.service, required this.onPageSelected});
 
   final AdminService service;
+  final ValueChanged<int> onPageSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +129,7 @@ class _AdminOverview extends StatelessWidget {
               icon: Icons.people_alt_outlined,
               color: AdminAppColors.primary,
               stream: service.customerCountStream(),
+              onTap: () => onPageSelected(1),
             ),
             AdminStatCard(
               title: 'Approved Vendors',
@@ -132,6 +137,7 @@ class _AdminOverview extends StatelessWidget {
               icon: Icons.verified_outlined,
               color: AdminAppColors.success,
               stream: service.approvedVendorCountStream(),
+              onTap: () => onPageSelected(2),
             ),
             AdminStatCard(
               title: 'Pending Vendors',
@@ -139,6 +145,7 @@ class _AdminOverview extends StatelessWidget {
               icon: Icons.pending_actions_outlined,
               color: AdminAppColors.warning,
               stream: service.pendingVendorCountStream(),
+              onTap: () => onPageSelected(2),
             ),
             AdminStatCard(
               title: 'Active Services',
@@ -146,6 +153,7 @@ class _AdminOverview extends StatelessWidget {
               icon: Icons.room_service_outlined,
               color: AdminAppColors.secondary,
               stream: service.activeServiceCountStream(),
+              onTap: () => onPageSelected(3),
             ),
             AdminStatCard(
               title: 'Reviews',
@@ -153,6 +161,7 @@ class _AdminOverview extends StatelessWidget {
               icon: Icons.rate_review_outlined,
               color: AdminAppColors.primaryDark,
               stream: service.countStream('reviews'),
+              onTap: () => onPageSelected(5),
             ),
             AdminStatCard(
               title: 'Published Blogs',
@@ -160,6 +169,7 @@ class _AdminOverview extends StatelessWidget {
               icon: Icons.article_outlined,
               color: AdminAppColors.primary,
               stream: service.publishedBlogCountStream(),
+              onTap: () => onPageSelected(6),
             ),
           ],
         );

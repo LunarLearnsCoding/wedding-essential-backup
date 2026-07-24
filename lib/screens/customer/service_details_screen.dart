@@ -623,6 +623,7 @@ class _ServiceImageGalleryState extends State<_ServiceImageGallery> {
                   itemBuilder: (context, index) => FirebaseStorageImage(
                     source: widget.imageUrls[index],
                     fit: BoxFit.cover,
+                    enablePreview: true,
                     errorBuilder: (_) => Container(
                       color: AppColors.selectedSurface,
                       child: const Icon(Icons.broken_image_outlined, size: 60),

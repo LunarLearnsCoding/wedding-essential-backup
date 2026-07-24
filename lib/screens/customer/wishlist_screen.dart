@@ -192,6 +192,7 @@ class _FavoriteCardState extends State<_FavoriteCard> {
                       : FirebaseStorageImage(
                           source: imageUrl,
                           fit: BoxFit.cover,
+                          enablePreview: true,
                           errorBuilder: (_) => const _ImagePlaceholder(),
                         ),
                 ),

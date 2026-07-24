@@ -55,7 +55,7 @@ class _VendorPendingScreenState extends State<VendorPendingScreen> {
             '';
       });
     } catch (_) {
-      // Keeping screen simple. Error will not break the page.
+      
     }
   }
 

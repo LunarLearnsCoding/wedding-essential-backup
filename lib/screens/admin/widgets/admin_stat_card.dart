@@ -12,6 +12,7 @@ class AdminStatCard extends StatelessWidget {
     this.prefix = '',
     this.suffix = '',
     this.color = AdminAppColors.primary,
+    this.onTap,
   });
 
   final String title;
@@ -21,6 +22,7 @@ class AdminStatCard extends StatelessWidget {
   final String prefix;
   final String suffix;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -34,66 +36,74 @@ class AdminStatCard extends StatelessWidget {
             ? value.toStringAsFixed(0)
             : value.toString();
 
-        return Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: AdminAppColors.surface,
+        return Material(
+          color: AdminAppColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          child: InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AdminAppColors.border),
-            boxShadow: [AdminAppColors.cardShadow],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AdminAppColors.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AdminAppColors.border),
+                boxShadow: [AdminAppColors.cardShadow],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: color.withAlpha(26),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(icon, color: color),
+                  Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: color.withAlpha(26),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(icon, color: color),
+                      ),
+                      const Spacer(),
+                      if (snapshot.connectionState == ConnectionState.waiting)
+                        const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                    ],
                   ),
-                  const Spacer(),
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  const SizedBox(height: 18),
+                  Text(
+                    '$prefix$valueText$suffix',
+                    style: const TextStyle(
+                      color: AdminAppColors.textPrimary,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
                     ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AdminAppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        color: AdminAppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 18),
-              Text(
-                '$prefix$valueText$suffix',
-                style: const TextStyle(
-                  color: AdminAppColors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AdminAppColors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  subtitle!,
-                  style: const TextStyle(
-                    color: AdminAppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         );
       },

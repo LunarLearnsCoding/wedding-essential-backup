@@ -32,7 +32,7 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
         const SizedBox(height: 16),
         Expanded(
           child: StreamBuilder(
-            stream: widget.service.collectionStream('vendors'),
+            stream: widget.service.plainCollectionStream('vendors'),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -45,34 +45,40 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
                 );
               }
 
-              final vendors = (snapshot.data?.docs ?? [])
-                  .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where((item) {
-                    return AdminHelpers.matchesValues(_search, [
-                      item.stringValue([
-                        'businessName',
-                        'companyName',
-                        'vendorName',
-                        'name',
-                      ]),
-                      item.stringValue([
-                        'ownerName',
-                        'contactName',
-                        'fullName',
-                        'name',
-                      ]),
-                      item.stringValue(['email']),
-                      item.stringValue(['phone', 'phoneNumber']),
-                      item.stringValue(['category', 'serviceCategory', 'type']),
-                      item.stringValue(
-                        ['status', 'approvalStatus'],
-                        fallback: item.boolValue(['isApproved'])
-                            ? 'approved'
-                            : 'pending',
-                      ),
-                    ]);
-                  })
-                  .toList();
+              final vendors =
+                  (snapshot.data?.docs ?? [])
+                      .map((doc) => AdminCollectionItem.fromDoc(doc))
+                      .where((item) {
+                        return AdminHelpers.matchesValues(_search, [
+                          item.stringValue([
+                            'businessName',
+                            'companyName',
+                            'vendorName',
+                            'name',
+                          ]),
+                          item.stringValue([
+                            'ownerName',
+                            'contactName',
+                            'fullName',
+                            'name',
+                          ]),
+                          item.stringValue(['email']),
+                          item.stringValue(['phone', 'phoneNumber']),
+                          item.stringValue([
+                            'category',
+                            'serviceCategory',
+                            'type',
+                          ]),
+                          item.stringValue(
+                            ['status', 'approvalStatus'],
+                            fallback: item.boolValue(['isApproved'])
+                                ? 'approved'
+                                : 'pending',
+                          ),
+                        ]);
+                      })
+                      .toList()
+                    ..sort((a, b) => _createdAt(b).compareTo(_createdAt(a)));
               if (vendors.isEmpty) {
                 return const AdminEmptyState(
                   title: 'No vendors found',
@@ -172,6 +178,10 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
     );
   }
 
+  DateTime _createdAt(AdminCollectionItem item) =>
+      item.dateValue(['createdAt', 'registeredAt', 'joinedAt']) ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+
   Future<void> _updateStatus(String id, bool approve) async {
     try {
       if (approve) {
@@ -194,12 +204,14 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
     final confirmed = await AdminHelpers.confirm(
       context,
       title: 'Delete vendor?',
-      message: 'This will permanently delete this vendor document.',
+      message:
+          'This permanently deletes the Firebase Authentication account and '
+          'its vendor records.',
       confirmText: 'Delete',
     );
     if (!confirmed) return;
     try {
-      await widget.service.deleteDocument('vendors', id);
+      await widget.service.deleteUserData(id);
       if (!mounted) return;
       AdminHelpers.showSnack(context, 'Vendor deleted');
     } catch (error) {

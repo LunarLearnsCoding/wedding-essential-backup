@@ -268,7 +268,7 @@ class _StatCard extends StatelessWidget {
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(icon, color: AppColors.primary, size: 24),
             const Spacer(),

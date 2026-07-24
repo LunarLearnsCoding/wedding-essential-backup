@@ -33,7 +33,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         const SizedBox(height: 16),
         Expanded(
           child: StreamBuilder(
-            stream: widget.service.collectionStream('users'),
+            stream: widget.service.plainCollectionStream('users'),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -46,26 +46,30 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 );
               }
 
-              final users = (snapshot.data?.docs ?? [])
-                  .map((doc) => AdminCollectionItem.fromDoc(doc))
-                  .where((item) {
-                    final role = item.stringValue(['role']).toLowerCase();
-                    return role.isEmpty || role == 'customer' || role == 'user';
-                  })
-                  .where((item) {
-                    return AdminHelpers.matchesValues(_search, [
-                      item.stringValue([
-                        'name',
-                        'fullName',
-                        'displayName',
-                        'username',
-                      ]),
-                      item.stringValue(['email']),
-                      item.stringValue(['phone', 'phoneNumber']),
-                      item.stringValue(['status'], fallback: 'active'),
-                    ]);
-                  })
-                  .toList();
+              final users =
+                  (snapshot.data?.docs ?? [])
+                      .map((doc) => AdminCollectionItem.fromDoc(doc))
+                      .where((item) {
+                        final role = item.stringValue(['role']).toLowerCase();
+                        return role.isEmpty ||
+                            role == 'customer' ||
+                            role == 'user';
+                      })
+                      .where((item) {
+                        return AdminHelpers.matchesValues(_search, [
+                          item.stringValue([
+                            'name',
+                            'fullName',
+                            'displayName',
+                            'username',
+                          ]),
+                          item.stringValue(['email']),
+                          item.stringValue(['phone', 'phoneNumber']),
+                          item.stringValue(['status'], fallback: 'active'),
+                        ]);
+                      })
+                      .toList()
+                    ..sort((a, b) => _createdAt(b).compareTo(_createdAt(a)));
               if (users.isEmpty) {
                 return const AdminEmptyState(
                   title: 'No users found',
@@ -101,7 +105,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     'status',
                   ], fallback: 'active');
                   final joined = item.dateValue(['createdAt', 'joinedAt']);
-                  final suspended = status.toLowerCase() == 'suspended';
+                  final inactive = {
+                    'inactive',
+                    'suspended',
+                    'blocked',
+                  }.contains(status.toLowerCase());
 
                   return DataRow(
                     cells: [
@@ -115,12 +123,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         AdminTableActions(
                           children: [
                             AdminTableAction(
-                              tooltip: suspended ? 'Activate' : 'Suspend',
-                              icon: suspended
+                              tooltip: inactive ? 'Activate' : 'Suspend',
+                              icon: inactive
                                   ? Icons.check_circle_outline
                                   : Icons.block_outlined,
                               onPressed: () =>
-                                  _toggleStatus(item.id, suspended: suspended),
+                                  _toggleStatus(item.id, inactive: inactive),
                             ),
                             AdminTableAction(
                               tooltip: 'Delete',
@@ -142,9 +150,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
-  Future<void> _toggleStatus(String id, {required bool suspended}) async {
+  DateTime _createdAt(AdminCollectionItem item) =>
+      item.dateValue(['createdAt', 'joinedAt', 'registeredAt']) ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+
+  Future<void> _toggleStatus(String id, {required bool inactive}) async {
     try {
-      if (suspended) {
+      if (inactive) {
         await widget.service.activateUser(id);
       } else {
         await widget.service.suspendUser(id);
@@ -152,7 +164,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       if (!mounted) return;
       AdminHelpers.showSnack(
         context,
-        suspended ? 'User activated' : 'User suspended',
+        inactive ? 'User activated' : 'User suspended',
       );
     } catch (error) {
       if (!mounted) return;
@@ -164,12 +176,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final confirmed = await AdminHelpers.confirm(
       context,
       title: 'Delete user?',
-      message: 'This will permanently delete this user document.',
+      message:
+          'This permanently deletes the Firebase Authentication account and '
+          'its customer records.',
       confirmText: 'Delete',
     );
     if (!confirmed) return;
     try {
-      await widget.service.deleteDocument('users', id);
+      await widget.service.deleteUserData(id);
       if (!mounted) return;
       AdminHelpers.showSnack(context, 'User deleted');
     } catch (error) {
