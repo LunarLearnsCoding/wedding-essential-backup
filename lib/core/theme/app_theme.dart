@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
+/// Groups the data and behavior required by the app theme component.
 class AppTheme {
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,

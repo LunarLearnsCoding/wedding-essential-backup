@@ -2,9 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/constants/firestore_collections.dart';
 
+/// Centralizes the Firebase operations used for notification data.
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  /// Creates a new item from the supplied or entered values.
   Future<void> createNotification({
     required String userId,
     required String title,

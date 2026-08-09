@@ -10,6 +10,7 @@ import 'widgets/admin_empty_state.dart';
 import 'widgets/admin_formatters.dart';
 import 'widgets/admin_helpers.dart';
 
+/// Displays the admin featured vendors page and coordinates the actions available on it.
 class AdminFeaturedVendorsScreen extends StatefulWidget {
   const AdminFeaturedVendorsScreen({super.key, required this.service});
 
@@ -20,6 +21,7 @@ class AdminFeaturedVendorsScreen extends StatefulWidget {
       _AdminFeaturedVendorsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AdminFeaturedVendorsScreenState
     extends State<AdminFeaturedVendorsScreen> {
   final Set<String> _clearingExpired = {};
@@ -202,6 +204,7 @@ class _AdminFeaturedVendorsScreenState
     }
   }
 
+  /// Opens the add dialog interface for the user.
   Future<void> _showAddDialog(List<AdminCollectionItem> vendors) async {
     final approved =
         vendors.where((vendor) {
@@ -245,6 +248,7 @@ class _AdminFeaturedVendorsScreenState
     }
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> _remove(AdminCollectionItem vendor) async {
     final confirmed = await AdminHelpers.confirm(
       context,
@@ -379,6 +383,7 @@ class _AdminFeaturedVendorsScreenState
   }
 }
 
+/// Groups the data and behavior required by the featured selection component.
 class _FeaturedSelection {
   const _FeaturedSelection({required this.vendorId, required this.days});
 
@@ -386,6 +391,7 @@ class _FeaturedSelection {
   final int days;
 }
 
+/// Renders the reusable add featured vendor dialog UI component.
 class _AddFeaturedVendorDialog extends StatefulWidget {
   const _AddFeaturedVendorDialog({required this.vendors});
 
@@ -396,6 +402,7 @@ class _AddFeaturedVendorDialog extends StatefulWidget {
       _AddFeaturedVendorDialogState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AddFeaturedVendorDialogState extends State<_AddFeaturedVendorDialog> {
   late String _vendorId;
   int _days = 7;
@@ -430,7 +437,7 @@ class _AddFeaturedVendorDialogState extends State<_AddFeaturedVendorDialog> {
                 return DropdownMenuItem(
                   value: vendor.id,
                   child: Text(
-                    '$name — $category',
+                    '$name - $category',
                     overflow: TextOverflow.ellipsis,
                   ),
                 );

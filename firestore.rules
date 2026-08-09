@@ -10,6 +10,10 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
     function isAdmin() {
       return isSignedIn()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
@@ -35,21 +39,82 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) && isEmailVerified();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
     match /customers/{customerId} {
       allow read: if isOwner(customerId) || isAdmin();
-      allow create: if isOwner(customerId);
+      allow create: if isOwner(customerId) && isEmailVerified();
       allow update: if isOwner(customerId) || isAdmin();
       allow delete: if isAdmin();
     }
 
+    match /pendingRegistrations/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId)
+        && !isEmailVerified()
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.phone is string
+        && request.resource.data.phone.matches('^\\+9779[678][0-9]{8}$')
+        && request.resource.data.createdAt == request.time
+        && (
+          (
+            request.resource.data.role == 'customer'
+            && request.resource.data.keys().hasOnly([
+              'name',
+              'email',
+              'phone',
+              'role',
+              'createdAt'
+            ])
+          )
+          || (
+            request.resource.data.role == 'vendor'
+            && request.resource.data.businessName is string
+            && request.resource.data.businessName.size() > 0
+            && request.resource.data.category is string
+            && request.resource.data.location is string
+            && request.resource.data.location in [
+              'Kathmandu',
+              'Lalitpur',
+              'Bhaktapur'
+            ]
+            && request.resource.data.keys().hasOnly([
+              'name',
+              'email',
+              'phone',
+              'role',
+              'businessName',
+              'category',
+              'location',
+              'createdAt'
+            ])
+          )
+        );
+      allow update: if false;
+      allow delete: if isOwner(userId);
+    }
+
+    match /public_profiles/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'displayName',
+          'role',
+          'profileImageUrl',
+          'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
     match /vendors/{vendorId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(vendorId);
+      allow create: if isOwner(vendorId) && isEmailVerified();
       allow update: if isOwner(vendorId) || isAdmin();
       allow delete: if isAdmin();
     }
@@ -69,6 +134,19 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if isAdmin()
         || (isVendor() && resource.data.vendorId == request.auth.uid);
+    }
+
+    match /profile_images/{imageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.role is string
+        && request.resource.data.bytes is bytes
+        && request.resource.data.bytes.size() <= 768000
+        && request.resource.data.size() <= 5;
+      allow update: if false;
+      allow delete: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /bookings/{bookingId} {
@@ -134,7 +212,8 @@ service cloud.firestore {
           && request.resource.data.unreadForVendor == false
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['unreadForVendor'])
-        );
+        )
+        ;
 
       allow delete: if isAdmin();
 
@@ -154,7 +233,8 @@ service cloud.firestore {
           && request.resource.data.text.size() <= 4000
           && request.resource.data.createdAt is timestamp;
 
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if isAdmin();
       }
     }
 
@@ -167,6 +247,17 @@ service cloud.firestore {
     match /blogs/{blogId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /blog_images/{imageId} {
+      allow read: if true;
+      allow create: if isAdmin()
+        && request.resource.data.adminId == request.auth.uid
+        && request.resource.data.bytes is bytes
+        && request.resource.data.bytes.size() <= 768000
+        && request.resource.data.size() <= 4;
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     match /guests/{guestId} {

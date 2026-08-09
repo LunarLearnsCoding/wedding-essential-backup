@@ -7,6 +7,7 @@ import '../models/vendor_model.dart';
 import '../models/app_enums.dart';
 import '../core/constants/firestore_collections.dart';
 
+/// Centralizes the Firebase operations used for auth data.
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -21,49 +22,28 @@ class AuthService {
     required String email,
     required String password,
     required String phone,
-    String? address,
   }) async {
+    final normalizedEmail = email.trim().toLowerCase();
     final credential = await _auth.createUserWithEmailAndPassword(
-      email: email,
+      email: normalizedEmail,
       password: password,
     );
-
-    final uid = credential.user!.uid;
-    final now = DateTime.now();
-    final user = UserModel(
-      id: uid,
-      name: name,
-      email: email,
-      phone: phone,
-      role: UserRole.customer,
-      createdAt: now,
-    );
-
-    final customer = CustomerModel(
-      id: uid,
-      name: name,
-      email: email,
-      phone: phone,
-      role: UserRole.customer,
-      address: address,
-      weddingDate: null,
-      createdAt: now,
-    );
-
-    final batch = _firestore.batch();
-
-    final userRef = _firestore.collection(FirestoreCollections.users).doc(uid);
-
-    final customerRef = _firestore
-        .collection(FirestoreCollections.customers)
-        .doc(uid);
-
-    batch.set(userRef, {...user.toMap(), 'status': 'active'});
-
-    batch.set(customerRef, {...customer.toMap(), 'status': 'active'});
-
-    await batch.commit();
-    await credential.user?.sendEmailVerification();
+    try {
+      await _firestore
+          .collection(FirestoreCollections.pendingRegistrations)
+          .doc(credential.user!.uid)
+          .set({
+            'name': name,
+            'email': normalizedEmail,
+            'phone': phone,
+            'role': 'customer',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+      await credential.user!.sendEmailVerification();
+    } catch (_) {
+      await _discardIncompleteRegistration(credential.user);
+      rethrow;
+    }
     await _auth.signOut();
     return credential;
   }
@@ -76,60 +56,50 @@ class AuthService {
     required String phone,
     required String businessName,
     required String category,
-    required List<String> locations,
+    required String location,
   }) async {
+    final normalizedEmail = email.trim().toLowerCase();
     final credential = await _auth.createUserWithEmailAndPassword(
-      email: email,
+      email: normalizedEmail,
       password: password,
     );
-
-    final uid = credential.user!.uid;
-    final now = DateTime.now();
-
-    final user = UserModel(
-      id: uid,
-      name: name,
-      email: email,
-      phone: phone,
-      role: UserRole.vendor,
-      createdAt: now,
-    );
-
-    final vendor = VendorModel(
-      id: uid,
-      name: name,
-      email: email,
-      phone: phone,
-      role: UserRole.vendor,
-      businessName: businessName,
-      category: category,
-      locations: locations,
-      bio: '',
-      isApproved: false,
-      approvalStatus: 'pending',
-      averageRating: 0,
-      totalReviews: 0,
-      createdAt: now,
-    );
-
-    final batch = _firestore.batch();
-
-    final userRef = _firestore.collection(FirestoreCollections.users).doc(uid);
-
-    final vendorRef = _firestore
-        .collection(FirestoreCollections.vendors)
-        .doc(uid);
-
-    batch.set(userRef, {...user.toMap(), 'status': 'pending'});
-
-    batch.set(vendorRef, {...vendor.toMap(), 'isActive': true});
-
-    await batch.commit();
-
-    await credential.user?.sendEmailVerification();
+    try {
+      await _firestore
+          .collection(FirestoreCollections.pendingRegistrations)
+          .doc(credential.user!.uid)
+          .set({
+            'name': name,
+            'email': normalizedEmail,
+            'phone': phone,
+            'role': 'vendor',
+            'businessName': businessName,
+            'category': category,
+            'location': location,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+      await credential.user!.sendEmailVerification();
+    } catch (_) {
+      await _discardIncompleteRegistration(credential.user);
+      rethrow;
+    }
     await _auth.signOut();
 
     return credential;
+  }
+
+  Future<void> _discardIncompleteRegistration(User? user) async {
+    if (user == null) return;
+    try {
+      await _firestore
+          .collection(FirestoreCollections.pendingRegistrations)
+          .doc(user.uid)
+          .delete();
+    } catch (_) {}
+    try {
+      await user.delete();
+    } catch (_) {
+      await _auth.signOut();
+    }
   }
 
   // LOGIN
@@ -138,7 +108,7 @@ class AuthService {
     required String password,
   }) async {
     final credential = await _auth.signInWithEmailAndPassword(
-      email: email,
+      email: email.trim().toLowerCase(),
       password: password,
     );
     await credential.user?.reload();
@@ -155,7 +125,93 @@ class AuthService {
         message: 'Verify your email before signing in.',
       );
     }
+    await finalizePendingRegistration();
     return credential;
+  }
+
+  Future<void> finalizePendingRegistration() async {
+    final user = _auth.currentUser;
+    if (user == null || !user.emailVerified) return;
+    await user.getIdToken(true);
+
+    final pendingRef = _firestore
+        .collection(FirestoreCollections.pendingRegistrations)
+        .doc(user.uid);
+    final pending = await pendingRef.get();
+    if (!pending.exists) return;
+
+    final data = pending.data()!;
+    final role = data['role']?.toString();
+    final name = data['name']?.toString() ?? '';
+    final email = user.email ?? data['email']?.toString() ?? '';
+    final phone = data['phone']?.toString() ?? '';
+    final createdAt =
+        (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final appUser = UserModel(
+      id: user.uid,
+      name: name,
+      email: email,
+      phone: phone,
+      role: role == 'vendor' ? UserRole.vendor : UserRole.customer,
+      createdAt: createdAt,
+    );
+    final batch = _firestore.batch();
+    batch.set(_firestore.collection(FirestoreCollections.users).doc(user.uid), {
+      ...appUser.toMap(),
+      'status': role == 'vendor' ? 'pending' : 'active',
+    });
+
+    if (role == 'customer') {
+      final customer = CustomerModel(
+        id: user.uid,
+        name: name,
+        email: email,
+        phone: phone,
+        role: UserRole.customer,
+        weddingDate: null,
+        createdAt: createdAt,
+      );
+      batch.set(
+        _firestore.collection(FirestoreCollections.customers).doc(user.uid),
+        {...customer.toMap(), 'status': 'active'},
+      );
+    } else if (role == 'vendor') {
+      final savedLocation = data['location']?.toString().trim() ?? '';
+      final legacyLocations = data['locations'];
+      final legacyLocation = legacyLocations is Iterable
+          ? legacyLocations
+                .map((value) => value.toString().trim())
+                .where((value) => value.isNotEmpty)
+                .firstOrNull
+          : null;
+      final vendor = VendorModel(
+        id: user.uid,
+        name: name,
+        email: email,
+        phone: phone,
+        role: UserRole.vendor,
+        businessName: data['businessName']?.toString() ?? '',
+        category: data['category']?.toString() ?? '',
+        location: savedLocation.isNotEmpty
+            ? savedLocation
+            : legacyLocation ?? '',
+        bio: '',
+        isApproved: false,
+        approvalStatus: 'pending',
+        averageRating: 0,
+        totalReviews: 0,
+        createdAt: createdAt,
+      );
+      batch.set(
+        _firestore.collection(FirestoreCollections.vendors).doc(user.uid),
+        {...vendor.toMap(), 'isActive': true},
+      );
+    } else {
+      throw StateError('Pending registration has an invalid role.');
+    }
+
+    batch.delete(pendingRef);
+    await batch.commit();
   }
 
   // LOGOUT

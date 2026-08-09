@@ -7,6 +7,7 @@ import '../../core/widgets/notification_card.dart';
 import '../../models/notification_model.dart';
 import '../../services/notification_service.dart';
 
+/// Displays the vendor notifications page and coordinates the actions available on it.
 class VendorNotificationsScreen extends StatefulWidget {
   const VendorNotificationsScreen({super.key});
 
@@ -15,6 +16,7 @@ class VendorNotificationsScreen extends StatefulWidget {
       _VendorNotificationsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _VendorNotificationsScreenState extends State<VendorNotificationsScreen> {
   final NotificationService _notificationService = NotificationService();
   String? _markingNotificationId;
@@ -166,6 +168,7 @@ class _VendorNotificationsScreenState extends State<VendorNotificationsScreen> {
   }
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _MessageState extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -209,6 +212,7 @@ class _MessageState extends StatelessWidget {
   }
 }
 
+/// Groups the data and behavior required by the grouped notifications component.
 class _GroupedNotifications {
   final List<NotificationModel> today;
   final List<NotificationModel> yesterday;

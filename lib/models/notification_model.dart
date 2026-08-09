@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/firestore_parsers.dart';
 
+/// Lists the supported notification type values used throughout the app.
 enum NotificationType { booking, inquiry, guest, checklist, payment, featured }
 
+/// Represents a notification record exchanged between Firestore and the app.
 class NotificationModel {
   final String id;
   final String title;
@@ -33,6 +35,7 @@ class NotificationModel {
     );
   }
 
+  /// Converts this instance into values that can be persisted.
   Map<String, dynamic> toMap() {
     return {
       'title': title,

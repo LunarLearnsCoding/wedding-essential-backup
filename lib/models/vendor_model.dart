@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/firestore_parsers.dart';
 import 'app_enums.dart';
 
+/// Represents a vendor record exchanged between Firestore and the app.
 class VendorModel {
   final String id;
   final String name;
@@ -11,8 +12,9 @@ class VendorModel {
   final UserRole role;
   final String businessName;
   final String category;
-  final List<String> locations;
+  final String location;
   final String bio;
+  final String? profileImageUrl;
   final String facebookUrl;
   final String instagramUrl;
   final String tiktokUrl;
@@ -33,8 +35,9 @@ class VendorModel {
     required this.role,
     required this.businessName,
     required this.category,
-    required this.locations,
+    required this.location,
     required this.bio,
+    this.profileImageUrl,
     this.facebookUrl = '',
     this.instagramUrl = '',
     this.tiktokUrl = '',
@@ -57,8 +60,9 @@ class VendorModel {
       role: userRoleFromString(map['role'] ?? 'vendor'),
       businessName: map['businessName'] ?? '',
       category: map['category'] ?? '',
-      locations: stringListFromFirestore(map['locations']),
+      location: _vendorLocationFromMap(map),
       bio: map['bio'] ?? '',
+      profileImageUrl: map['profileImageUrl']?.toString(),
       facebookUrl: map['facebookUrl']?.toString() ?? '',
       instagramUrl: map['instagramUrl']?.toString() ?? '',
       tiktokUrl: map['tiktokUrl']?.toString() ?? '',
@@ -73,6 +77,7 @@ class VendorModel {
     );
   }
 
+  /// Converts this instance into values that can be persisted.
   Map<String, dynamic> toMap() {
     return {
       'name': name,
@@ -81,8 +86,9 @@ class VendorModel {
       'role': enumToString(role),
       'businessName': businessName,
       'category': category,
-      'locations': locations,
+      'location': location,
       'bio': bio,
+      'profileImageUrl': profileImageUrl,
       'facebookUrl': facebookUrl,
       'instagramUrl': instagramUrl,
       'tiktokUrl': tiktokUrl,
@@ -107,8 +113,9 @@ class VendorModel {
     UserRole? role,
     String? businessName,
     String? category,
-    List<String>? locations,
+    String? location,
     String? bio,
+    String? profileImageUrl,
     String? facebookUrl,
     String? instagramUrl,
     String? tiktokUrl,
@@ -129,8 +136,9 @@ class VendorModel {
       role: role ?? this.role,
       businessName: businessName ?? this.businessName,
       category: category ?? this.category,
-      locations: locations ?? this.locations,
+      location: location ?? this.location,
       bio: bio ?? this.bio,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       facebookUrl: facebookUrl ?? this.facebookUrl,
       instagramUrl: instagramUrl ?? this.instagramUrl,
       tiktokUrl: tiktokUrl ?? this.tiktokUrl,
@@ -144,4 +152,10 @@ class VendorModel {
       approvalStatus: approvalStatus ?? this.approvalStatus,
     );
   }
+}
+
+String _vendorLocationFromMap(Map<String, dynamic> map) {
+  final location = map['location']?.toString().trim() ?? '';
+  if (location.isNotEmpty) return location;
+  return stringListFromFirestore(map['locations']).firstOrNull ?? '';
 }

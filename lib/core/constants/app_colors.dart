@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// Groups the data and behavior required by the app colors component.
 class AppColors {
   static const primary = Color(0xFFBE7D90);
   static const primaryDark = Color(0xFFA76578);

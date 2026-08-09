@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+/// Groups the data and behavior required by the admin summary item component.
 class AdminSummaryItem {
   const AdminSummaryItem({
     required this.title,
@@ -17,6 +18,7 @@ class AdminSummaryItem {
   final String? subtitle;
 }
 
+/// Groups the data and behavior required by the admin collection item component.
 class AdminCollectionItem {
   const AdminCollectionItem({required this.id, required this.data});
 

@@ -7,6 +7,7 @@ import '../models/inquiry_message_model.dart';
 import '../models/inquiry_model.dart';
 import 'notification_service.dart';
 
+/// Centralizes the Firebase operations used for inquiry data.
 class InquiryService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final NotificationService _notificationService = NotificationService();
@@ -14,11 +15,28 @@ class InquiryService {
   CollectionReference<Map<String, dynamic>> get _inquiries =>
       _firestore.collection(FirestoreCollections.inquiries);
 
+  /// Creates a new item from the supplied or entered values.
   Future<String> createInquiry(
     InquiryModel inquiry, {
     Map<String, dynamic> additionalData = const {},
   }) async {
-    final inquiryReference = _inquiries.doc();
+    final existingInquiry = await _findExistingInquiry(inquiry);
+    if (existingInquiry != null) {
+      await sendMessage(
+        inquiryId: existingInquiry.id,
+        senderId: inquiry.customerId,
+        senderName: inquiry.customerName,
+        senderEmail: inquiry.customerEmail,
+        text: inquiry.message,
+        serviceId: inquiry.serviceId,
+        serviceName: inquiry.serviceName,
+      );
+      return existingInquiry.id;
+    }
+
+    final inquiryReference = _inquiries.doc(
+      '${inquiry.customerId}--${inquiry.vendorId}',
+    );
     final messageReference = inquiryReference.collection('messages').doc();
     final now = Timestamp.now();
     final message = inquiry.message.trim();
@@ -40,6 +58,8 @@ class InquiryService {
       'senderName': inquiry.customerName,
       'senderEmail': inquiry.customerEmail,
       'text': message,
+      'serviceId': inquiry.serviceId,
+      'serviceName': inquiry.serviceName,
       'createdAt': now,
     });
 
@@ -51,6 +71,23 @@ class InquiryService {
           '${inquiry.customerName} started a chat about ${inquiry.serviceName}.',
     );
     return inquiryReference.id;
+  }
+
+  Future<InquiryModel?> _findExistingInquiry(InquiryModel inquiry) async {
+    final snapshot = await _inquiries
+        .where('customerId', isEqualTo: inquiry.customerId)
+        .get();
+    final matches = snapshot.docs
+        .map((document) => InquiryModel.fromMap(document.id, document.data()))
+        .where((savedInquiry) => savedInquiry.vendorId == inquiry.vendorId)
+        .toList();
+    if (matches.isEmpty) return null;
+    matches.sort(
+      (a, b) => (b.lastMessageAt ?? b.updatedAt ?? b.createdAt).compareTo(
+        a.lastMessageAt ?? a.updatedAt ?? a.createdAt,
+      ),
+    );
+    return matches.first;
   }
 
   Stream<InquiryModel?> watchInquiry(String inquiryId) {
@@ -112,6 +149,8 @@ class InquiryService {
     required String senderName,
     required String senderEmail,
     required String text,
+    String serviceId = '',
+    String serviceName = '',
   }) async {
     final cleanText = text.trim();
     if (cleanText.isEmpty) return;
@@ -135,6 +174,8 @@ class InquiryService {
       'senderName': senderName.trim(),
       'senderEmail': senderEmail.trim(),
       'text': cleanText,
+      if (serviceId.trim().isNotEmpty) 'serviceId': serviceId.trim(),
+      if (serviceName.trim().isNotEmpty) 'serviceName': serviceName.trim(),
       'createdAt': now,
     });
     batch.update(inquiryReference, {
@@ -204,6 +245,7 @@ class InquiryService {
     }
   }
 
+  /// Creates a new item from the supplied or entered values.
   Future<void> _createNotificationSafely({
     required String userId,
     required String title,

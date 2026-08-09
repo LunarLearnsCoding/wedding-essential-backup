@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import '../core/constants/firestore_collections.dart';
 
+/// Stores auth state and notifies listening widgets when that state changes.
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   StreamSubscription<User?>? _authSubscription;
@@ -36,6 +37,7 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Fetches user profile from the backing service.
   Future<void> _fetchUserProfile(String uid) async {
     try {
       _setLoading(true);
@@ -65,7 +67,11 @@ class AuthProvider extends ChangeNotifier {
     try {
       _setLoading(true);
 
-      await _authService.login(email: email, password: password);
+      final credential = await _authService.login(
+        email: email,
+        password: password,
+      );
+      await _fetchUserProfile(credential.user!.uid);
     } catch (_) {
       _setLoading(false);
       rethrow;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import 'app_information_sheet.dart';
 
+/// Renders the reusable legal agreement UI component.
 class LegalAgreement extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -67,6 +68,7 @@ class LegalAgreement extends StatelessWidget {
     );
   }
 
+  /// Opens the terms interface for the user.
   Future<void> _showTerms(BuildContext context) {
     return showAppInformationSheet(
       context,
@@ -78,6 +80,7 @@ class LegalAgreement extends StatelessWidget {
     );
   }
 
+  /// Opens the privacy interface for the user.
   Future<void> _showPrivacy(BuildContext context) {
     return showAppInformationSheet(
       context,

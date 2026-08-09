@@ -9,6 +9,7 @@ import 'widgets/admin_helpers.dart';
 import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
+/// Displays the admin vendors page and coordinates the actions available on it.
 class AdminVendorsScreen extends StatefulWidget {
   const AdminVendorsScreen({super.key, required this.service});
 
@@ -18,6 +19,7 @@ class AdminVendorsScreen extends StatefulWidget {
   State<AdminVendorsScreen> createState() => _AdminVendorsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
   String _search = '';
 
@@ -111,12 +113,12 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
                     'contactName',
                     'fullName',
                     'name',
-                  ], fallback: '—');
-                  final email = item.stringValue(['email'], fallback: '—');
+                  ], fallback: '-');
+                  final email = item.stringValue(['email'], fallback: '-');
                   final phone = item.stringValue([
                     'phone',
                     'phoneNumber',
-                  ], fallback: '—');
+                  ], fallback: '-');
                   final category = item.stringValue([
                     'category',
                     'serviceCategory',
@@ -182,6 +184,7 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
       item.dateValue(['createdAt', 'registeredAt', 'joinedAt']) ??
       DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// Applies the requested status change and refreshes state.
   Future<void> _updateStatus(String id, bool approve) async {
     try {
       if (approve) {
@@ -200,6 +203,7 @@ class _AdminVendorsScreenState extends State<AdminVendorsScreen> {
     }
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> _deleteVendor(String id) async {
     final confirmed = await AdminHelpers.confirm(
       context,

@@ -6,10 +6,12 @@ import '../models/app_enums.dart';
 import '../models/booking_model.dart';
 import 'notification_service.dart';
 
+/// Centralizes the Firebase operations used for booking data.
 class BookingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final NotificationService _notificationService = NotificationService();
 
+  /// Creates a new item from the supplied or entered values.
   Future<void> createBooking(
     BookingModel booking, {
     Map<String, dynamic> additionalData = const {},
@@ -181,6 +183,7 @@ class BookingService {
     }
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> _deleteBookingReferences(
     List<DocumentReference<Map<String, dynamic>>> references,
   ) async {
@@ -215,6 +218,7 @@ class BookingService {
     );
   }
 
+  /// Applies the requested booking status change and refreshes state.
   Future<void> updateBookingStatus({
     required String bookingId,
     required BookingStatus status,
@@ -313,6 +317,7 @@ class BookingService {
     );
   }
 
+  /// Creates a new item from the supplied or entered values.
   Future<void> _createNotificationSafely({
     required String userId,
     required String title,

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/firebase_storage_image.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../core/constants/firestore_collections.dart';
 import '../../models/review_model.dart';
 import '../../models/service_model.dart';
@@ -14,6 +15,7 @@ import '../../services/review_service.dart';
 import '../../services/service_service.dart';
 import 'service_details_screen.dart';
 
+/// Displays the vendor details page and coordinates the actions available on it.
 class VendorDetailsScreen extends StatelessWidget {
   final String vendorId;
   static final ReviewService _reviewService = ReviewService();
@@ -75,6 +77,7 @@ class VendorDetailsScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable vendor profile card UI component.
 class _VendorProfileCard extends StatelessWidget {
   final VendorModel vendor;
   final List<ReviewModel> reviews;
@@ -119,17 +122,11 @@ class _VendorProfileCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
+                ProfileAvatar(
+                  userId: vendor.id,
+                  fallbackName: displayName,
+                  imageUrl: vendor.profileImageUrl,
                   radius: 34,
-                  backgroundColor: AppColors.selectedSurface,
-                  child: Text(
-                    displayName.isEmpty ? 'V' : displayName[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
                 ),
                 const SizedBox(width: 15),
                 Expanded(
@@ -200,9 +197,9 @@ class _VendorProfileCard extends StatelessWidget {
             const SizedBox(height: 15),
             _InfoLine(
               icon: Icons.location_on_outlined,
-              value: vendor.locations.isEmpty
+              value: vendor.location.isEmpty
                   ? 'Location not provided'
-                  : vendor.locations.join(', '),
+                  : vendor.location,
             ),
             _InfoLine(
               icon: Icons.email_outlined,
@@ -254,6 +251,7 @@ class _VendorProfileCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable vendor social links UI component.
 class _VendorSocialLinks extends StatelessWidget {
   final VendorModel vendor;
 
@@ -320,6 +318,7 @@ void _showSocialLinkError(BuildContext context) {
   );
 }
 
+/// Renders the reusable vendor services UI component.
 class _VendorServices extends StatelessWidget {
   final String vendorId;
   static final ServiceService _serviceService = ServiceService();
@@ -364,6 +363,7 @@ class _VendorServices extends StatelessWidget {
   }
 }
 
+/// Renders the reusable vendor service card UI component.
 class _VendorServiceCard extends StatelessWidget {
   const _VendorServiceCard({required this.service, required this.onTap});
 
@@ -506,6 +506,7 @@ class _VendorServiceCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable vendor reviews UI component.
 class _VendorReviews extends StatelessWidget {
   final String vendorId;
   static final ReviewService _reviewService = ReviewService();
@@ -585,6 +586,7 @@ class _VendorReviews extends StatelessWidget {
   }
 }
 
+/// Renders the reusable service image UI component.
 class _ServiceImage extends StatelessWidget {
   final ServiceModel service;
 
@@ -629,6 +631,7 @@ class _ServiceImage extends StatelessWidget {
   }
 }
 
+/// Renders the reusable info line UI component.
 class _InfoLine extends StatelessWidget {
   final IconData icon;
   final String value;
@@ -650,6 +653,7 @@ class _InfoLine extends StatelessWidget {
   }
 }
 
+/// Renders the reusable section title UI component.
 class _SectionTitle extends StatelessWidget {
   final String title;
 
@@ -664,6 +668,7 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+/// Renders the reusable empty card UI component.
 class _EmptyCard extends StatelessWidget {
   final String message;
 
@@ -677,6 +682,7 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _MessageState extends StatelessWidget {
   final String title;
   final String message;

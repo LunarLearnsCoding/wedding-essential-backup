@@ -1,0 +1,269 @@
+{
+  "format": "wedding-essentials-firestore-schema-v1",
+  "description": "Reference schema derived from the Flutter models and Firestore services. Cloud Firestore is schemaless; this file documents the expected document shapes.",
+  "firestoreTypes": {
+    "timestamp": "Cloud Firestore Timestamp",
+    "reference": "Cloud Firestore DocumentReference",
+    "bytes": "Cloud Firestore Blob"
+  },
+  "collections": {
+    "users": {
+      "documentId": "Firebase Authentication uid",
+      "fields": {
+        "name": "string",
+        "email": "string",
+        "phone": "string",
+        "role": "string: customer | vendor | admin",
+        "profileImageUrl": "string | null",
+        "isActive": "boolean",
+        "status": "string: active | pending | suspended",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp | null"
+      }
+    },
+    "pendingRegistrations": {
+      "documentId": "Firebase Authentication uid",
+      "description": "Temporary registration data retained until the user verifies their email and signs in.",
+      "fields": {
+        "name": "string",
+        "email": "string",
+        "phone": "string: +9779XXXXXXXXX",
+        "role": "string: customer | vendor",
+        "businessName": "string (vendor only)",
+        "category": "string (vendor only)",
+        "location": "string: Kathmandu | Lalitpur | Bhaktapur (vendor only)",
+        "createdAt": "timestamp"
+      }
+    },
+    "customers": {
+      "documentId": "Firebase Authentication uid",
+      "fields": {
+        "name": "string",
+        "email": "string",
+        "phone": "string",
+        "role": "string: customer",
+        "profileImageUrl": "string | null",
+        "isActive": "boolean",
+        "status": "string: active | suspended",
+        "weddingDate": "timestamp | null",
+        "weddingLocation": "string | null",
+        "partnerName": "string | null",
+        "guestGroups": "array<string>",
+        "favoriteServiceIds": "array<string>",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp | null"
+      }
+    },
+    "vendors": {
+      "documentId": "Firebase Authentication uid",
+      "fields": {
+        "name": "string",
+        "email": "string",
+        "phone": "string",
+        "role": "string: vendor",
+        "businessName": "string",
+        "category": "string",
+        "location": "string: Kathmandu | Lalitpur | Bhaktapur",
+        "bio": "string",
+        "profileImageUrl": "string | null",
+        "facebookUrl": "string",
+        "instagramUrl": "string",
+        "tiktokUrl": "string",
+        "websiteUrl": "string",
+        "isActive": "boolean",
+        "isApproved": "boolean",
+        "approvalStatus": "string: pending | approved | rejected",
+        "isFeatured": "boolean",
+        "featuredUntil": "timestamp | null",
+        "averageRating": "number",
+        "totalReviews": "integer",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp | null"
+      }
+    },
+    "services": {
+      "documentId": "auto-generated",
+      "fields": {
+        "vendorId": "string",
+        "vendorName": "string",
+        "name": "string",
+        "description": "string",
+        "category": "string",
+        "location": "string",
+        "price": "number",
+        "imageUrls": "array<string>",
+        "isActive": "boolean",
+        "status": "string: active | inactive",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp | null"
+      }
+    },
+    "bookings": {
+      "documentId": "auto-generated",
+      "fields": {
+        "customerId": "string",
+        "customerName": "string",
+        "customerEmail": "string",
+        "customerPhone": "string",
+        "vendorId": "string",
+        "vendorName": "string",
+        "serviceId": "string",
+        "serviceName": "string",
+        "servicePrice": "number",
+        "eventDate": "timestamp",
+        "eventTime": "timestamp",
+        "note": "string",
+        "status": "string: pending | accepted | rejected | completed | cancelled",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp | null"
+      }
+    },
+    "reviews": {
+      "documentId": "booking id",
+      "fields": {
+        "bookingId": "string",
+        "serviceId": "string",
+        "vendorId": "string",
+        "customerId": "string",
+        "customerName": "string",
+        "serviceName": "string",
+        "rating": "number",
+        "reviewText": "string",
+        "vendorReplied": "boolean",
+        "status": "string: published | hidden",
+        "createdAt": "timestamp"
+      }
+    },
+    "blogs": {
+      "documentId": "auto-generated",
+      "fields": {
+        "title": "string",
+        "content": "string",
+        "imageUrl": "string",
+        "authorId": "string",
+        "authorName": "string",
+        "category": "string",
+        "status": "string: draft | published",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp | null"
+      }
+    },
+    "favorites": {
+      "documentId": "{customerId}_{serviceId}",
+      "fields": {
+        "customerId": "string",
+        "serviceId": "string",
+        "vendorId": "string",
+        "createdAt": "timestamp"
+      }
+    },
+    "guests": {
+      "documentId": "auto-generated",
+      "fields": {
+        "customerId": "string",
+        "name": "string",
+        "phone": "string",
+        "relation": "string",
+        "numberOfGuests": "integer",
+        "createdAt": "timestamp"
+      }
+    },
+    "checklistTasks": {
+      "documentId": "auto-generated",
+      "fields": {
+        "customerId": "string",
+        "title": "string",
+        "description": "string",
+        "isCompleted": "boolean",
+        "createdAt": "timestamp"
+      }
+    },
+    "inquiries": {
+      "documentId": "{customerId}--{vendorId} for new conversations; legacy IDs remain supported",
+      "description": "One conversation per customer-vendor pair. Service context belongs to the inquiry-opening messages.",
+      "fields": {
+        "customerId": "string",
+        "customerName": "string",
+        "customerEmail": "string",
+        "vendorId": "string",
+        "vendorName": "string",
+        "serviceId": "string",
+        "serviceName": "string",
+        "message": "string",
+        "vendorReply": "string",
+        "status": "string: pending | replied | closed",
+        "createdAt": "timestamp",
+        "vendorReplyAt": "timestamp | null",
+        "updatedAt": "timestamp | null",
+        "lastMessage": "string",
+        "lastMessageAt": "timestamp | null",
+        "closedAt": "timestamp | null",
+        "isRealtimeChat": "boolean",
+        "unreadForCustomer": "boolean",
+        "unreadForVendor": "boolean"
+      },
+      "subcollections": {
+        "messages": {
+          "documentId": "auto-generated",
+          "fields": {
+            "senderId": "string",
+            "senderName": "string",
+            "senderEmail": "string",
+            "text": "string",
+            "serviceId": "string (optional; inquiry-opening messages only)",
+            "serviceName": "string (optional; inquiry-opening messages only)",
+            "createdAt": "timestamp"
+          }
+        }
+      }
+    },
+    "notifications": {
+      "documentId": "auto-generated",
+      "fields": {
+        "userId": "string",
+        "title": "string",
+        "message": "string",
+        "type": "string: booking | inquiry | guest | checklist | payment | featured",
+        "isRead": "boolean",
+        "createdAt": "timestamp"
+      }
+    },
+    "public_profiles": {
+      "documentId": "Firebase Authentication uid",
+      "fields": {
+        "name": "string",
+        "role": "string: customer | vendor | admin",
+        "profileImageUrl": "string | null",
+        "updatedAt": "timestamp"
+      }
+    },
+    "service_images": {
+      "documentId": "auto-generated",
+      "fields": {
+        "vendorId": "string",
+        "bytes": "bytes",
+        "contentType": "string",
+        "createdAt": "timestamp"
+      }
+    },
+    "profile_images": {
+      "documentId": "auto-generated",
+      "fields": {
+        "userId": "string",
+        "role": "string",
+        "bytes": "bytes",
+        "contentType": "string",
+        "createdAt": "timestamp"
+      }
+    },
+    "blog_images": {
+      "documentId": "auto-generated",
+      "fields": {
+        "adminId": "string",
+        "bytes": "bytes",
+        "contentType": "string",
+        "createdAt": "timestamp"
+      }
+    }
+  }
+}

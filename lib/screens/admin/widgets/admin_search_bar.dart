@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/admin_app_colors.dart';
 
+/// Renders the reusable admin search bar UI component.
 class AdminSearchBar extends StatelessWidget {
   const AdminSearchBar({
     super.key,

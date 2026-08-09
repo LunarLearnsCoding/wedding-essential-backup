@@ -10,6 +10,7 @@ import 'widgets/admin_helpers.dart';
 import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
+/// Displays the admin users page and coordinates the actions available on it.
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key, required this.service});
 
@@ -19,6 +20,7 @@ class AdminUsersScreen extends StatefulWidget {
   State<AdminUsersScreen> createState() => _AdminUsersScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
   String _search = '';
 
@@ -96,11 +98,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     'displayName',
                     'username',
                   ], fallback: 'Unnamed user');
-                  final email = item.stringValue(['email'], fallback: '—');
+                  final email = item.stringValue(['email'], fallback: '-');
                   final phone = item.stringValue([
                     'phone',
                     'phoneNumber',
-                  ], fallback: '—');
+                  ], fallback: '-');
                   final status = item.stringValue([
                     'status',
                   ], fallback: 'active');
@@ -172,6 +174,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> _deleteUser(String id) async {
     final confirmed = await AdminHelpers.confirm(
       context,

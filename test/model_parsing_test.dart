@@ -32,15 +32,11 @@ void main() {
       'name': 'Decor',
       'price': '25,500',
       'imageUrls': 'https://example.com/image.jpg',
-      'averageRating': 4,
-      'totalReviews': '12',
       'isActive': 'true',
     });
 
     expect(service.price, 25500);
     expect(service.imageUrls, ['https://example.com/image.jpg']);
-    expect(service.averageRating, 4);
-    expect(service.totalReviews, 12);
     expect(service.isActive, isTrue);
   });
 

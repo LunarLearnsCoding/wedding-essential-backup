@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/firebase_storage_image.dart';
+import '../../core/widgets/review_rating_summary.dart';
 import '../../core/widgets/app_information_sheet.dart';
 import '../../core/constants/firestore_collections.dart';
 import '../../models/app_enums.dart';
@@ -14,6 +15,7 @@ import '../../services/inquiry_service.dart';
 import '../shared/inquiry_chat_screen.dart';
 import 'vendor_details_screen.dart';
 
+/// Displays the service details page and coordinates the actions available on it.
 class ServiceDetailsScreen extends StatefulWidget {
   final String serviceId;
 
@@ -23,6 +25,7 @@ class ServiceDetailsScreen extends StatefulWidget {
   State<ServiceDetailsScreen> createState() => _ServiceDetailsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   final FirebaseAuth auth = FirebaseAuth.instance;
@@ -33,6 +36,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     return firestore.collection('services').doc(widget.serviceId).snapshots();
   }
 
+  /// Loads customer phone and updates the visible state.
   Future<String> _loadCustomerPhone(String customerId) async {
     final customerDoc = await firestore
         .collection(FirestoreCollections.customers)
@@ -52,6 +56,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     return _stringValue(userDoc.data() ?? {}, 'phone');
   }
 
+  /// Loads customer name and updates the visible state.
   Future<String> _loadCustomerName(String customerId) async {
     final customerDoc = await firestore
         .collection(FirestoreCollections.customers)
@@ -69,9 +74,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     return _stringValue(userDoc.data() ?? {}, 'name');
   }
 
+  /// Opens the inquiry sheet interface for the user.
   Future<void> _showInquirySheet(Map<String, dynamic> serviceData) async {
     final messageController = TextEditingController();
     bool isSending = false;
+    bool isSheetActive = true;
     String? createdInquiryId;
 
     await showModalBottomSheet(
@@ -106,6 +113,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
               try {
                 final profileName = await _loadCustomerName(user.uid);
+                if (!isSheetActive) return;
                 final customerName = profileName.isNotEmpty
                     ? profileName
                     : user.displayName?.trim().isNotEmpty == true
@@ -130,10 +138,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   },
                 );
 
-                if (!mounted) return;
+                if (!mounted || !isSheetActive) return;
 
                 Navigator.pop(sheetContext);
               } catch (error) {
+                if (!isSheetActive) return;
                 setModalState(() {
                   isSending = false;
                 });
@@ -185,6 +194,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
       },
     );
 
+    isSheetActive = false;
+    await Future<void>.delayed(const Duration(milliseconds: 350));
     messageController.dispose();
 
     if (createdInquiryId != null && mounted) {
@@ -198,6 +209,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     }
   }
 
+  /// Opens the booking sheet interface for the user.
   Future<void> _showBookingSheet(Map<String, dynamic> serviceData) async {
     final dateController = TextEditingController();
     final timeController = TextEditingController();
@@ -207,6 +219,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
     TimeOfDay? selectedTime;
 
     bool isBooking = false;
+    bool isSheetActive = true;
 
     await showModalBottomSheet(
       context: context,
@@ -244,10 +257,15 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               });
 
               try {
-                final customerName = user.displayName?.trim().isNotEmpty == true
+                final profileName = await _loadCustomerName(user.uid);
+                if (!isSheetActive) return;
+                final customerName = profileName.isNotEmpty
+                    ? profileName
+                    : user.displayName?.trim().isNotEmpty == true
                     ? user.displayName!.trim()
-                    : (user.email ?? 'Customer');
+                    : 'Customer';
                 final customerPhone = await _loadCustomerPhone(user.uid);
+                if (!isSheetActive) return;
                 final requestedDateTime = DateTime(
                   selectedDate!.year,
                   selectedDate!.month,
@@ -263,6 +281,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                       serviceId: widget.serviceId,
                       eventDate: normalizedRequestedDateTime,
                     );
+                if (!isSheetActive) return;
 
                 if (slotAlreadyBooked) {
                   setModalState(() {
@@ -310,7 +329,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   },
                 );
 
-                if (!mounted) return;
+                if (!mounted || !isSheetActive) return;
 
                 Navigator.pop(sheetContext);
 
@@ -318,6 +337,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                   const SnackBar(content: Text('Booking request sent')),
                 );
               } catch (error) {
+                if (!isSheetActive) return;
                 setModalState(() {
                   isBooking = false;
                 });
@@ -425,6 +445,8 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
       },
     );
 
+    isSheetActive = false;
+    await Future<void>.delayed(const Duration(milliseconds: 350));
     dateController.dispose();
     timeController.dispose();
     noteController.dispose();
@@ -493,6 +515,13 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
 
                         const SizedBox(height: 6),
 
+                        ReviewRatingSummary.service(
+                          serviceId: widget.serviceId,
+                          showReviewLabel: true,
+                        ),
+
+                        const SizedBox(height: 6),
+
                         _VendorLocationRow(serviceData: serviceData),
 
                         const SizedBox(height: 16),
@@ -549,6 +578,7 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   }
 }
 
+/// Renders the reusable service image gallery UI component.
 class _ServiceImageGallery extends StatefulWidget {
   final String serviceId;
   final String vendorId;
@@ -562,6 +592,7 @@ class _ServiceImageGallery extends StatefulWidget {
   State<_ServiceImageGallery> createState() => _ServiceImageGalleryState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _ServiceImageGalleryState extends State<_ServiceImageGallery> {
   final FavoritesService _favoritesService = FavoritesService();
   late Stream<bool> _favoriteStream;
@@ -580,6 +611,17 @@ class _ServiceImageGalleryState extends State<_ServiceImageGallery> {
     if (oldWidget.serviceId != widget.serviceId) {
       _favoriteStream = _favoritesService.isFavorite(widget.serviceId);
     }
+  }
+
+  Future<void> _showGalleryPreview(int initialPage) async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black,
+      builder: (_) => _ServiceImagePreview(
+        imageUrls: widget.imageUrls,
+        initialPage: initialPage,
+      ),
+    );
   }
 
   Future<void> _toggle() async {
@@ -620,13 +662,18 @@ class _ServiceImageGalleryState extends State<_ServiceImageGallery> {
                   itemCount: widget.imageUrls.length,
                   onPageChanged: (index) =>
                       setState(() => _currentPage = index),
-                  itemBuilder: (context, index) => FirebaseStorageImage(
-                    source: widget.imageUrls[index],
-                    fit: BoxFit.cover,
-                    enablePreview: true,
-                    errorBuilder: (_) => Container(
-                      color: AppColors.selectedSurface,
-                      child: const Icon(Icons.broken_image_outlined, size: 60),
+                  itemBuilder: (context, index) => GestureDetector(
+                    onTap: () => _showGalleryPreview(index),
+                    child: FirebaseStorageImage(
+                      source: widget.imageUrls[index],
+                      fit: BoxFit.cover,
+                      errorBuilder: (_) => Container(
+                        color: AppColors.selectedSurface,
+                        child: const Icon(
+                          Icons.broken_image_outlined,
+                          size: 60,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -676,19 +723,113 @@ class _ServiceImageGalleryState extends State<_ServiceImageGallery> {
               bottom: 14,
               left: 0,
               right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  widget.imageUrls.length,
-                  (index) => Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '${_currentPage + 1} / ${widget.imageUrls.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceImagePreview extends StatefulWidget {
+  const _ServiceImagePreview({
+    required this.imageUrls,
+    required this.initialPage,
+  });
+
+  final List<String> imageUrls;
+  final int initialPage;
+
+  @override
+  State<_ServiceImagePreview> createState() => _ServiceImagePreviewState();
+}
+
+class _ServiceImagePreviewState extends State<_ServiceImagePreview> {
+  late final PageController _controller;
+  late int _currentPage;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPage = widget.initialPage;
+    _controller = PageController(initialPage: widget.initialPage);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: widget.imageUrls.length,
+            onPageChanged: (index) => setState(() => _currentPage = index),
+            itemBuilder: (context, index) => InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5,
+              child: Center(
+                child: FirebaseStorageImage(
+                  source: widget.imageUrls[index],
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 18,
+            right: 18,
+            child: SafeArea(
+              child: IconButton.filled(
+                tooltip: 'Close',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ),
+          ),
+          if (widget.imageUrls.length > 1)
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: index == _currentPage
-                          ? Colors.white
-                          : Colors.white54,
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${_currentPage + 1} / ${widget.imageUrls.length}',
+                      style: const TextStyle(color: Colors.white),
                     ),
                   ),
                 ),
@@ -702,6 +843,7 @@ class _ServiceImageGalleryState extends State<_ServiceImageGallery> {
 
 // ignore: unused_element
 
+/// Renders the reusable circle icon button UI component.
 class _CircleIconButton extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -742,6 +884,7 @@ class _CircleIconButton extends StatelessWidget {
   }
 }
 
+/// Renders the reusable title area UI component.
 class _TitleArea extends StatelessWidget {
   final Map<String, dynamic> serviceData;
 
@@ -760,6 +903,7 @@ class _TitleArea extends StatelessWidget {
   }
 }
 
+/// Renders the reusable vendor location row UI component.
 class _VendorLocationRow extends StatelessWidget {
   final Map<String, dynamic> serviceData;
 
@@ -806,6 +950,7 @@ class _VendorLocationRow extends StatelessWidget {
   }
 }
 
+/// Renders the reusable vendor info section UI component.
 class _VendorInfoSection extends StatelessWidget {
   final String vendorId;
   final String fallbackName;
@@ -848,6 +993,7 @@ class _VendorInfoSection extends StatelessWidget {
   }
 }
 
+/// Renders the reusable starting price UI component.
 class _StartingPrice extends StatelessWidget {
   final Map<String, dynamic> serviceData;
   const _StartingPrice({required this.serviceData});
@@ -874,6 +1020,7 @@ class _StartingPrice extends StatelessWidget {
   }
 }
 
+/// Renders the reusable bottom action bar UI component.
 class _BottomActionBar extends StatelessWidget {
   final VoidCallback onInquiry;
   final VoidCallback onBookNow;
@@ -926,6 +1073,7 @@ class _BottomActionBar extends StatelessWidget {
   }
 }
 
+/// Renders the reusable bottom input sheet UI component.
 class _BottomInputSheet extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -988,6 +1136,7 @@ class _BottomInputSheet extends StatelessWidget {
   }
 }
 
+/// Renders the reusable section title UI component.
 class _SectionTitle extends StatelessWidget {
   final String title;
 

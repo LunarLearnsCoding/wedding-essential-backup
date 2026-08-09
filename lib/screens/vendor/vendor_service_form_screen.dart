@@ -6,10 +6,12 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/firebase_storage_image.dart';
+import '../../core/widgets/removable_image_preview.dart';
 import '../../models/service_model.dart';
 import '../../services/service_service.dart';
 import '../../services/storage_service.dart';
 
+/// Displays the vendor service form page and coordinates the actions available on it.
 class VendorServiceFormScreen extends StatefulWidget {
   final ServiceModel? service;
 
@@ -20,6 +22,7 @@ class VendorServiceFormScreen extends StatefulWidget {
       _VendorServiceFormScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
@@ -58,6 +61,7 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
     _status = service.isActive ? 'Active' : 'Paused';
   }
 
+  /// Loads vendor profile details and updates the visible state.
   Future<void> _loadVendorProfileDetails() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
@@ -81,16 +85,20 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
   }
 
   String _profileLocation(Map<String, dynamic> data) {
+    final location = data['location']?.toString().trim() ?? '';
+    if (location.isNotEmpty) return location;
     final locations = data['locations'];
     if (locations is Iterable) {
       return locations
-          .map((item) => item.toString().trim())
-          .where((item) => item.isNotEmpty)
-          .join(', ');
+              .map((item) => item.toString().trim())
+              .where((item) => item.isNotEmpty)
+              .firstOrNull ??
+          '';
     }
-    return data['location']?.toString().trim() ?? '';
+    return '';
   }
 
+  /// Lets the user choose the required value and stores the selection.
   Future<void> _pickImages() async {
     final available = 6 - _existingImageUrls.length - _newImages.length;
     if (available <= 0) {
@@ -107,6 +115,7 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
     if (selected.length > available) _showImageLimitMessage();
   }
 
+  /// Opens the image limit message interface for the user.
   void _showImageLimitMessage() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('You can add up to 6 images.')),
@@ -124,6 +133,7 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
     super.dispose();
   }
 
+  /// Validates and saves the current service values.
   Future<void> _saveService() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -202,10 +212,7 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
         location: vendorLocation,
         price: _parsePrice(_priceController.text),
         imageUrls: completeImageUrls,
-        averageRating: existingService?.averageRating ?? 0,
-        totalReviews: existingService?.totalReviews ?? 0,
         isActive: _status == 'Active',
-        isFeatured: existingService?.isFeatured ?? false,
         createdAt: existingService?.createdAt ?? now,
         updatedAt: _isUpdateMode ? now : null,
       );
@@ -310,7 +317,7 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                               scrollDirection: Axis.horizontal,
                               children: [
                                 ..._existingImageUrls.asMap().entries.map(
-                                  (entry) => _ImagePreview(
+                                  (entry) => RemovableImagePreview(
                                     image: FirebaseStorageImage(
                                       source: entry.value,
                                       fit: BoxFit.cover,
@@ -330,24 +337,25 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
                                 ..._newImages.asMap().entries.map(
                                   (entry) => FutureBuilder<Uint8List>(
                                     future: entry.value.readAsBytes(),
-                                    builder: (context, snapshot) => _ImagePreview(
-                                      image: snapshot.hasData
-                                          ? Image.memory(
-                                              snapshot.data!,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : const Center(
-                                              child:
-                                                  CircularProgressIndicator(),
-                                            ),
-                                      onRemove: _isSaving
-                                          ? null
-                                          : () => setState(
-                                              () => _newImages.removeAt(
-                                                entry.key,
-                                              ),
-                                            ),
-                                    ),
+                                    builder: (context, snapshot) =>
+                                        RemovableImagePreview(
+                                          image: snapshot.hasData
+                                              ? Image.memory(
+                                                  snapshot.data!,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : const Center(
+                                                  child:
+                                                      CircularProgressIndicator(),
+                                                ),
+                                          onRemove: _isSaving
+                                              ? null
+                                              : () => setState(
+                                                  () => _newImages.removeAt(
+                                                    entry.key,
+                                                  ),
+                                                ),
+                                        ),
                                   ),
                                 ),
                               ],
@@ -487,35 +495,7 @@ class _VendorServiceFormScreenState extends State<VendorServiceFormScreen> {
   }
 }
 
-class _ImagePreview extends StatelessWidget {
-  final Widget image;
-  final VoidCallback? onRemove;
-  const _ImagePreview({required this.image, required this.onRemove});
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(width: 104, height: 104, child: image),
-          ),
-          Positioned(
-            top: 3,
-            right: 3,
-            child: IconButton.filled(
-              visualDensity: VisualDensity.compact,
-              onPressed: onRemove,
-              icon: const Icon(Icons.close, size: 16),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+/// Renders the reusable service form header UI component.
 class _ServiceFormHeader extends StatelessWidget {
   final String title;
 
@@ -578,6 +558,7 @@ class _ServiceFormHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable form card UI component.
 class _FormCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
@@ -612,6 +593,7 @@ class _FormCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable text input UI component.
 class _TextInput extends StatelessWidget {
   final String label;
   final String hint;

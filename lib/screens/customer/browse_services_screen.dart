@@ -3,12 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/profile_avatar.dart';
+import '../../core/widgets/review_rating_summary.dart';
 import '../../core/widgets/firebase_storage_image.dart';
 import '../../core/constants/service_categories.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../models/service_model.dart';
 import '../../models/vendor_model.dart';
+import '../../models/review_model.dart';
+import '../../models/review_summary.dart';
 import '../../providers/service_provider.dart';
+import '../../services/review_service.dart';
 import '../../services/vendor_service.dart';
 import 'customer_dashboard_screen.dart';
 import 'customer_profile_screen.dart';
@@ -16,8 +21,10 @@ import 'notification_screen.dart';
 import 'service_details_screen.dart';
 import 'vendor_details_screen.dart';
 
+/// Lists the supported browse mode values used throughout the app.
 enum BrowseMode { featured, vendors, services }
 
+/// Displays the browse services page and coordinates the actions available on it.
 class BrowseServicesScreen extends StatefulWidget {
   final String initialCategory;
   final BrowseMode initialMode;
@@ -32,9 +39,11 @@ class BrowseServicesScreen extends StatefulWidget {
   State<BrowseServicesScreen> createState() => _BrowseServicesScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final VendorService _vendorService = VendorService();
+  final ReviewService _reviewService = ReviewService();
 
   late BrowseMode _mode;
   late String _selectedCategory;
@@ -90,6 +99,7 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
   List<VendorModel> _vendors(
     QuerySnapshot snapshot, {
     bool featuredOnly = false,
+    Map<String, ReviewSummary> reviewSummaries = const {},
   }) {
     final query = _searchController.text.toLowerCase().trim();
     final now = DateTime.now();
@@ -116,14 +126,26 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
               vendor.businessName.toLowerCase().contains(query) ||
               vendor.name.toLowerCase().contains(query) ||
               vendor.category.toLowerCase().contains(query) ||
-              vendor.locations.any(
-                (location) => location.toLowerCase().contains(query),
-              );
+              vendor.location.toLowerCase().contains(query);
         })
         .toList();
 
     if (_vendorSort == 'Top Rated') {
-      vendors.sort((a, b) => b.averageRating.compareTo(a.averageRating));
+      vendors.sort((a, b) {
+        final aSummary = reviewSummaries[a.id] ?? const ReviewSummary.empty();
+        final bSummary = reviewSummaries[b.id] ?? const ReviewSummary.empty();
+        final ratingComparison = bSummary.averageRating.compareTo(
+          aSummary.averageRating,
+        );
+        if (ratingComparison != 0) return ratingComparison;
+        final reviewCountComparison = bSummary.totalReviews.compareTo(
+          aSummary.totalReviews,
+        );
+        if (reviewCountComparison != 0) return reviewCountComparison;
+        return _vendorDisplayName(
+          a,
+        ).toLowerCase().compareTo(_vendorDisplayName(b).toLowerCase());
+      });
     } else {
       vendors.sort(
         (a, b) => _vendorDisplayName(
@@ -134,6 +156,19 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
     return vendors;
   }
 
+  Map<String, ReviewSummary> _reviewSummaries(List<ReviewModel> reviews) {
+    final groupedReviews = <String, List<ReviewModel>>{};
+    for (final review in reviews) {
+      if (review.vendorId.trim().isEmpty) continue;
+      groupedReviews.putIfAbsent(review.vendorId, () => []).add(review);
+    }
+    return groupedReviews.map(
+      (vendorId, vendorReviews) =>
+          MapEntry(vendorId, ReviewSummary.fromReviews(vendorReviews)),
+    );
+  }
+
+  /// Handles the bottom nav user action.
   void _handleBottomNav(int index) {
     final destination = switch (index) {
       0 => const CustomerDashboardScreen(),
@@ -238,18 +273,41 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
                             ),
                           );
                         }
-                        return _VendorsView(
-                          vendors: _vendors(
-                            snapshot.data!,
-                            featuredOnly: _mode == BrowseMode.featured,
-                          ),
-                          sort: _vendorSort,
-                          onSort: () {
-                            setState(() {
-                              _vendorSort = _vendorSort == 'Top Rated'
-                                  ? 'Name'
-                                  : 'Top Rated';
-                            });
+                        return StreamBuilder<List<ReviewModel>>(
+                          stream: _reviewService.getAllReviews(),
+                          builder: (context, reviewSnapshot) {
+                            if (reviewSnapshot.connectionState ==
+                                    ConnectionState.waiting &&
+                                !reviewSnapshot.hasData) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+                            if (reviewSnapshot.hasError) {
+                              return Center(
+                                child: Text(
+                                  'Failed to load ratings: '
+                                  '${reviewSnapshot.error}',
+                                ),
+                              );
+                            }
+                            return _VendorsView(
+                              vendors: _vendors(
+                                snapshot.data!,
+                                featuredOnly: _mode == BrowseMode.featured,
+                                reviewSummaries: _reviewSummaries(
+                                  reviewSnapshot.data ?? const [],
+                                ),
+                              ),
+                              sort: _vendorSort,
+                              onSort: () {
+                                setState(() {
+                                  _vendorSort = _vendorSort == 'Top Rated'
+                                      ? 'Name'
+                                      : 'Top Rated';
+                                });
+                              },
+                            );
                           },
                         );
                       },
@@ -266,6 +324,7 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
   }
 }
 
+/// Renders the reusable browse header UI component.
 class _BrowseHeader extends StatelessWidget {
   const _BrowseHeader();
 
@@ -294,6 +353,7 @@ class _BrowseHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable services view UI component.
 class _ServicesView extends StatelessWidget {
   final List<ServiceModel> services;
   final List<String> categories;
@@ -372,6 +432,7 @@ class _ServicesView extends StatelessWidget {
   }
 }
 
+/// Renders the reusable vendors view UI component.
 class _VendorsView extends StatelessWidget {
   final List<VendorModel> vendors;
   final String sort;
@@ -418,6 +479,7 @@ class _VendorsView extends StatelessWidget {
   }
 }
 
+/// Renders the reusable results header UI component.
 class _ResultsHeader extends StatelessWidget {
   final String text;
   final String sort;
@@ -455,6 +517,7 @@ class _ResultsHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable service card UI component.
 class _ServiceCard extends StatelessWidget {
   final ServiceModel service;
   final VoidCallback onTap;
@@ -468,12 +531,13 @@ class _ServiceCard extends StatelessWidget {
       imageUrl: service.imageUrls.isEmpty ? '' : service.imageUrls.first,
       title: service.name,
       subtitle: service.vendorName,
-      details: '${service.category} • ${service.location}',
+      details: '${service.category} | ${service.location}',
       trailing: 'From Rs. ${service.price.toStringAsFixed(0)}',
     );
   }
 }
 
+/// Renders the reusable vendor card UI component.
 class _VendorCard extends StatelessWidget {
   final VendorModel vendor;
   final VoidCallback onTap;
@@ -483,7 +547,6 @@ class _VendorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = _vendorDisplayName(vendor);
-    final bio = vendor.bio.trim();
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       child: InkWell(
@@ -492,18 +555,13 @@ class _VendorCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: AppColors.selectedSurface,
-                child: Text(
-                  name.isEmpty ? 'V' : name[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+              ProfileAvatar(
+                userId: vendor.id,
+                fallbackName: name,
+                imageUrl: vendor.profileImageUrl,
+                radius: 42,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -522,26 +580,22 @@ class _VendorCard extends StatelessWidget {
                       vendor.category,
                       style: const TextStyle(color: AppColors.primaryDark),
                     ),
-                    if (bio.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(bio, maxLines: 2, overflow: TextOverflow.ellipsis),
-                    ],
                     const SizedBox(height: 7),
                     Text(
-                      vendor.locations.join(', '),
+                      vendor.location.isEmpty
+                          ? 'Location not provided'
+                          : vendor.location,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 7),
                     Row(
                       children: [
-                        const Icon(Icons.star, color: Colors.amber, size: 17),
-                        Text(
-                          ' ${vendor.averageRating.toStringAsFixed(1)} (${vendor.totalReviews})',
+                        Expanded(
+                          child: ReviewRatingSummary.vendor(
+                            vendorId: vendor.id,
+                          ),
                         ),
-                        const Spacer(),
-                        if (vendor.phone.trim().isNotEmpty)
-                          const Icon(Icons.phone_outlined, size: 18),
                         const SizedBox(width: 8),
                         const Text(
                           'View Profile',
@@ -560,6 +614,7 @@ class _VendorCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable browse card UI component.
 class _BrowseCard extends StatelessWidget {
   final VoidCallback onTap;
   final String imageUrl;
@@ -604,7 +659,6 @@ class _BrowseCard extends StatelessWidget {
                       : FirebaseStorageImage(
                           source: imageUrl,
                           fit: BoxFit.cover,
-                          enablePreview: true,
                           errorBuilder: (_) => const ColoredBox(
                             color: AppColors.selectedSurface,
                             child: Icon(Icons.broken_image_outlined),

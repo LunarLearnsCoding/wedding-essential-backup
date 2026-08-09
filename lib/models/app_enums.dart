@@ -1,7 +1,10 @@
+/// Lists the supported user role values used throughout the app.
 enum UserRole { customer, vendor, admin }
 
+/// Lists the supported booking status values used throughout the app.
 enum BookingStatus { pending, confirmed, rejected, completed, cancelled }
 
+/// Lists the supported inquiry status values used throughout the app.
 enum InquiryStatus { pending, replied, closed, cancelled }
 
 String enumToString(Object value) {

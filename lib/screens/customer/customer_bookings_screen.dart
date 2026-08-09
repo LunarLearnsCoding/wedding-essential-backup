@@ -10,6 +10,7 @@ import '../../models/app_enums.dart';
 import '../../services/booking_service.dart';
 import '../../services/review_service.dart';
 
+/// Displays the customer bookings page and coordinates the actions available on it.
 class CustomerBookingsScreen extends StatefulWidget {
   const CustomerBookingsScreen({super.key});
 
@@ -20,6 +21,7 @@ class CustomerBookingsScreen extends StatefulWidget {
   State<CustomerBookingsScreen> createState() => _CustomerBookingsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _CustomerBookingsScreenState extends State<CustomerBookingsScreen> {
   String _selectedFilter = 'All';
 
@@ -54,6 +56,7 @@ class _CustomerBookingsScreenState extends State<CustomerBookingsScreen> {
     }
   }
 
+  /// Opens the review dialog interface for the user.
   Future<void> _showReviewDialog(
     BuildContext context,
     BookingModel booking,
@@ -71,6 +74,7 @@ class _CustomerBookingsScreenState extends State<CustomerBookingsScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            /// Validates the form and submits its current values.
             Future<void> submitReview() async {
               if (isSaving) return;
 
@@ -304,6 +308,7 @@ class _CustomerBookingsScreenState extends State<CustomerBookingsScreen> {
   }
 }
 
+/// Renders the reusable customer booking filter tabs UI component.
 class _CustomerBookingFilterTabs extends StatelessWidget {
   const _CustomerBookingFilterTabs({
     required this.selectedFilter,
@@ -380,6 +385,7 @@ class _CustomerBookingFilterTabs extends StatelessWidget {
   }
 }
 
+/// Renders the reusable filtered bookings empty UI component.
 class _FilteredBookingsEmpty extends StatelessWidget {
   const _FilteredBookingsEmpty({required this.filter});
 
@@ -420,6 +426,7 @@ class _FilteredBookingsEmpty extends StatelessWidget {
   }
 }
 
+/// Renders the reusable empty bookings view UI component.
 class _EmptyBookingsView extends StatelessWidget {
   const _EmptyBookingsView();
 
@@ -466,6 +473,7 @@ class _EmptyBookingsView extends StatelessWidget {
   }
 }
 
+/// Renders the reusable booking card UI component.
 class _BookingCard extends StatelessWidget {
   final BookingModel booking;
   final VoidCallback onCancel;
@@ -618,6 +626,7 @@ class _BookingCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable review action UI component.
 class _ReviewAction extends StatefulWidget {
   const _ReviewAction({required this.bookingId, required this.onReview});
 
@@ -628,6 +637,7 @@ class _ReviewAction extends StatefulWidget {
   State<_ReviewAction> createState() => _ReviewActionState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _ReviewActionState extends State<_ReviewAction> {
   late Stream<bool> _reviewStatus;
 
@@ -698,6 +708,7 @@ String _customerBookingStatusLabel(BookingStatus status) {
       : '${value[0].toUpperCase()}${value.substring(1)}';
 }
 
+/// Renders the reusable mini info box UI component.
 class _MiniInfoBox extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -754,6 +765,7 @@ class _MiniInfoBox extends StatelessWidget {
   }
 }
 
+/// Renders the reusable status badge UI component.
 class _StatusBadge extends StatelessWidget {
   final String status;
 

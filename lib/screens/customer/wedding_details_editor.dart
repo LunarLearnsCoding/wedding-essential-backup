@@ -24,6 +24,7 @@ Future<bool> showWeddingDetailsEditor({
       false;
 }
 
+/// Renders the reusable wedding details sheet UI component.
 class _WeddingDetailsSheet extends StatefulWidget {
   final DateTime? initialWeddingDate;
   final String initialVenue;
@@ -37,6 +38,7 @@ class _WeddingDetailsSheet extends StatefulWidget {
   State<_WeddingDetailsSheet> createState() => _WeddingDetailsSheetState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _WeddingDetailsSheetState extends State<_WeddingDetailsSheet> {
   final _venueController = TextEditingController();
   DateTime? _weddingDate;
@@ -55,6 +57,7 @@ class _WeddingDetailsSheetState extends State<_WeddingDetailsSheet> {
     super.dispose();
   }
 
+  /// Lets the user choose the required value and stores the selection.
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -74,6 +77,7 @@ class _WeddingDetailsSheetState extends State<_WeddingDetailsSheet> {
     });
   }
 
+  /// Validates and saves the current save values.
   Future<void> _save() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {

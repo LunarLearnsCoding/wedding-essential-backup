@@ -5,15 +5,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../core/constants/firestore_collections.dart';
 import '../../core/utils/firestore_parsers.dart';
 import '../../core/widgets/app_bottom_nav.dart';
+import '../../core/widgets/review_rating_summary.dart';
 import '../../models/vendor_model.dart';
 import '../../models/blog_model.dart';
-import '../../models/review_model.dart';
 import '../../services/blog_service.dart';
-import '../../services/review_service.dart';
-import 'blog_details_screen.dart';
+import 'blogs_screen.dart';
 import 'browse_services_screen.dart';
 import 'checklist_screen.dart';
 import 'customer_bookings_screen.dart';
@@ -23,7 +23,9 @@ import 'guest_list_screen.dart';
 import 'notification_screen.dart';
 import 'vendor_details_screen.dart';
 import 'wedding_details_editor.dart';
+import 'widgets/blog_summary_card.dart';
 
+/// Displays the customer dashboard page and coordinates the actions available on it.
 class CustomerDashboardScreen extends StatefulWidget {
   const CustomerDashboardScreen({super.key});
 
@@ -32,6 +34,7 @@ class CustomerDashboardScreen extends StatefulWidget {
       _CustomerDashboardScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   Future<_DashboardData>? _dashboardFuture;
 
@@ -50,6 +53,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     });
   }
 
+  /// Loads dashboard data and updates the visible state.
   Future<_DashboardData> _loadDashboardData(String customerId) async {
     final firestore = FirebaseFirestore.instance;
 
@@ -182,18 +186,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         },
                       ),
                       const SizedBox(height: 22),
-                      _SectionHeader(
-                        title: 'Wedding Planning',
-                        actionText: 'View all',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const BrowseServicesScreen(),
-                            ),
-                          );
-                        },
-                      ),
+                      const _SectionHeader(title: 'Wedding Planning'),
                       const SizedBox(height: 14),
                       _PlanningGrid(),
                       const SizedBox(height: 22),
@@ -204,7 +197,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const BrowseServicesScreen(),
+                              builder: (_) => const BrowseServicesScreen(
+                                initialMode: BrowseMode.featured,
+                              ),
                             ),
                           );
                         },
@@ -212,13 +207,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       const SizedBox(height: 14),
                       const _FeaturedVendorsLive(),
                       const SizedBox(height: 24),
-                      const Text(
-                        'Wedding Tips & Blogs',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      _SectionHeader(
+                        title: 'Wedding Tips & Blogs',
+                        actionText: 'View all',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const BlogsScreen(),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 14),
                       const _PublishedBlogsLive(),
@@ -259,6 +258,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 }
 
+/// Renders the reusable dashboard error UI component.
 class _DashboardError extends StatelessWidget {
   final String message;
 
@@ -311,6 +311,7 @@ class _DashboardError extends StatelessWidget {
   }
 }
 
+/// Renders the reusable fixed hero header UI component.
 class _FixedHeroHeader extends StatelessWidget {
   final _DashboardData data;
   final VoidCallback onWeddingTap;
@@ -410,16 +411,13 @@ class _FixedHeroHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable section header UI component.
 class _SectionHeader extends StatelessWidget {
   final String title;
-  final String actionText;
-  final VoidCallback onTap;
+  final String? actionText;
+  final VoidCallback? onTap;
 
-  const _SectionHeader({
-    required this.title,
-    required this.actionText,
-    required this.onTap,
-  });
+  const _SectionHeader({required this.title, this.actionText, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -434,21 +432,23 @@ class _SectionHeader extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-        TextButton(
-          onPressed: onTap,
-          child: Text(
-            actionText,
-            style: const TextStyle(
-              color: AppColors.primaryDark,
-              fontWeight: FontWeight.w700,
+        if (actionText != null && onTap != null)
+          TextButton(
+            onPressed: onTap,
+            child: Text(
+              actionText!,
+              style: const TextStyle(
+                color: AppColors.primaryDark,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
 }
 
+/// Groups the data and behavior required by the category item component.
 class _CategoryItem {
   final String title;
   final IconData icon;
@@ -456,6 +456,7 @@ class _CategoryItem {
   _CategoryItem(this.title, this.icon);
 }
 
+/// Renders the reusable category card UI component.
 class _CategoryCard extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -501,6 +502,7 @@ class _CategoryCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable planning grid UI component.
 class _PlanningGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -572,6 +574,7 @@ class _PlanningGrid extends StatelessWidget {
   }
 }
 
+/// Renders the reusable planning card UI component.
 class _PlanningCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -628,6 +631,7 @@ class _PlanningCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable featured vendors live UI component.
 class _FeaturedVendorsLive extends StatefulWidget {
   const _FeaturedVendorsLive();
 
@@ -635,6 +639,7 @@ class _FeaturedVendorsLive extends StatefulWidget {
   State<_FeaturedVendorsLive> createState() => _FeaturedVendorsLiveState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _FeaturedVendorsLiveState extends State<_FeaturedVendorsLive> {
   Timer? _expiryTimer;
 
@@ -694,6 +699,7 @@ class _FeaturedVendorsLiveState extends State<_FeaturedVendorsLive> {
   }
 }
 
+/// Renders the reusable featured vendor card UI component.
 class _FeaturedVendorCard extends StatelessWidget {
   const _FeaturedVendorCard({required this.vendor});
 
@@ -738,17 +744,11 @@ class _FeaturedVendorCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            CircleAvatar(
+            ProfileAvatar(
+              userId: vendor.id,
+              fallbackName: name,
+              imageUrl: vendor.profileImageUrl,
               radius: 27,
-              backgroundColor: AppColors.selectedSurface,
-              child: Text(
-                name.isEmpty ? 'V' : name.substring(0, 1).toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -775,9 +775,14 @@ class _FeaturedVendorCard extends StatelessWidget {
                     style: const TextStyle(color: AppColors.primaryDark),
                   ),
                   const SizedBox(height: 7),
-                  _FeaturedVendorRating(
+                  ReviewRatingSummary.vendor(
                     key: ValueKey(vendor.id),
                     vendorId: vendor.id,
+                    showReviewLabel: true,
+                    textStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -793,67 +798,7 @@ class _FeaturedVendorCard extends StatelessWidget {
   }
 }
 
-class _FeaturedVendorRating extends StatefulWidget {
-  const _FeaturedVendorRating({super.key, required this.vendorId});
-
-  final String vendorId;
-
-  @override
-  State<_FeaturedVendorRating> createState() => _FeaturedVendorRatingState();
-}
-
-class _FeaturedVendorRatingState extends State<_FeaturedVendorRating> {
-  static final ReviewService _reviewService = ReviewService();
-  late Stream<List<ReviewModel>> _reviews;
-
-  @override
-  void initState() {
-    super.initState();
-    _reviews = _reviewService.getReviewsByVendor(widget.vendorId);
-  }
-
-  @override
-  void didUpdateWidget(covariant _FeaturedVendorRating oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.vendorId != widget.vendorId) {
-      _reviews = _reviewService.getReviewsByVendor(widget.vendorId);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<ReviewModel>>(
-      stream: _reviews,
-      builder: (context, snapshot) {
-        final reviews = snapshot.data ?? const <ReviewModel>[];
-        final average = reviews.isEmpty
-            ? 0.0
-            : reviews.fold<double>(
-                    0,
-                    (total, review) => total + review.rating,
-                  ) /
-                  reviews.length;
-        return Row(
-          children: [
-            const Icon(Icons.star, color: Colors.amber, size: 17),
-            Flexible(
-              child: Text(
-                ' ${average.toStringAsFixed(1)} (${reviews.length} ${reviews.length == 1 ? 'review' : 'reviews'})',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
+/// Renders the reusable published blogs live UI component.
 class _PublishedBlogsLive extends StatelessWidget {
   const _PublishedBlogsLive();
 
@@ -865,7 +810,7 @@ class _PublishedBlogsLive extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final blogs = snapshot.data ?? const <BlogModel>[];
+        final blogs = (snapshot.data ?? const <BlogModel>[]).take(4).toList();
         if (snapshot.hasError || blogs.isEmpty) {
           return Container(
             width: double.infinity,
@@ -885,7 +830,7 @@ class _PublishedBlogsLive extends StatelessWidget {
         return Column(
           children: [
             for (var index = 0; index < blogs.length; index++) ...[
-              _BlogSummaryCard(blog: blogs[index]),
+              BlogSummaryCard(blog: blogs[index]),
               if (index != blogs.length - 1) const SizedBox(height: 10),
             ],
           ],
@@ -895,109 +840,7 @@ class _PublishedBlogsLive extends StatelessWidget {
   }
 }
 
-class _BlogSummaryCard extends StatelessWidget {
-  final BlogModel blog;
-
-  const _BlogSummaryCard({required this.blog});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => BlogDetailsScreen(blog: blog)),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 92,
-              height: 92,
-              decoration: BoxDecoration(
-                color: AppColors.selectedSurface,
-                borderRadius: BorderRadius.circular(15),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: blog.imageUrl.trim().isEmpty
-                  ? const Icon(Icons.article_outlined, color: AppColors.primary)
-                  : Image.network(
-                      blog.imageUrl.trim(),
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return const Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        );
-                      },
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.article_outlined,
-                        color: AppColors.primary,
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    blog.category,
-                    style: const TextStyle(
-                      color: AppColors.primaryDark,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    blog.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    blog.summary,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+/// Groups the data and behavior required by the dashboard data component.
 class _DashboardData {
   final String firstName;
   final DateTime? weddingDate;

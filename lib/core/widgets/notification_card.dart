@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/notification_model.dart';
 import '../constants/app_colors.dart';
 
+/// Renders the reusable notification card UI component.
 class NotificationCard extends StatelessWidget {
   final NotificationModel notification;
   final VoidCallback? onTap;
@@ -115,6 +116,7 @@ class NotificationCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable type pill UI component.
 class _TypePill extends StatelessWidget {
   final String label;
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/admin_app_colors.dart';
 
+/// Groups the data and behavior required by the admin panel page component.
 class AdminPanelPage {
   const AdminPanelPage({
     required this.title,
@@ -16,6 +17,7 @@ class AdminPanelPage {
   final Widget child;
 }
 
+/// Renders the reusable admin shell UI component.
 class AdminShell extends StatelessWidget {
   const AdminShell({
     super.key,
@@ -86,6 +88,7 @@ class AdminShell extends StatelessWidget {
   }
 }
 
+/// Renders the reusable page frame UI component.
 class _PageFrame extends StatelessWidget {
   const _PageFrame({required this.page, this.showHeader = true});
 
@@ -168,6 +171,7 @@ class _PageFrame extends StatelessWidget {
   }
 }
 
+/// Renders the reusable sidebar UI component.
 class _Sidebar extends StatelessWidget {
   const _Sidebar({
     required this.pages,
@@ -272,6 +276,7 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
+/// Renders the reusable mobile drawer UI component.
 class _MobileDrawer extends StatelessWidget {
   const _MobileDrawer({
     required this.pages,
@@ -325,6 +330,7 @@ class _MobileDrawer extends StatelessWidget {
   }
 }
 
+/// Renders the reusable nav tile UI component.
 class _NavTile extends StatelessWidget {
   const _NavTile({
     required this.title,

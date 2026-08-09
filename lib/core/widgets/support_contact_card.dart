@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/admin_account.dart';
 
+/// Renders the reusable support contact card UI component.
 class SupportContactCard extends StatelessWidget {
   const SupportContactCard({
     super.key,
-    this.title = 'We’re here to help',
+    this.title = 'We are here to help',
     this.message =
         'For support and account assistance, email $adminAccountEmail.',
     this.emailSubject = 'Support',
@@ -20,19 +22,33 @@ class SupportContactCard extends StatelessWidget {
   final String? emailBody;
 
   Future<void> _emailSupport(BuildContext context) async {
-    final opened = await launchUrl(
-      Uri(
-        scheme: 'mailto',
-        path: adminAccountEmail,
-        queryParameters: {
-          'subject': emailSubject,
-          if (emailBody != null) 'body': emailBody!,
-        },
-      ),
+    final emailUri = Uri(
+      scheme: 'mailto',
+      path: adminAccountEmail,
+      queryParameters: {
+        'subject': emailSubject,
+        if (emailBody != null) 'body': emailBody!,
+      },
     );
-    if (!opened && context.mounted) {
+
+    try {
+      final opened = await launchUrl(
+        emailUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (opened) return;
+    } on PlatformException {
+      // Fall through to a useful clipboard fallback.
+    }
+
+    await Clipboard.setData(const ClipboardData(text: adminAccountEmail));
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open an email application.')),
+        const SnackBar(
+          content: Text(
+            'No email app could be opened. The support email was copied.',
+          ),
+        ),
       );
     }
   }
@@ -81,6 +97,7 @@ class SupportContactCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable support message UI component.
 class _SupportMessage extends StatelessWidget {
   const _SupportMessage({required this.message});
 

@@ -1,18 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/admin_account.dart';
 import '../../core/constants/service_categories.dart';
+import '../../core/constants/vendor_locations.dart';
 import '../../core/utils/firestore_parsers.dart';
 import '../../core/widgets/app_information_sheet.dart';
+import '../../core/widgets/profile_avatar.dart';
+import '../../core/widgets/password_reset_sheet.dart';
+import '../../core/widgets/sheet_handle.dart';
 import '../../core/widgets/support_contact_card.dart';
 import '../../core/widgets/vendor_bottom_nav.dart';
+import '../../services/storage_service.dart';
 import '../auth/login_screen.dart';
 
-class VendorProfileScreen extends StatelessWidget {
+/// Displays the vendor profile page and coordinates the actions available on it.
+class VendorProfileScreen extends StatefulWidget {
   const VendorProfileScreen({super.key});
+
+  @override
+  State<VendorProfileScreen> createState() => _VendorProfileScreenState();
+}
+
+/// Manages the mutable state, user actions, and UI composition for the related screen.
+class _VendorProfileScreenState extends State<VendorProfileScreen> {
+  bool _isUploadingImage = false;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +63,13 @@ class VendorProfileScreen extends StatelessWidget {
 
           return Column(
             children: [
-              _ProfileHeader(profile: profile),
+              _ProfileHeader(
+                profile: profile,
+                vendorId: currentUser.uid,
+                isUploadingImage: _isUploadingImage,
+                onImageTap: () =>
+                    _uploadProfileImage(currentUser.uid, profile.businessName),
+              ),
 
               Expanded(
                 child: SingleChildScrollView(
@@ -145,7 +166,7 @@ class VendorProfileScreen extends StatelessWidget {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => _VendorPasswordResetSheet(email: email),
+      builder: (_) => PasswordResetSheet(email: email),
     );
     if (!context.mounted || confirmed != true) return;
 
@@ -172,6 +193,60 @@ class VendorProfileScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _uploadProfileImage(String vendorId, String displayName) async {
+    if (_isUploadingImage) return;
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 900,
+      maxHeight: 900,
+      imageQuality: 55,
+    );
+    if (image == null || !mounted) return;
+
+    setState(() => _isUploadingImage = true);
+    try {
+      final imageUrl = await StorageService().uploadProfileImage(
+        userId: vendorId,
+        role: 'vendor',
+        image: image,
+      );
+      final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
+      final data = {
+        'profileImageUrl': imageUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      batch.set(
+        firestore.collection('vendors').doc(vendorId),
+        data,
+        SetOptions(merge: true),
+      );
+      batch.set(
+        firestore.collection('users').doc(vendorId),
+        data,
+        SetOptions(merge: true),
+      );
+      batch.set(
+        firestore.collection('public_profiles').doc(vendorId),
+        {'displayName': displayName, 'role': 'vendor', ...data},
+        SetOptions(merge: true),
+      );
+      await batch.commit();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile picture updated.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update profile picture: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingImage = false);
+    }
+  }
+
+  /// Opens the business information sheet interface for the user.
   Future<void> _showBusinessInformationSheet(
     BuildContext context,
     String vendorId,
@@ -193,6 +268,15 @@ class VendorProfileScreen extends StatelessWidget {
         'name': values['name'],
         'phone': values['phone'],
       }, SetOptions(merge: true));
+      await FirebaseFirestore.instance
+          .collection('public_profiles')
+          .doc(vendorId)
+          .set({
+            'displayName': values['businessName'],
+            'role': 'vendor',
+            'profileImageUrl': profile.profileImageUrl,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Business information updated.')),
@@ -205,6 +289,7 @@ class VendorProfileScreen extends StatelessWidget {
     }
   }
 
+  /// Opens the featured options sheet interface for the user.
   Future<void> _showFeaturedOptionsSheet(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -214,6 +299,7 @@ class VendorProfileScreen extends StatelessWidget {
     );
   }
 
+  /// Opens the social links dialog interface for the user.
   Future<void> _showSocialLinksDialog(
     BuildContext context,
     String vendorId,
@@ -244,7 +330,7 @@ class VendorProfileScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SheetHandle(),
+              const SheetHandle(),
               const SizedBox(height: 22),
               const Text(
                 'Social media links',
@@ -327,6 +413,7 @@ class VendorProfileScreen extends StatelessWidget {
     website.dispose();
   }
 
+  /// Opens the logout dialog interface for the user.
   Future<void> _showLogoutDialog(BuildContext context) async {
     final confirmed = await showAppConfirmationSheet(
       context,
@@ -347,6 +434,7 @@ class VendorProfileScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable featured options sheet UI component.
 class _FeaturedOptionsSheet extends StatelessWidget {
   const _FeaturedOptionsSheet();
 
@@ -370,7 +458,7 @@ class _FeaturedOptionsSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SheetHandle(),
+              const SheetHandle(),
               const SizedBox(height: 22),
               const Text(
                 'Featured Vendor Placement',
@@ -438,6 +526,7 @@ class _FeaturedOptionsSheet extends StatelessWidget {
   }
 }
 
+/// Renders the reusable business information sheet UI component.
 class _BusinessInformationSheet extends StatefulWidget {
   final _VendorProfileData profile;
 
@@ -448,13 +537,14 @@ class _BusinessInformationSheet extends StatefulWidget {
       _BusinessInformationSheetState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _BusinessInformationSheetState extends State<_BusinessInformationSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _owner;
   late final TextEditingController _business;
   late final TextEditingController _phone;
   String? _selectedCategory;
-  late final TextEditingController _locations;
+  String? _selectedLocation;
   late final TextEditingController _bio;
 
   @override
@@ -466,7 +556,9 @@ class _BusinessInformationSheetState extends State<_BusinessInformationSheet> {
     _selectedCategory = serviceCategories.contains(widget.profile.category)
         ? widget.profile.category
         : null;
-    _locations = TextEditingController(text: widget.profile.locationsText);
+    _selectedLocation = locations.contains(widget.profile.location)
+        ? widget.profile.location
+        : null;
     _bio = TextEditingController(text: widget.profile.bio);
   }
 
@@ -475,24 +567,20 @@ class _BusinessInformationSheetState extends State<_BusinessInformationSheet> {
     _owner.dispose();
     _business.dispose();
     _phone.dispose();
-    _locations.dispose();
     _bio.dispose();
     super.dispose();
   }
 
+  /// Validates and saves the current save values.
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    final locations = _locations.text
-        .split(',')
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
     Navigator.pop(context, <String, dynamic>{
       'name': _owner.text.trim(),
       'businessName': _business.text.trim(),
       'phone': _phone.text.trim(),
       'category': _selectedCategory!,
-      'locations': locations,
+      'location': _selectedLocation!,
+      'locations': FieldValue.delete(),
       'bio': _bio.text.trim(),
     });
   }
@@ -517,7 +605,7 @@ class _BusinessInformationSheetState extends State<_BusinessInformationSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SheetHandle(),
+              const SheetHandle(),
               const SizedBox(height: 22),
               const Text(
                 'Business information',
@@ -576,11 +664,30 @@ class _BusinessInformationSheetState extends State<_BusinessInformationSheet> {
                     value == null ? 'Please choose a service category.' : null,
               ),
               const SizedBox(height: 14),
-              _VendorTextField(
-                controller: _locations,
-                label: 'Locations (separated by commas)',
-                icon: Icons.location_on_outlined,
-                requiredField: true,
+              DropdownButtonFormField<String>(
+                initialValue: _selectedLocation,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Location',
+                  prefixIcon: const Icon(Icons.location_on_outlined),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                ),
+                items: locations
+                    .map(
+                      (location) => DropdownMenuItem(
+                        value: location,
+                        child: Text(location),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedLocation = value),
+                validator: (value) =>
+                    value == null ? 'Please choose a location.' : null,
               ),
               const SizedBox(height: 14),
               _VendorTextField(
@@ -605,126 +712,7 @@ class _BusinessInformationSheetState extends State<_BusinessInformationSheet> {
   }
 }
 
-class _VendorPasswordResetSheet extends StatelessWidget {
-  final String email;
-
-  const _VendorPasswordResetSheet({required this.email});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _SheetHandle(),
-            const SizedBox(height: 22),
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(17),
-              ),
-              child: const Icon(
-                Icons.lock_reset_rounded,
-                color: AppColors.primaryDark,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Change your password',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'We’ll email you a secure link to choose a new password.',
-              style: TextStyle(color: AppColors.textSecondary, height: 1.45),
-            ),
-            const SizedBox(height: 18),
-            _EmailDisplay(email: email),
-            const SizedBox(height: 22),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Send reset link'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SheetHandle extends StatelessWidget {
-  const _SheetHandle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 42,
-        height: 4,
-        decoration: BoxDecoration(
-          color: AppColors.border,
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmailDisplay extends StatelessWidget {
-  final String email;
-
-  const _EmailDisplay({required this.email});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.email_outlined, color: AppColors.primaryDark),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Text(
-              email,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+/// Renders the reusable vendor text field UI component.
 class _VendorTextField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -767,10 +755,19 @@ class _VendorTextField extends StatelessWidget {
   }
 }
 
+/// Renders the reusable profile header UI component.
 class _ProfileHeader extends StatelessWidget {
   final _VendorProfileData profile;
+  final String vendorId;
+  final bool isUploadingImage;
+  final VoidCallback onImageTap;
 
-  const _ProfileHeader({required this.profile});
+  const _ProfileHeader({
+    required this.profile,
+    required this.vendorId,
+    required this.isUploadingImage,
+    required this.onImageTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -785,13 +782,37 @@ class _ProfileHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 34,
-            backgroundColor: Colors.white,
-            child: Icon(
-              Icons.storefront_outlined,
-              color: AppColors.primary,
-              size: 34,
+          GestureDetector(
+            onTap: isUploadingImage ? null : onImageTap,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ProfileAvatar(
+                  userId: vendorId,
+                  fallbackName: profile.businessName,
+                  imageUrl: profile.profileImageUrl,
+                  radius: 34,
+                  backgroundColor: Colors.white,
+                ),
+                Positioned(
+                  right: -3,
+                  bottom: -3,
+                  child: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: Colors.white,
+                    child: isUploadingImage
+                        ? const SizedBox.square(
+                            dimension: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.camera_alt,
+                            color: AppColors.primary,
+                            size: 14,
+                          ),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -824,6 +845,7 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable profile info card UI component.
 class _ProfileInfoCard extends StatelessWidget {
   final _VendorProfileData profile;
 
@@ -880,7 +902,7 @@ class _ProfileInfoCard extends StatelessWidget {
           _ProfileDetailRow(
             icon: Icons.location_on_outlined,
             title: 'Location',
-            value: profile.locationsText,
+            value: profile.location,
           ),
           if (profile.bio.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -902,14 +924,16 @@ class _ProfileInfoCard extends StatelessWidget {
   }
 }
 
+/// Groups the data and behavior required by the vendor profile data component.
 class _VendorProfileData {
   final String name;
   final String businessName;
   final String email;
   final String phone;
   final String category;
-  final String locationsText;
+  final String location;
   final String bio;
+  final String profileImageUrl;
   final String facebookUrl;
   final String instagramUrl;
   final String tiktokUrl;
@@ -923,8 +947,9 @@ class _VendorProfileData {
     required this.email,
     required this.phone,
     required this.category,
-    required this.locationsText,
+    required this.location,
     required this.bio,
+    required this.profileImageUrl,
     required this.facebookUrl,
     required this.instagramUrl,
     required this.tiktokUrl,
@@ -941,10 +966,17 @@ class _VendorProfileData {
     final businessName = _cleanText(map['businessName'], fallback: name);
     final email = _cleanText(map['email'], fallback: fallbackEmail);
     final phone = _cleanText(map['phone'], fallback: 'Not provided');
-    final locations = map['locations'];
-    final locationsText = locations is Iterable
-        ? locations.map((item) => item.toString()).join(', ')
-        : _cleanText(map['location'], fallback: 'Not provided');
+    final savedLocation = _cleanText(map['location'], fallback: '');
+    final legacyLocations = map['locations'];
+    final legacyLocation = legacyLocations is Iterable
+        ? legacyLocations
+              .map((item) => item.toString().trim())
+              .where((item) => item.isNotEmpty)
+              .firstOrNull
+        : null;
+    final location = savedLocation.isNotEmpty
+        ? savedLocation
+        : legacyLocation ?? 'Not provided';
 
     return _VendorProfileData(
       name: name,
@@ -952,10 +984,9 @@ class _VendorProfileData {
       email: email.isEmpty ? 'Not provided' : email,
       phone: phone,
       category: _cleanText(map['category'], fallback: ''),
-      locationsText: locationsText.trim().isEmpty
-          ? 'Not provided'
-          : locationsText,
+      location: location,
       bio: _cleanText(map['bio'], fallback: ''),
+      profileImageUrl: _cleanText(map['profileImageUrl'], fallback: ''),
       facebookUrl: _cleanText(map['facebookUrl'], fallback: ''),
       instagramUrl: _cleanText(map['instagramUrl'], fallback: ''),
       tiktokUrl: _cleanText(map['tiktokUrl'], fallback: ''),
@@ -977,6 +1008,7 @@ String _cleanText(dynamic value, {required String fallback}) {
   return text.isEmpty ? fallback : text;
 }
 
+/// Renders the reusable profile detail row UI component.
 class _ProfileDetailRow extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -1022,6 +1054,7 @@ class _ProfileDetailRow extends StatelessWidget {
   }
 }
 
+/// Renders the reusable profile option card UI component.
 class _ProfileOptionCard extends StatelessWidget {
   final IconData icon;
   final String title;

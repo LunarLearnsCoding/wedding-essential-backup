@@ -3,13 +3,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/firestore_collections.dart';
 import '../models/guest_model.dart';
 
+/// Centralizes the Firebase operations used for guest data.
 class GuestService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  /// Creates a new item from the supplied or entered values.
   Future<void> addGuest(GuestModel guest) async {
     await _firestore.collection(FirestoreCollections.guests).add(guest.toMap());
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> deleteGuest(String guestId) async {
     await _firestore
         .collection(FirestoreCollections.guests)
@@ -44,6 +47,7 @@ class GuestService {
         });
   }
 
+  /// Creates a new item from the supplied or entered values.
   Future<void> addGroup({
     required String customerId,
     required String groupName,
@@ -56,6 +60,7 @@ class GuestService {
         }, SetOptions(merge: true));
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> deleteGroup({
     required String customerId,
     required String groupName,

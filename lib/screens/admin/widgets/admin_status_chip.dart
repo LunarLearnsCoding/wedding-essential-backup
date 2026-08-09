@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/admin_app_colors.dart';
 
+/// Renders the reusable admin status chip UI component.
 class AdminStatusChip extends StatelessWidget {
   const AdminStatusChip({super.key, required this.label});
 

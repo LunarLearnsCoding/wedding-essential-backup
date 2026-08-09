@@ -8,6 +8,7 @@ import '../../services/admin_auth_service.dart';
 import 'package:wedding_essentialsapp/screens/admin/admin_login_screen.dart';
 import 'package:wedding_essentialsapp/screens/admin/admin_dashboard_screen.dart';
 
+/// Renders the reusable admin guard UI component.
 class AdminGuard extends StatefulWidget {
   const AdminGuard({super.key});
 
@@ -15,6 +16,7 @@ class AdminGuard extends StatefulWidget {
   State<AdminGuard> createState() => _AdminGuardState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AdminGuardState extends State<AdminGuard> {
   Future<Map<String, dynamic>?>? _recovery;
 
@@ -88,6 +90,7 @@ class _AdminGuardState extends State<AdminGuard> {
   }
 }
 
+/// Renders the reusable admin access message UI component.
 class _AdminAccessMessage extends StatelessWidget {
   const _AdminAccessMessage({
     required this.icon,

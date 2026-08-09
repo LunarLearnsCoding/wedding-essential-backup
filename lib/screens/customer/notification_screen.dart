@@ -11,6 +11,7 @@ import 'browse_services_screen.dart';
 import 'customer_dashboard_screen.dart';
 import 'customer_profile_screen.dart';
 
+/// Displays the notifications page and coordinates the actions available on it.
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -18,6 +19,7 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final NotificationService _notificationService = NotificationService();
   bool _isMarkingAllRead = false;
@@ -213,6 +215,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 }
 
+/// Renders the reusable notification scaffold body UI component.
 class _NotificationScaffoldBody extends StatelessWidget {
   final Widget child;
   final VoidCallback? onMarkAllRead;
@@ -267,6 +270,7 @@ class _NotificationScaffoldBody extends StatelessWidget {
   }
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _MessageState extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -318,6 +322,7 @@ class _MessageState extends StatelessWidget {
   }
 }
 
+/// Renders the reusable section header UI component.
 class _SectionHeader extends StatelessWidget {
   final String title;
 
@@ -336,6 +341,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+/// Groups the data and behavior required by the grouped notifications component.
 class _GroupedNotifications {
   final List<NotificationModel> today;
   final List<NotificationModel> yesterday;

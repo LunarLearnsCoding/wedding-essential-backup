@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/firestore_parsers.dart';
 
+/// Represents a review record exchanged between Firestore and the app.
 class ReviewModel {
   final String id;
   final String bookingId;
@@ -47,6 +48,7 @@ class ReviewModel {
     );
   }
 
+  /// Converts this instance into values that can be persisted.
   Map<String, dynamic> toMap() {
     return {
       'bookingId': bookingId,

@@ -1,15 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/firestore_collections.dart';
 import '../../core/utils/firestore_parsers.dart';
+import '../../core/utils/validators.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/app_information_sheet.dart';
 import '../../core/widgets/support_contact_card.dart';
+import '../../core/widgets/profile_avatar.dart';
+import '../../core/widgets/password_reset_sheet.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/storage_service.dart';
 import '../auth/login_screen.dart';
 import 'browse_services_screen.dart';
 import 'checklist_screen.dart';
@@ -19,6 +25,7 @@ import 'guest_list_screen.dart';
 import 'notification_screen.dart';
 import 'wishlist_screen.dart';
 
+/// Displays the customer profile page and coordinates the actions available on it.
 class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({super.key});
 
@@ -26,8 +33,10 @@ class CustomerProfileScreen extends StatefulWidget {
   State<CustomerProfileScreen> createState() => _CustomerProfileScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Future<_CustomerProfileData>? _profileFuture;
+  bool _isUploadingImage = false;
 
   @override
   void initState() {
@@ -38,6 +47,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }
   }
 
+  /// Loads profile and updates the visible state.
   Future<_CustomerProfileData> _loadProfile(String customerId) async {
     final firestore = FirebaseFirestore.instance;
 
@@ -64,6 +74,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  /// Loads profile counts and updates the visible state.
   Future<_CustomerProfileStats> _loadProfileCounts(String customerId) async {
     final checklistCounts = await _loadChecklistCounts(customerId);
 
@@ -75,6 +86,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  /// Loads booking count and updates the visible state.
   Future<int> _loadBookingCount(String customerId) async {
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -88,6 +100,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }
   }
 
+  /// Loads guest count and updates the visible state.
   Future<int> _loadGuestCount(String customerId) async {
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -105,6 +118,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }
   }
 
+  /// Loads checklist counts and updates the visible state.
   Future<_ChecklistCounts> _loadChecklistCounts(String customerId) async {
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -130,6 +144,63 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     });
   }
 
+  Future<void> _uploadProfileImage(
+    String customerId,
+    String displayName,
+  ) async {
+    if (_isUploadingImage) return;
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 900,
+      maxHeight: 900,
+      imageQuality: 55,
+    );
+    if (image == null || !mounted) return;
+
+    setState(() => _isUploadingImage = true);
+    try {
+      final imageUrl = await StorageService().uploadProfileImage(
+        userId: customerId,
+        role: 'customer',
+        image: image,
+      );
+      final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
+      final data = {
+        'profileImageUrl': imageUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      batch.set(
+        firestore.collection(FirestoreCollections.customers).doc(customerId),
+        data,
+        SetOptions(merge: true),
+      );
+      batch.set(
+        firestore.collection(FirestoreCollections.users).doc(customerId),
+        data,
+        SetOptions(merge: true),
+      );
+      batch.set(
+        firestore.collection('public_profiles').doc(customerId),
+        {'displayName': displayName, 'role': 'customer', ...data},
+        SetOptions(merge: true),
+      );
+      await batch.commit();
+      if (!mounted) return;
+      _refreshProfile(customerId);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile picture updated.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update profile picture: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingImage = false);
+    }
+  }
+
   Future<void> _logout(BuildContext context) async {
     final confirmed = await showAppConfirmationSheet(
       context,
@@ -151,6 +222,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  /// Opens the edit profile interface for the user.
   Future<void> _openEditProfile(
     BuildContext context,
     _CustomerProfileData profile,
@@ -181,139 +253,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return SafeArea(
-          top: false,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 22),
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(17),
-                  ),
-                  child: const Icon(
-                    Icons.lock_reset_rounded,
-                    color: AppColors.primaryDark,
-                    size: 27,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Change your password',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'We’ll email you a secure link to choose a new password.',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 13,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.email_outlined,
-                        color: AppColors.primaryDark,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 11),
-                      Expanded(
-                        child: Text(
-                          email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 22),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(sheetContext, false),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primaryDark,
-                          side: const BorderSide(color: AppColors.border),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                        child: const Text('Cancel'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(sheetContext, true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                        child: const Text(
-                          'Send reset link',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (_) => PasswordResetSheet(email: email),
     );
 
     if (!context.mounted || confirmed != true) return;
@@ -390,6 +330,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   const SizedBox(height: 22),
                   _ProfileHeaderCard(
                     profile: profile,
+                    userId: currentUser.uid,
+                    isUploadingImage: _isUploadingImage,
+                    onImageTap: () =>
+                        _uploadProfileImage(currentUser.uid, profile.name),
                     onEdit: () {
                       _openEditProfile(context, profile, currentUser.uid);
                     },
@@ -458,7 +402,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                       ),
                       _ProfileMenuItem(
                         icon: Icons.lock_outline,
-                        title: 'Privacy & Security',
+                        title: 'Change Password',
                         subtitle: 'Send a password reset email',
                         onTap: () {
                           _confirmPasswordReset(context);
@@ -512,11 +456,21 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 }
 
+/// Renders the reusable profile header card UI component.
 class _ProfileHeaderCard extends StatelessWidget {
   final _CustomerProfileData profile;
+  final String userId;
+  final bool isUploadingImage;
+  final VoidCallback onImageTap;
   final VoidCallback onEdit;
 
-  const _ProfileHeaderCard({required this.profile, required this.onEdit});
+  const _ProfileHeaderCard({
+    required this.profile,
+    required this.userId,
+    required this.isUploadingImage,
+    required this.onImageTap,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -533,15 +487,41 @@ class _ProfileHeaderCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 34,
-            backgroundColor: AppColors.primary,
-            child: Text(
-              initial,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
+          Semantics(
+            button: true,
+            label: 'Change profile picture',
+            child: GestureDetector(
+              onTap: isUploadingImage ? null : onImageTap,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ProfileAvatar(
+                    userId: userId,
+                    fallbackName: initial,
+                    imageUrl: profile.profileImageUrl,
+                    radius: 34,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  Positioned(
+                    right: -3,
+                    bottom: -3,
+                    child: CircleAvatar(
+                      radius: 12,
+                      backgroundColor: AppColors.surface,
+                      child: isUploadingImage
+                          ? const SizedBox.square(
+                              dimension: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(
+                              Icons.camera_alt,
+                              size: 14,
+                              color: AppColors.primary,
+                            ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -590,6 +570,7 @@ class _ProfileHeaderCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable edit profile sheet UI component.
 class _EditProfileSheet extends StatefulWidget {
   final _CustomerProfileData profile;
 
@@ -599,29 +580,31 @@ class _EditProfileSheet extends StatefulWidget {
   State<_EditProfileSheet> createState() => _EditProfileSheetState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _EditProfileSheetState extends State<_EditProfileSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _nameController.text = widget.profile.name;
-    _phoneController.text = widget.profile.phone;
-    _addressController.text = widget.profile.address;
+    final savedPhone = widget.profile.phone.replaceAll(RegExp(r'\s+'), '');
+    _phoneController.text = savedPhone.startsWith('+977')
+        ? savedPhone.substring(4)
+        : savedPhone;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
+  /// Validates and saves the current save values.
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -640,12 +623,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     try {
       final sharedData = {
         'name': _nameController.text.trim(),
-        'phone': _phoneController.text.trim(),
+        'phone': normalizeNepaliPhoneNumber(_phoneController.text),
         'updatedAt': FieldValue.serverTimestamp(),
-      };
-      final customerData = {
-        ...sharedData,
-        'address': _addressController.text.trim(),
       };
       final firestore = FirebaseFirestore.instance;
       final batch = firestore.batch();
@@ -654,7 +633,17 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         firestore
             .collection(FirestoreCollections.customers)
             .doc(currentUser.uid),
-        customerData,
+        {...sharedData, 'address': FieldValue.delete()},
+        SetOptions(merge: true),
+      );
+      batch.set(
+        firestore.collection('public_profiles').doc(currentUser.uid),
+        {
+          'displayName': _nameController.text.trim(),
+          'role': 'customer',
+          'profileImageUrl': widget.profile.profileImageUrl,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
         SetOptions(merge: true),
       );
       batch.set(
@@ -732,18 +721,12 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                   controller: _phoneController,
                   enabled: !_isSaving,
                   keyboardType: TextInputType.phone,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Phone is required';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                _ProfileTextField(
-                  label: 'Address',
-                  controller: _addressController,
-                  enabled: !_isSaving,
+                  prefixText: '+977 ',
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  validator: validateNepaliPhoneNumber,
                 ),
                 const SizedBox(height: 18),
                 SizedBox(
@@ -781,11 +764,14 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   }
 }
 
+/// Renders the reusable profile text field UI component.
 class _ProfileTextField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final bool enabled;
   final TextInputType? keyboardType;
+  final String? prefixText;
+  final List<TextInputFormatter>? inputFormatters;
   final String? Function(String?)? validator;
 
   const _ProfileTextField({
@@ -793,6 +779,8 @@ class _ProfileTextField extends StatelessWidget {
     required this.controller,
     required this.enabled,
     this.keyboardType,
+    this.prefixText,
+    this.inputFormatters,
     this.validator,
   });
 
@@ -802,9 +790,28 @@ class _ProfileTextField extends StatelessWidget {
       controller: controller,
       enabled: enabled,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
+        prefixIcon: prefixText == null
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(left: 16, right: 8),
+                child: Center(
+                  widthFactor: 1,
+                  child: Text(
+                    prefixText!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+        prefixIconConstraints: prefixText == null
+            ? null
+            : const BoxConstraints(minWidth: 0, minHeight: 0),
         filled: true,
         fillColor: AppColors.background,
         border: OutlineInputBorder(
@@ -820,18 +827,19 @@ class _ProfileTextField extends StatelessWidget {
   }
 }
 
+/// Groups the data and behavior required by the customer profile data component.
 class _CustomerProfileData {
   final String name;
   final String email;
   final String phone;
-  final String address;
+  final String profileImageUrl;
   final _CustomerProfileStats stats;
 
   const _CustomerProfileData({
     required this.name,
     required this.email,
     required this.phone,
-    required this.address,
+    required this.profileImageUrl,
     required this.stats,
   });
 
@@ -844,7 +852,7 @@ class _CustomerProfileData {
       name: _stringValue(map['name'], fallback: 'Customer'),
       email: _stringValue(map['email'], fallback: fallbackEmail),
       phone: _stringValue(map['phone']),
-      address: _stringValue(map['address']),
+      profileImageUrl: _stringValue(map['profileImageUrl']),
       stats: stats,
     );
   }
@@ -854,12 +862,13 @@ class _CustomerProfileData {
       name: 'Customer',
       email: '',
       phone: '',
-      address: '',
+      profileImageUrl: '',
       stats: _CustomerProfileStats.empty(),
     );
   }
 }
 
+/// Groups the data and behavior required by the customer profile stats component.
 class _CustomerProfileStats {
   final int bookings;
   final int guests;
@@ -880,6 +889,7 @@ class _CustomerProfileStats {
       totalTasks = 0;
 }
 
+/// Groups the data and behavior required by the checklist counts component.
 class _ChecklistCounts {
   final int completed;
   final int total;
@@ -887,6 +897,7 @@ class _ChecklistCounts {
   const _ChecklistCounts({required this.completed, required this.total});
 }
 
+/// Renders the reusable stat card UI component.
 class _StatCard extends StatelessWidget {
   final String value;
   final String label;
@@ -940,6 +951,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable section title UI component.
 class _SectionTitle extends StatelessWidget {
   final String title;
 
@@ -959,6 +971,7 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+/// Renders the reusable profile menu card UI component.
 class _ProfileMenuCard extends StatelessWidget {
   final List<Widget> children;
 
@@ -977,6 +990,7 @@ class _ProfileMenuCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable profile menu item UI component.
 class _ProfileMenuItem extends StatelessWidget {
   final IconData icon;
   final String title;

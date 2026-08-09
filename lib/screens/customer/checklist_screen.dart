@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/checklist_task_model.dart';
 import '../../services/checklist_service.dart';
 
+/// Displays the checklist page and coordinates the actions available on it.
 class ChecklistScreen extends StatelessWidget {
   const ChecklistScreen({super.key});
   static final ChecklistService _service = ChecklistService();
@@ -61,6 +62,7 @@ class ChecklistScreen extends StatelessWidget {
     );
   }
 
+  /// Opens the add task interface for the user.
   Future<void> _showAddTask(BuildContext context, String customerId) async {
     final controller = TextEditingController();
     await showDialog<void>(
@@ -92,6 +94,7 @@ class ChecklistScreen extends StatelessWidget {
     controller.dispose();
   }
 
+  /// Validates and saves the current task values.
   Future<void> _saveTask(
     BuildContext dialogContext,
     String customerId,
@@ -120,6 +123,7 @@ class ChecklistScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable progress card UI component.
 class _ProgressCard extends StatelessWidget {
   final int completed;
   final int total;
@@ -156,6 +160,7 @@ class _ProgressCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable task card UI component.
 class _TaskCard extends StatefulWidget {
   final ChecklistTaskModel task;
   const _TaskCard({required this.task});
@@ -163,6 +168,7 @@ class _TaskCard extends StatefulWidget {
   State<_TaskCard> createState() => _TaskCardState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _TaskCardState extends State<_TaskCard> {
   final ChecklistService _service = ChecklistService();
   bool _isUpdating = false;
@@ -182,6 +188,7 @@ class _TaskCardState extends State<_TaskCard> {
     }
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> _delete() async {
     if (_isUpdating) return;
     setState(() => _isUpdating = true);
@@ -223,6 +230,7 @@ class _TaskCardState extends State<_TaskCard> {
   }
 }
 
+/// Renders the reusable checklist empty UI component.
 class _ChecklistEmpty extends StatelessWidget {
   const _ChecklistEmpty();
   @override
@@ -234,6 +242,7 @@ class _ChecklistEmpty extends StatelessWidget {
   }
 }
 
+/// Renders the reusable checklist message UI component.
 class _ChecklistMessage extends StatelessWidget {
   final String message;
   final IconData icon;

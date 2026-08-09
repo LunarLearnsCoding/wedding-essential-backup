@@ -15,6 +15,7 @@ import '../../providers/auth_provider.dart';
 import 'customer_register_screen.dart';
 import 'vendor_register_screen.dart';
 
+/// Displays the login page and coordinates the actions available on it.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -22,6 +23,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
@@ -89,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Enter the email linked to your account and we’ll send you a reset link.',
+                "Enter the email linked to your account and we'll send you a reset link.",
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,
@@ -203,8 +205,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final authProvider = context.read<AuthProvider>();
 
       await authProvider.login(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
+        email: emailController.text.trim().toLowerCase(),
+        password: passwordController.text,
       );
 
       final currentUser = FirebaseAuth.instance.currentUser;
@@ -359,12 +361,12 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
-      final message = switch (error.code) {    //Auth error handling with specific messages
+      final message = switch (error.code) {
+        //Auth error handling with specific messages
         'email-not-verified' =>
           'Verify your email first. We sent a new verification link if allowed.',
         'user-not-found' ||
-        'invalid-credential' => 'No account matches that email and password.',
-        'wrong-password' => 'The password is incorrect.',
+        'invalid-credential' => 'The email or password is incorrect.',
         'invalid-email' => 'Enter a valid email address.',
         'too-many-requests' =>
           'Too many sign-in attempts. Please wait and try again.',
@@ -378,6 +380,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Navigates to the destination associated with this action.
   void _goToRegister() {
     if (selectedRole == 'Vendor') {
       Navigator.push(
@@ -465,15 +468,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 hint: 'you@example.com',
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
+                autocorrect: false,
+                enableSuggestions: false,
+                autofillHints: const [AutofillHints.email],
+                textInputAction: TextInputAction.next,
               ),
 
               const SizedBox(height: 20),
 
               CustomTextField(
                 label: 'Password',
-                hint: '••••••••',
+                hint: 'Enter your password',
                 controller: passwordController,
                 obscureText: hidePassword,
+                autocorrect: false,
+                enableSuggestions: false,
+                autofillHints: const [AutofillHints.password],
+                textInputAction: TextInputAction.done,
                 suffixIcon: IconButton(
                   icon: Icon(
                     hidePassword
@@ -543,6 +554,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
+/// Renders the reusable logo mark UI component.
 class _LogoMark extends StatelessWidget {
   const _LogoMark();
 
@@ -560,6 +572,7 @@ class _LogoMark extends StatelessWidget {
   }
 }
 
+/// Renders the reusable role tabs UI component.
 class _RoleTabs extends StatelessWidget {
   final String selectedRole;
   final ValueChanged<String> onChanged;

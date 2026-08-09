@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/admin_app_colors.dart';
 
+/// Renders the reusable admin record card UI component.
 class AdminRecordCard extends StatelessWidget {
   const AdminRecordCard({
     super.key,
@@ -90,6 +91,7 @@ class AdminRecordCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable admin meta pill UI component.
 class AdminMetaPill extends StatelessWidget {
   const AdminMetaPill({super.key, required this.icon, required this.label});
 

@@ -9,6 +9,7 @@ import 'screens/vendor/vendor_inquiries_screen.dart';
 import 'screens/vendor/vendor_reviews_screen.dart';
 import 'screens/vendor/vendor_profile_screen.dart';
 
+/// Defines the root application widget and its shared navigation routes.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 

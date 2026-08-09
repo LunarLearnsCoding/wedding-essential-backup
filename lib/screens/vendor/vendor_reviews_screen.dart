@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/review_model.dart';
 import '../../services/review_service.dart';
 
+/// Displays the vendor reviews page and coordinates the actions available on it.
 class VendorReviewsScreen extends StatefulWidget {
   const VendorReviewsScreen({super.key});
 
@@ -13,6 +14,7 @@ class VendorReviewsScreen extends StatefulWidget {
   State<VendorReviewsScreen> createState() => _VendorReviewsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _VendorReviewsScreenState extends State<VendorReviewsScreen> {
   final ReviewService _reviewService = ReviewService();
 
@@ -105,6 +107,7 @@ class _VendorReviewsScreenState extends State<VendorReviewsScreen> {
   }
 }
 
+/// Renders the reusable reviews header UI component.
 class _ReviewsHeader extends StatelessWidget {
   const _ReviewsHeader();
 
@@ -165,6 +168,7 @@ class _ReviewsHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable rating summary card UI component.
 class _RatingSummaryCard extends StatelessWidget {
   final double averageRating;
   final int reviewCount;
@@ -245,6 +249,7 @@ class _RatingSummaryCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable section header UI component.
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String actionText;
@@ -276,6 +281,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable review card UI component.
 class _ReviewCard extends StatelessWidget {
   final _ReviewItem review;
 
@@ -372,6 +378,7 @@ class _ReviewCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable avatar UI component.
 class _Avatar extends StatelessWidget {
   final String text;
 
@@ -393,6 +400,7 @@ class _Avatar extends StatelessWidget {
   }
 }
 
+/// Renders the reusable empty reviews card UI component.
 class _EmptyReviewsCard extends StatelessWidget {
   const _EmptyReviewsCard();
 
@@ -430,6 +438,7 @@ class _EmptyReviewsCard extends StatelessWidget {
   }
 }
 
+/// Groups the data and behavior required by the review item component.
 class _ReviewItem {
   final String customerName;
   final String service;

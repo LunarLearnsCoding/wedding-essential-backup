@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'admin_auth_service.dart';
 
+/// Centralizes the Firebase operations used for admin data.
 class AdminService {
   AdminService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -32,6 +33,24 @@ class AdminService {
         return role.isEmpty || role == 'customer' || role == 'user';
       }).length;
     });
+  }
+
+  Future<int> removeLegacyCustomerAddresses() async {
+    final snapshot = await _collection('customers').get();
+    final documents = snapshot.docs
+        .where((document) => document.data().containsKey('address'))
+        .toList();
+    for (var start = 0; start < documents.length; start += 400) {
+      final batch = _firestore.batch();
+      final end = start + 400 < documents.length
+          ? start + 400
+          : documents.length;
+      for (final document in documents.sublist(start, end)) {
+        batch.update(document.reference, {'address': FieldValue.delete()});
+      }
+      await batch.commit();
+    }
+    return documents.length;
   }
 
   Stream<int> approvedVendorCountStream() {
@@ -104,6 +123,7 @@ class AdminService {
     return _collection(collection).snapshots();
   }
 
+  /// Applies the requested document change and refreshes state.
   Future<void> updateDocument(
     String collection,
     String id,
@@ -112,10 +132,6 @@ class AdminService {
     return _collection(
       collection,
     ).doc(id).update({...data, 'updatedAt': FieldValue.serverTimestamp()});
-  }
-
-  Future<void> deleteDocument(String collection, String id) {
-    return _collection(collection).doc(id).delete();
   }
 
   Future<void> approveVendor(String vendorId) async {
@@ -200,22 +216,102 @@ class AdminService {
     await batch.commit();
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> deleteUserData(String userId) async {
+    final inquirySnapshots = await Future.wait([
+      _collection('inquiries').where('customerId', isEqualTo: userId).get(),
+      _collection('inquiries').where('vendorId', isEqualTo: userId).get(),
+    ]);
+    final inquiryReferences =
+        <String, DocumentReference<Map<String, dynamic>>>{};
+    for (final snapshot in inquirySnapshots) {
+      for (final inquiry in snapshot.docs) {
+        inquiryReferences[inquiry.reference.path] = inquiry.reference;
+      }
+    }
+
+    for (final inquiryReference in inquiryReferences.values) {
+      await _deleteInquiryWithMessages(inquiryReference);
+    }
+
+    final profileImages = await _collection(
+      'profile_images',
+    ).where('userId', isEqualTo: userId).get();
+    for (final image in profileImages.docs) {
+      await image.reference.delete();
+    }
+
     final batch = _firestore.batch();
     batch.delete(_collection('users').doc(userId));
     batch.delete(_collection('customers').doc(userId));
     batch.delete(_collection('vendors').doc(userId));
+    batch.delete(_collection('public_profiles').doc(userId));
     await batch.commit();
   }
 
+  Future<int> cleanupOrphanedInquiries() async {
+    final snapshots = await Future.wait([
+      _collection('users').get(),
+      _collection('inquiries').get(),
+    ]);
+    final userIds = snapshots.first.docs.map((document) => document.id).toSet();
+    final orphanedInquiries = snapshots.last.docs.where((inquiry) {
+      final data = inquiry.data();
+      final customerId = data['customerId']?.toString().trim() ?? '';
+      final vendorId = data['vendorId']?.toString().trim() ?? '';
+      return customerId.isEmpty ||
+          vendorId.isEmpty ||
+          !userIds.contains(customerId) ||
+          !userIds.contains(vendorId);
+    }).toList();
+
+    for (final inquiry in orphanedInquiries) {
+      await _deleteInquiryWithMessages(inquiry.reference);
+    }
+    return orphanedInquiries.length;
+  }
+
+  Future<int> cleanupOrphanedProfileImages() async {
+    final snapshots = await Future.wait([
+      _collection('users').get(),
+      _collection('profile_images').get(),
+    ]);
+    final userIds = snapshots.first.docs.map((document) => document.id).toSet();
+    final orphanedImages = snapshots.last.docs.where((image) {
+      final ownerId = image.data()['userId']?.toString().trim() ?? '';
+      return ownerId.isEmpty || !userIds.contains(ownerId);
+    }).toList();
+
+    for (final image in orphanedImages) {
+      await image.reference.delete();
+    }
+    return orphanedImages.length;
+  }
+
+  /// Removes the selected item after the required checks or confirmation.
+  Future<void> _deleteInquiryWithMessages(
+    DocumentReference<Map<String, dynamic>> inquiryReference,
+  ) async {
+    final messages = await inquiryReference.collection('messages').get();
+    for (final message in messages.docs) {
+      await message.reference.delete();
+    }
+    await inquiryReference.delete();
+  }
+
+  /// Applies the requested service status change and refreshes state.
   Future<void> updateServiceStatus(String serviceId, bool isActive) {
     return updateDocument('services', serviceId, {
       'isActive': isActive,
       'status': isActive ? 'active' : 'hidden',
-      'hiddenAt': isActive ? null : FieldValue.serverTimestamp(),
+      'averageRating': FieldValue.delete(),
+      'totalReviews': FieldValue.delete(),
+      'isFeatured': FieldValue.delete(),
+      'hiddenAt': FieldValue.delete(),
     });
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> deleteService(String serviceId) async {
     final serviceRef = _collection('services').doc(serviceId);
     final snapshot = await serviceRef.get();
@@ -303,6 +399,7 @@ class AdminService {
     });
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> removeFeaturedVendor(String vendorId) async {
     final batch = _firestore.batch();
     final vendorRef = _collection('vendors').doc(vendorId);
@@ -357,14 +454,17 @@ class AdminService {
     });
   }
 
+  /// Applies the requested booking status change and refreshes state.
   Future<void> updateBookingStatus(String bookingId, String status) {
     return updateDocument('bookings', bookingId, {'status': status});
   }
 
+  /// Applies the requested blog status change and refreshes state.
   Future<void> updateBlogStatus(String blogId, String status) {
     return updateBlog(blogId, {'status': status});
   }
 
+  /// Creates a new item from the supplied or entered values.
   Future<String> createBlog(Map<String, dynamic> data) async {
     await _ensureAdminProfile();
     final document = await _collection('blogs').add({
@@ -375,12 +475,40 @@ class AdminService {
     return document.id;
   }
 
+  /// Applies the requested blog change and refreshes state.
   Future<void> updateBlog(String blogId, Map<String, dynamic> data) async {
     await _ensureAdminProfile();
     await _collection('blogs').doc(blogId).set({
       ...data,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  /// Removes the selected item after the required checks or confirmation.
+  Future<void> deleteBlog(String blogId) async {
+    await _ensureAdminProfile();
+    final blogReference = _collection('blogs').doc(blogId);
+    final snapshot = await blogReference.get();
+    final imageUrl = snapshot.data()?['imageUrl']?.toString() ?? '';
+    final batch = _firestore.batch()..delete(blogReference);
+    final imageReference = _blogImageReference(imageUrl);
+    if (imageReference != null) batch.delete(imageReference);
+    await batch.commit();
+  }
+
+  /// Removes the selected item after the required checks or confirmation.
+  Future<void> deleteBlogImage(String source) async {
+    final imageReference = _blogImageReference(source);
+    if (imageReference != null) await imageReference.delete();
+  }
+
+  DocumentReference<Map<String, dynamic>>? _blogImageReference(String source) {
+    const prefix = 'firestore-blog-image://';
+    final value = source.trim();
+    if (!value.startsWith(prefix)) return null;
+    final imageId = value.substring(prefix.length).trim();
+    if (imageId.isEmpty || imageId.contains('/')) return null;
+    return _collection('blog_images').doc(imageId);
   }
 
   Future<void> _ensureAdminProfile() async {

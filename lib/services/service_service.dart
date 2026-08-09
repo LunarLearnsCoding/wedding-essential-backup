@@ -3,22 +3,31 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/firestore_collections.dart';
 import '../models/service_model.dart';
 
+/// Centralizes the Firebase operations used for service data.
 class ServiceService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  /// Creates a new item from the supplied or entered values.
   Future<void> addService(ServiceModel service) async {
     await _firestore
         .collection(FirestoreCollections.services)
         .add(service.toMap());
   }
 
+  /// Applies the requested service change and refreshes state.
   Future<void> updateService(ServiceModel service) async {
     await _firestore
         .collection(FirestoreCollections.services)
         .doc(service.id)
-        .update(service.toMap());
+        .update({
+          ...service.toMap(),
+          'averageRating': FieldValue.delete(),
+          'totalReviews': FieldValue.delete(),
+          'isFeatured': FieldValue.delete(),
+        });
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> deleteService(String serviceId) async {
     final serviceReference = _firestore
         .collection(FirestoreCollections.services)
@@ -74,6 +83,7 @@ class ServiceService {
     }
   }
 
+  /// Applies the requested service status change and refreshes state.
   Future<void> updateServiceStatus(String serviceId, bool isActive) async {
     await _firestore
         .collection(FirestoreCollections.services)

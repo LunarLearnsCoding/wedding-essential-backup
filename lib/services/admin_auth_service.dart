@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../core/constants/admin_account.dart';
 import '../core/constants/firestore_collections.dart';
 
+/// Centralizes the Firebase operations used for admin auth data.
 class AdminAuthService {
   AdminAuthService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;

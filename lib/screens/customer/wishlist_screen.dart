@@ -8,6 +8,7 @@ import '../../models/service_model.dart';
 import '../../services/favorites_service.dart';
 import 'service_details_screen.dart';
 
+/// Displays the wishlist page and coordinates the actions available on it.
 class WishlistScreen extends StatelessWidget {
   const WishlistScreen({super.key});
   static final FavoritesService _favoritesService = FavoritesService();
@@ -54,6 +55,7 @@ class WishlistScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable favorite services UI component.
 class _FavoriteServices extends StatefulWidget {
   final List<String> serviceIds;
   const _FavoriteServices({required this.serviceIds});
@@ -62,6 +64,7 @@ class _FavoriteServices extends StatefulWidget {
   State<_FavoriteServices> createState() => _FavoriteServicesState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _FavoriteServicesState extends State<_FavoriteServices> {
   late Future<List<ServiceModel>> _servicesFuture;
 
@@ -133,6 +136,7 @@ class _FavoriteServicesState extends State<_FavoriteServices> {
   }
 }
 
+/// Renders the reusable favorite card UI component.
 class _FavoriteCard extends StatefulWidget {
   final ServiceModel service;
   const _FavoriteCard({super.key, required this.service});
@@ -141,10 +145,12 @@ class _FavoriteCard extends StatefulWidget {
   State<_FavoriteCard> createState() => _FavoriteCardState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _FavoriteCardState extends State<_FavoriteCard> {
   final FavoritesService _favoritesService = FavoritesService();
   bool _isRemoving = false;
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> _remove() async {
     if (_isRemoving) return;
     setState(() => _isRemoving = true);
@@ -253,6 +259,7 @@ class _FavoriteCardState extends State<_FavoriteCard> {
   }
 }
 
+/// Renders the reusable image placeholder UI component.
 class _ImagePlaceholder extends StatelessWidget {
   const _ImagePlaceholder();
   @override
@@ -264,6 +271,7 @@ class _ImagePlaceholder extends StatelessWidget {
   }
 }
 
+/// Renders the reusable empty favorites UI component.
 class _EmptyFavorites extends StatelessWidget {
   const _EmptyFavorites();
   @override
@@ -297,6 +305,7 @@ class _EmptyFavorites extends StatelessWidget {
   }
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _MessageState extends StatelessWidget {
   final String message;
   const _MessageState({required this.message});

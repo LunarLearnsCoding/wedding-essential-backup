@@ -7,6 +7,7 @@ import 'widgets/admin_empty_state.dart';
 import 'widgets/admin_formatters.dart';
 import 'widgets/admin_helpers.dart';
 
+/// Displays the admin vendor reviews page and coordinates the actions available on it.
 class AdminVendorReviewsScreen extends StatelessWidget {
   final String vendorId;
   final String vendorName;
@@ -70,6 +71,7 @@ class AdminVendorReviewsScreen extends StatelessWidget {
     );
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> _deleteReview(
     BuildContext context,
     ReviewService service,
@@ -93,6 +95,7 @@ class AdminVendorReviewsScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable review card UI component.
 class _ReviewCard extends StatelessWidget {
   final int number;
   final ReviewModel review;
@@ -145,7 +148,7 @@ class _ReviewCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  '${review.rating.toStringAsFixed(1)} ★  •  ${review.customerName.isEmpty ? 'Anonymous customer' : review.customerName}  •  ${AdminFormatters.date(review.createdAt)}',
+                  '${review.rating.toStringAsFixed(1)} stars | ${review.customerName.isEmpty ? 'Anonymous customer' : review.customerName} | ${AdminFormatters.date(review.createdAt)}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

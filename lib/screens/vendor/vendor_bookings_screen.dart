@@ -9,6 +9,7 @@ import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
 import 'vendor_booking_detail_screen.dart';
 
+/// Displays the vendor bookings page and coordinates the actions available on it.
 class VendorBookingsScreen extends StatefulWidget {
   const VendorBookingsScreen({super.key});
 
@@ -16,6 +17,7 @@ class VendorBookingsScreen extends StatefulWidget {
   State<VendorBookingsScreen> createState() => _VendorBookingsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _VendorBookingsScreenState extends State<VendorBookingsScreen> {
   final BookingService _bookingService = BookingService();
   String _selectedFilter = 'All';
@@ -168,6 +170,7 @@ class _VendorBookingsScreenState extends State<VendorBookingsScreen> {
   }
 }
 
+/// Renders the reusable bookings header UI component.
 class _BookingsHeader extends StatelessWidget {
   final int pendingCount;
 
@@ -248,6 +251,7 @@ class _BookingsHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable booking filter tabs UI component.
 class _BookingFilterTabs extends StatelessWidget {
   final String selectedFilter;
   final List<_BookingItem> bookings;
@@ -316,6 +320,7 @@ class _BookingFilterTabs extends StatelessWidget {
   }
 }
 
+/// Renders the reusable section header UI component.
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String actionText;
@@ -347,6 +352,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable booking card UI component.
 class _BookingCard extends StatelessWidget {
   final _BookingItem booking;
   final VoidCallback onTap;
@@ -391,13 +397,28 @@ class _BookingCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Text(
-                              booking.customerName,
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  booking.customerName,
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                if (booking.customerEmail.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    booking.customerEmail,
+                                    style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -498,6 +519,7 @@ class _BookingCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable avatar UI component.
 class _Avatar extends StatelessWidget {
   final String text;
 
@@ -519,6 +541,7 @@ class _Avatar extends StatelessWidget {
   }
 }
 
+/// Renders the reusable small info row UI component.
 class _SmallInfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
@@ -551,6 +574,7 @@ class _SmallInfoRow extends StatelessWidget {
   }
 }
 
+/// Renders the reusable status badge UI component.
 class _StatusBadge extends StatelessWidget {
   final String status;
 
@@ -595,6 +619,7 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
+/// Renders the reusable empty bookings card UI component.
 class _EmptyBookingsCard extends StatelessWidget {
   const _EmptyBookingsCard();
 
@@ -636,9 +661,11 @@ class _EmptyBookingsCard extends StatelessWidget {
   }
 }
 
+/// Groups the data and behavior required by the booking item component.
 class _BookingItem {
   final String id;
   final String customerName;
+  final String customerEmail;
   final String service;
   final String eventDate;
   final String amount;
@@ -648,6 +675,7 @@ class _BookingItem {
   const _BookingItem({
     required this.id,
     required this.customerName,
+    required this.customerEmail,
     required this.service,
     required this.eventDate,
     required this.amount,
@@ -666,6 +694,7 @@ class _BookingItem {
     return _BookingItem(
       id: booking.id,
       customerName: customerName,
+      customerEmail: booking.customerEmail.trim(),
       service: serviceName,
       eventDate: DateFormat('dd MMM yyyy').format(booking.eventDate),
       amount: 'Rs. ${NumberFormat('#,##0').format(booking.servicePrice)}',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/admin_app_colors.dart';
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class AdminEmptyState extends StatelessWidget {
   const AdminEmptyState({
     super.key,

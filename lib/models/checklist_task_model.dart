@@ -1,13 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/firestore_parsers.dart';
 
+/// Represents a checklist task record exchanged between Firestore and the app.
 class ChecklistTaskModel {
   final String id;
   final String customerId;
   final String title;
   final String description;
   final bool isCompleted;
-  final DateTime? dueDate;
   final DateTime createdAt;
 
   ChecklistTaskModel({
@@ -16,7 +16,6 @@ class ChecklistTaskModel {
     required this.title,
     required this.description,
     required this.isCompleted,
-    this.dueDate,
     required this.createdAt,
   });
 
@@ -27,18 +26,17 @@ class ChecklistTaskModel {
       title: map['title'] ?? '',
       description: map['description'] ?? '',
       isCompleted: boolFromFirestore(map['isCompleted']),
-      dueDate: dateTimeFromFirestore(map['dueDate']),
       createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
     );
   }
 
+  /// Converts this instance into values that can be persisted.
   Map<String, dynamic> toMap() {
     return {
       'customerId': customerId,
       'title': title,
       'description': description,
       'isCompleted': isCompleted,
-      'dueDate': dueDate == null ? null : Timestamp.fromDate(dueDate!),
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }

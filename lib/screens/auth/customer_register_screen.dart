@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -11,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'vendor_register_screen.dart';
 
+/// Displays the customer register page and coordinates the actions available on it.
 class CustomerRegisterScreen extends StatefulWidget {
   const CustomerRegisterScreen({super.key});
 
@@ -18,6 +20,7 @@ class CustomerRegisterScreen extends StatefulWidget {
   State<CustomerRegisterScreen> createState() => _CustomerRegisterScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
 
@@ -54,7 +57,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Account created. Check your email and verify it before signing in.',
+            'Check your email and verify it to finish creating your account.',
           ),
         ),
       );
@@ -63,13 +66,20 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_registrationErrorMessage(error))));
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
+  /// Navigates to the destination associated with this action.
   void _goToVendorRegister() {
     Navigator.pushReplacement(
       context,
@@ -192,29 +202,20 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                   hint: 'you@example.com',
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Email is required';
-                    }
-
-                    if (!value.contains('@')) {
-                      return 'Enter a valid email';
-                    }
-
-                    return null;
-                  },
+                  validator: validateEmailAddress,
                 ),
 
                 const SizedBox(height: 18),
 
                 CustomTextField(
                   label: 'Phone Number',
-                  hint: '+977 98XXXXXXXX',
+                  hint: '98XXXXXXXX',
+                  prefixText: '+977 ',
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
-                    LengthLimitingTextInputFormatter(15),
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
                   ],
                   validator: validateNepaliPhoneNumber,
                 ),
@@ -307,6 +308,21 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   }
 }
 
+String _registrationErrorMessage(FirebaseAuthException error) {
+  return switch (error.code) {
+    'email-already-in-use' =>
+      'The email address is already in use by another account.',
+    'invalid-email' => 'Enter a valid email address.',
+    'weak-password' => 'Choose a stronger password and try again.',
+    'too-many-requests' =>
+      'Too many registration attempts. Please wait and try again.',
+    'network-request-failed' =>
+      'Could not connect. Check your internet connection and try again.',
+    _ => error.message ?? 'Could not create the account. Please try again.',
+  };
+}
+
+/// Renders the reusable logo mark UI component.
 class _LogoMark extends StatelessWidget {
   const _LogoMark();
 
@@ -324,6 +340,7 @@ class _LogoMark extends StatelessWidget {
   }
 }
 
+/// Renders the reusable role card UI component.
 class _RoleCard extends StatelessWidget {
   final String title;
   final String subtitle;

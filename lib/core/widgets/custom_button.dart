@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// Renders the reusable custom button UI component.
 class CustomButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;

@@ -7,6 +7,7 @@ import '../../core/widgets/app_information_sheet.dart';
 import '../../models/guest_model.dart';
 import '../../services/guest_service.dart';
 
+/// Displays the guest list page and coordinates the actions available on it.
 class GuestListScreen extends StatelessWidget {
   const GuestListScreen({super.key});
   static final GuestService _service = GuestService();
@@ -92,6 +93,7 @@ class GuestListScreen extends StatelessWidget {
     );
   }
 
+  /// Opens the add group interface for the user.
   Future<void> _showAddGroup(BuildContext context, String customerId) async {
     final controller = TextEditingController();
     await showDialog<void>(
@@ -104,7 +106,7 @@ class GuestListScreen extends StatelessWidget {
           textCapitalization: TextCapitalization.words,
           decoration: const InputDecoration(
             labelText: 'Group name',
-            hintText: 'e.g. Bride’s Family',
+            hintText: "e.g. Bride's Family",
           ),
         ),
         actions: [
@@ -138,6 +140,7 @@ class GuestListScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable guest summary UI component.
 class _GuestSummary extends StatelessWidget {
   final int groups;
   final int guests;
@@ -165,6 +168,7 @@ class _GuestSummary extends StatelessWidget {
   }
 }
 
+/// Renders the reusable guest group card UI component.
 class _GuestGroupCard extends StatelessWidget {
   final String customerId;
   final String groupName;
@@ -219,8 +223,8 @@ class _GuestGroupCard extends StatelessWidget {
       context,
       title: 'Delete group?',
       message: guests.isEmpty
-          ? 'Remove “$groupName” from your guest list?'
-          : 'This will also remove all guests in “$groupName”.',
+          ? 'Remove "$groupName" from your guest list?'
+          : 'This will also remove all guests in "$groupName".',
       confirmLabel: 'Delete',
       isDestructive: true,
     );
@@ -239,6 +243,7 @@ class _GuestGroupCard extends StatelessWidget {
   }
 }
 
+/// Displays the guest group details page and coordinates the actions available on it.
 class _GuestGroupDetailsScreen extends StatelessWidget {
   final String customerId;
   final String groupName;
@@ -301,7 +306,7 @@ class _GuestGroupDetailsScreen extends StatelessWidget {
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Text(
-                  '${guests.length} ${guests.length == 1 ? 'guest' : 'guests'} • Party total: $partyTotal',
+                  '${guests.length} ${guests.length == 1 ? 'guest' : 'guests'} | Party total: $partyTotal',
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
@@ -319,6 +324,7 @@ class _GuestGroupDetailsScreen extends StatelessWidget {
     );
   }
 
+  /// Opens the add guest interface for the user.
   Future<void> _showAddGuest(BuildContext context) async {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
@@ -374,8 +380,6 @@ class _GuestGroupDetailsScreen extends StatelessWidget {
                     phone: phoneController.text.trim(),
                     relation: groupName,
                     numberOfGuests: count < 1 ? 1 : count,
-                    isInvited: false,
-                    isAttending: false,
                     createdAt: DateTime.now(),
                   ),
                 );
@@ -398,6 +402,7 @@ class _GuestGroupDetailsScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable guest tile UI component.
 class _GuestTile extends StatefulWidget {
   final GuestModel guest;
   const _GuestTile({required this.guest});
@@ -405,6 +410,7 @@ class _GuestTile extends StatefulWidget {
   State<_GuestTile> createState() => _GuestTileState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _GuestTileState extends State<_GuestTile> {
   bool _isDeleting = false;
   @override
@@ -426,7 +432,7 @@ class _GuestTileState extends State<_GuestTile> {
         [
           if (guest.phone.isNotEmpty) guest.phone,
           'Party of ${guest.numberOfGuests}',
-        ].join(' • '),
+        ].join(' | '),
       ),
       trailing: IconButton(
         tooltip: 'Remove guest',
@@ -452,6 +458,7 @@ class _GuestTileState extends State<_GuestTile> {
   }
 }
 
+/// Renders the reusable guest empty UI component.
 class _GuestEmpty extends StatelessWidget {
   const _GuestEmpty();
   @override
@@ -463,6 +470,7 @@ class _GuestEmpty extends StatelessWidget {
   }
 }
 
+/// Renders the reusable guest message UI component.
 class _GuestMessage extends StatelessWidget {
   final String message;
   final IconData icon;

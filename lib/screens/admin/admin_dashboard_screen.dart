@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -14,6 +16,7 @@ import 'widgets/admin_helpers.dart';
 import 'widgets/admin_shell.dart';
 import 'widgets/admin_stat_card.dart';
 
+/// Displays the admin dashboard page and coordinates the actions available on it.
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -21,9 +24,28 @@ class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final AdminService _adminService = AdminService();
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_cleanupOrphanedChats());
+  }
+
+  Future<void> _cleanupOrphanedChats() async {
+    try {
+      await Future.wait([
+        _adminService.cleanupOrphanedInquiries(),
+        _adminService.cleanupOrphanedProfileImages(),
+        _adminService.removeLegacyCustomerAddresses(),
+      ]);
+    } catch (error) {
+      debugPrint('Could not clean up orphaned account data: $error');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +123,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
+/// Renders the reusable admin overview UI component.
 class _AdminOverview extends StatelessWidget {
   const _AdminOverview({required this.service, required this.onPageSelected});
 

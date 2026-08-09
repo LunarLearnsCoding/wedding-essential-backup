@@ -2,8 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/firestore_parsers.dart';
 import 'app_enums.dart';
 
+/// Represents a user record exchanged between Firestore and the app.
 class UserModel {
-  final String id; 
+  final String id;
   final String name;
   final String email;
   final String phone;
@@ -13,14 +14,15 @@ class UserModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  UserModel({                         // Constructor for the UserModel class
+  UserModel({
+    // Constructor for the UserModel class
     required this.id,
     required this.name,
     required this.email,
     required this.phone,
     required this.role,
     this.profileImageUrl,
-    this.isActive = true,   //default value for isActive is true
+    this.isActive = true, //default value for isActive is true
     required this.createdAt,
     this.updatedAt,
   });
@@ -39,6 +41,7 @@ class UserModel {
     );
   }
 
+  /// Converts this instance into values that can be persisted.
   Map<String, dynamic> toMap() {
     return {
       'name': name,

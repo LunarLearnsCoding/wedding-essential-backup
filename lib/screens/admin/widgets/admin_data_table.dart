@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/admin_app_colors.dart';
 
+/// Renders the reusable admin data table UI component.
 class AdminDataTable extends StatelessWidget {
   final List<DataColumn> columns;
   final List<DataRow> rows;
@@ -65,6 +66,7 @@ class AdminDataTable extends StatelessWidget {
   }
 }
 
+/// Renders the reusable admin table actions UI component.
 class AdminTableActions extends StatelessWidget {
   final List<Widget> children;
 
@@ -84,6 +86,7 @@ class AdminTableActions extends StatelessWidget {
   }
 }
 
+/// Renders the reusable admin table action UI component.
 class AdminTableAction extends StatelessWidget {
   final String tooltip;
   final IconData icon;

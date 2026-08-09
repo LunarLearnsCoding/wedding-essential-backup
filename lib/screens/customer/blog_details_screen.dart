@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/firebase_storage_image.dart';
 import '../../models/blog_model.dart';
 
+/// Displays the blog details page and coordinates the actions available on it.
 class BlogDetailsScreen extends StatelessWidget {
   final BlogModel blog;
 
@@ -13,7 +15,7 @@ class BlogDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Wedding Journal')),
+      appBar: AppBar(title: const Text('Wedding Tips & Blogs')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(22, 12, 22, 32),
         child: Container(
@@ -29,10 +31,11 @@ class BlogDetailsScreen extends StatelessWidget {
               if (blog.imageUrl.trim().isNotEmpty)
                 AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: Image.network(
-                    blog.imageUrl.trim(),
+                  child: FirebaseStorageImage(
+                    source: blog.imageUrl.trim(),
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const _BlogImagePlaceholder(),
+                    enablePreview: true,
+                    errorBuilder: (_) => const _BlogImagePlaceholder(),
                   ),
                 ),
               Padding(
@@ -70,7 +73,7 @@ class BlogDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      '${blog.authorName.isEmpty ? 'Admin' : blog.authorName} • ${DateFormat('dd MMM yyyy').format(blog.createdAt)}',
+                      '${blog.authorName.isEmpty ? 'Admin' : blog.authorName} | ${DateFormat('dd MMM yyyy').format(blog.createdAt)}',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
@@ -99,6 +102,7 @@ class BlogDetailsScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable blog image placeholder UI component.
 class _BlogImagePlaceholder extends StatelessWidget {
   const _BlogImagePlaceholder();
 

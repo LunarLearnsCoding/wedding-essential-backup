@@ -8,10 +8,12 @@ import '../models/app_enums.dart';
 import '../models/booking_model.dart';
 import '../models/review_model.dart';
 
+/// Centralizes the Firebase operations used for review data.
 class ReviewService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Map<String, String> _serviceNameCache = {};
 
+  /// Validates the form and submits its current values.
   Future<void> submitBookingReview({
     required BookingModel booking,
     required double rating,
@@ -202,9 +204,9 @@ class ReviewService {
     });
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> deleteReview({
     required String reviewId,
-    required String serviceId,
     required String vendorId,
   }) async {
     await _firestore
@@ -215,15 +217,14 @@ class ReviewService {
     await _updateVendorRating(vendorId);
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> deleteReviewById(String reviewId, ReviewModel review) async {
-    await deleteReview(
-      reviewId: reviewId,
-      serviceId: review.serviceId,
-      vendorId: review.vendorId,
-    );
+    await deleteReview(reviewId: reviewId, vendorId: review.vendorId);
   }
 
+  /// Applies the requested vendor rating change and refreshes state.
   Future<void> _updateVendorRating(String vendorId) async {
+    if (vendorId.trim().isEmpty) return;
     final snapshot = await _firestore
         .collection(FirestoreCollections.reviews)
         .where('vendorId', isEqualTo: vendorId)

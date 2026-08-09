@@ -9,6 +9,7 @@ import '../../services/service_service.dart';
 import '../../core/widgets/vendor_bottom_nav.dart';
 import 'vendor_service_form_screen.dart';
 
+/// Displays the vendor services page and coordinates the actions available on it.
 class VendorServicesScreen extends StatelessWidget {
   const VendorServicesScreen({super.key});
 
@@ -101,6 +102,7 @@ class VendorServicesScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable service card UI component.
 class _ServiceCard extends StatelessWidget {
   final ServiceModel service;
   final VoidCallback onUpdate;
@@ -242,6 +244,7 @@ class _ServiceCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable service action button UI component.
 class _ServiceActionButton extends StatelessWidget {
   const _ServiceActionButton({
     required this.label,
@@ -274,6 +277,7 @@ class _ServiceActionButton extends StatelessWidget {
   }
 }
 
+/// Renders the reusable service image header UI component.
 class _ServiceImageHeader extends StatelessWidget {
   final String imageUrl;
   final String statusLabel;
@@ -317,6 +321,7 @@ class _ServiceImageHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable service image placeholder UI component.
 class _ServiceImagePlaceholder extends StatelessWidget {
   const _ServiceImagePlaceholder();
 
@@ -345,6 +350,7 @@ class _ServiceImagePlaceholder extends StatelessWidget {
   }
 }
 
+/// Renders the reusable status chip UI component.
 class _StatusChip extends StatelessWidget {
   final String label;
   final Color color;
@@ -373,6 +379,7 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
+/// Renders the reusable category pill UI component.
 class _CategoryPill extends StatelessWidget {
   final String text;
 
@@ -400,6 +407,7 @@ class _CategoryPill extends StatelessWidget {
   }
 }
 
+/// Renders the reusable location pill UI component.
 class _LocationPill extends StatelessWidget {
   final String text;
 

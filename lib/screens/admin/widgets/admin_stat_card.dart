@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/admin_app_colors.dart';
 
+/// Renders the reusable admin stat card UI component.
 class AdminStatCard extends StatelessWidget {
   const AdminStatCard({
     super.key,
@@ -31,7 +32,7 @@ class AdminStatCard extends StatelessWidget {
       builder: (context, snapshot) {
         final value = snapshot.data;
         final valueText = value == null
-            ? '—'
+            ? '-'
             : value is double
             ? value.toStringAsFixed(0)
             : value.toString();

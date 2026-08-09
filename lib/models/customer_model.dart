@@ -3,8 +3,8 @@ import '../core/utils/firestore_parsers.dart';
 import 'user_model.dart';
 import 'app_enums.dart';
 
+/// Represents a customer record exchanged between Firestore and the app.
 class CustomerModel extends UserModel {
-  final String? address;
   final DateTime? weddingDate;
 
   CustomerModel({
@@ -17,7 +17,6 @@ class CustomerModel extends UserModel {
     required super.createdAt,
     super.updatedAt,
     super.isActive,
-    this.address,
     this.weddingDate,
   });
 
@@ -30,7 +29,6 @@ class CustomerModel extends UserModel {
       role: userRoleFromString(map['role'] ?? 'customer'),
       profileImageUrl: map['profileImageUrl'],
       isActive: boolFromFirestore(map['isActive'], fallback: true),
-      address: map['address'],
       weddingDate: dateTimeFromFirestore(map['weddingDate']),
       createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
       updatedAt: dateTimeFromFirestore(map['updatedAt']),
@@ -41,7 +39,6 @@ class CustomerModel extends UserModel {
   Map<String, dynamic> toMap() {
     return {
       ...super.toMap(),
-      'address': address,
       'weddingDate': weddingDate == null
           ? null
           : Timestamp.fromDate(weddingDate!),

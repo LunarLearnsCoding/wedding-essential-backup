@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+/// Renders the reusable vendor bottom nav UI component.
 class VendorBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
 
   const VendorBottomNav({super.key, required this.currentIndex, this.onTap});
 
+  /// Handles the tap user action.
   void _handleTap(BuildContext context, int index) {
     if (onTap != null) {
       onTap!(index);

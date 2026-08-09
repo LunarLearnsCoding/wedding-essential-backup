@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/firestore_parsers.dart';
 
+/// Represents a service record exchanged between Firestore and the app.
 class ServiceModel {
   final String id;
   final String vendorId;
@@ -15,11 +16,7 @@ class ServiceModel {
 
   final List<String> imageUrls;
 
-  final double averageRating;
-  final int totalReviews;
-
   final bool isActive;
-  final bool isFeatured;
 
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -34,10 +31,7 @@ class ServiceModel {
     required this.location,
     required this.price,
     required this.imageUrls,
-    required this.averageRating,
-    required this.totalReviews,
     required this.isActive,
-    this.isFeatured = false,
     required this.createdAt,
     this.updatedAt,
   });
@@ -59,15 +53,13 @@ class ServiceModel {
           : legacyImageUrl.isEmpty
           ? const []
           : [legacyImageUrl],
-      averageRating: doubleFromFirestore(map['averageRating']),
-      totalReviews: intFromFirestore(map['totalReviews']),
       isActive: boolFromFirestore(map['isActive'], fallback: true),
-      isFeatured: boolFromFirestore(map['isFeatured']),
       createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
       updatedAt: dateTimeFromFirestore(map['updatedAt']),
     );
   }
 
+  /// Converts this instance into values that can be persisted.
   Map<String, dynamic> toMap() {
     return {
       'vendorId': vendorId,
@@ -78,10 +70,7 @@ class ServiceModel {
       'location': location,
       'price': price,
       'imageUrls': imageUrls,
-      'averageRating': averageRating,
-      'totalReviews': totalReviews,
       'isActive': isActive,
-      'isFeatured': isFeatured,
       'status': isActive ? 'active' : 'inactive',
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),

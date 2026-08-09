@@ -8,9 +8,9 @@ import '../../core/widgets/notification_card.dart';
 import '../../core/widgets/vendor_bottom_nav.dart';
 import '../../models/app_enums.dart';
 import '../../models/booking_model.dart';
-import '../../models/inquiry_model.dart';
 import '../../models/notification_model.dart';
 import '../../models/vendor_model.dart';
+import '../../services/inquiry_service.dart';
 import '../../services/notification_service.dart';
 import 'vendor_bookings_screen.dart';
 import 'vendor_inquiries_screen.dart';
@@ -18,9 +18,11 @@ import 'vendor_notifications_screen.dart';
 import 'vendor_reviews_screen.dart';
 import 'vendor_services_screen.dart';
 
+/// Displays the vendor dashboard page and coordinates the actions available on it.
 class VendorDashboardScreen extends StatelessWidget {
   const VendorDashboardScreen({super.key});
 
+  /// Loads dashboard data and updates the visible state.
   Future<_DashboardData> _loadDashboardData(String vendorId) async {
     final firestore = FirebaseFirestore.instance;
 
@@ -36,10 +38,6 @@ class VendorDashboardScreen extends StatelessWidget {
             .where('vendorId', isEqualTo: vendorId)
             .get(),
         firestore
-            .collection(FirestoreCollections.inquiries)
-            .where('vendorId', isEqualTo: vendorId)
-            .get(),
-        firestore
             .collection(FirestoreCollections.reviews)
             .where('vendorId', isEqualTo: vendorId)
             .get(),
@@ -50,9 +48,7 @@ class VendorDashboardScreen extends StatelessWidget {
           results[1] as QuerySnapshot<Map<String, dynamic>>;
       final bookingsSnapshot =
           results[2] as QuerySnapshot<Map<String, dynamic>>;
-      final inquiriesSnapshot =
-          results[3] as QuerySnapshot<Map<String, dynamic>>;
-      final reviewsSnapshot = results[4] as QuerySnapshot<Map<String, dynamic>>;
+      final reviewsSnapshot = results[3] as QuerySnapshot<Map<String, dynamic>>;
 
       final vendorData = vendorDoc.data();
       final vendor = vendorData == null
@@ -61,19 +57,19 @@ class VendorDashboardScreen extends StatelessWidget {
       final bookings = bookingsSnapshot.docs
           .map((doc) => BookingModel.fromMap(doc.id, doc.data()))
           .toList();
-      final inquiries = inquiriesSnapshot.docs
-          .map((doc) => InquiryModel.fromMap(doc.id, doc.data()))
-          .toList();
       return _DashboardData(
         businessName: _vendorDisplayName(vendor),
         totalServices: servicesSnapshot.docs.length,
         pendingBookings: bookings
             .where((booking) => booking.status == BookingStatus.pending)
             .length,
-        pendingInquiries: inquiries
-            .where((inquiry) => inquiry.status != InquiryStatus.cancelled)
+        totalReviews: reviewsSnapshot.docs
+            .where(
+              (doc) =>
+                  doc.data()['status']?.toString().trim().toLowerCase() !=
+                  'hidden',
+            )
             .length,
-        totalReviews: reviewsSnapshot.docs.length,
       );
     } catch (error, stackTrace) {
       debugPrint('Vendor dashboard load failed: $error');
@@ -134,7 +130,7 @@ class VendorDashboardScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _StatsGrid(data: data),
+                      _StatsGrid(data: data, vendorId: currentUser.uid),
                       const SizedBox(height: 24),
                       _RecentNotifications(vendorId: currentUser.uid),
                     ],
@@ -150,6 +146,7 @@ class VendorDashboardScreen extends StatelessWidget {
   }
 }
 
+/// Renders the reusable dashboard header UI component.
 class _DashboardHeader extends StatelessWidget {
   final String businessName;
 
@@ -192,10 +189,12 @@ class _DashboardHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable stats grid UI component.
 class _StatsGrid extends StatelessWidget {
   final _DashboardData data;
+  final String vendorId;
 
-  const _StatsGrid({required this.data});
+  const _StatsGrid({required this.data, required this.vendorId});
 
   @override
   Widget build(BuildContext context) {
@@ -222,11 +221,16 @@ class _StatsGrid extends StatelessWidget {
               icon: Icons.calendar_month_outlined,
               onTap: () => _open(context, const VendorBookingsScreen()),
             ),
-            _StatCard(
-              title: 'Chats',
-              value: data.pendingInquiries.toString(),
-              icon: Icons.message_outlined,
-              onTap: () => _open(context, const VendorInquiriesScreen()),
+            StreamBuilder(
+              stream: InquiryService().getVendorInquiries(vendorId),
+              builder: (context, snapshot) => _StatCard(
+                title: 'Chats',
+                value: snapshot.hasData
+                    ? snapshot.data!.length.toString()
+                    : '—',
+                icon: Icons.message_outlined,
+                onTap: () => _open(context, const VendorInquiriesScreen()),
+              ),
             ),
             _StatCard(
               title: 'Reviews',
@@ -241,6 +245,7 @@ class _StatsGrid extends StatelessWidget {
   }
 }
 
+/// Renders the reusable stat card UI component.
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;
@@ -298,6 +303,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable section title UI component.
 class _SectionTitle extends StatelessWidget {
   final String title;
 
@@ -316,6 +322,7 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+/// Renders the reusable recent notifications UI component.
 class _RecentNotifications extends StatefulWidget {
   final String vendorId;
 
@@ -325,6 +332,7 @@ class _RecentNotifications extends StatefulWidget {
   State<_RecentNotifications> createState() => _RecentNotificationsState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _RecentNotificationsState extends State<_RecentNotifications> {
   final NotificationService _notificationService = NotificationService();
   String? _markingNotificationId;
@@ -410,6 +418,7 @@ class _RecentNotificationsState extends State<_RecentNotifications> {
   }
 }
 
+/// Renders the reusable dashboard message card UI component.
 class _DashboardMessageCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -461,18 +470,17 @@ class _DashboardMessageCard extends StatelessWidget {
   }
 }
 
+/// Groups the data and behavior required by the dashboard data component.
 class _DashboardData {
   final String businessName;
   final int totalServices;
   final int pendingBookings;
-  final int pendingInquiries;
   final int totalReviews;
 
   const _DashboardData({
     required this.businessName,
     required this.totalServices,
     required this.pendingBookings,
-    required this.pendingInquiries,
     required this.totalReviews,
   });
 
@@ -480,7 +488,6 @@ class _DashboardData {
     : businessName = 'Vendor',
       totalServices = 0,
       pendingBookings = 0,
-      pendingInquiries = 0,
       totalReviews = 0;
 }
 

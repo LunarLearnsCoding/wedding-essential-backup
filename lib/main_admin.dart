@@ -18,6 +18,7 @@ void main() async {
   runApp(const WeddingAdminApp());
 }
 
+/// Renders the reusable wedding admin app UI component.
 class WeddingAdminApp extends StatelessWidget {
   const WeddingAdminApp({super.key});
 

@@ -3,10 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/constants/firestore_collections.dart';
 
+/// Centralizes the Firebase operations used for favorites data.
 class FavoritesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> removeFromFavorites(String serviceId) async {
     final uid = _requireUser().uid;
     final normalizedServiceId = serviceId.trim();

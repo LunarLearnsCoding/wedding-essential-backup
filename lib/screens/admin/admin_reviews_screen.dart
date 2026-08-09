@@ -8,6 +8,7 @@ import 'widgets/admin_empty_state.dart';
 import 'widgets/admin_helpers.dart';
 import 'widgets/admin_search_bar.dart';
 
+/// Displays the admin reviews page and coordinates the actions available on it.
 class AdminReviewsScreen extends StatefulWidget {
   const AdminReviewsScreen({super.key, required this.service});
 
@@ -17,6 +18,7 @@ class AdminReviewsScreen extends StatefulWidget {
   State<AdminReviewsScreen> createState() => _AdminReviewsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   String _search = '';
 
@@ -137,6 +139,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
     );
   }
 
+  /// Opens the vendor reviews interface for the user.
   void _openVendorReviews(_VendorReviewSummary summary) {
     Navigator.push(
       context,
@@ -150,6 +153,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   }
 }
 
+/// Groups the data and behavior required by the vendor info component.
 class _VendorInfo {
   final String id;
   final String name;
@@ -157,6 +161,7 @@ class _VendorInfo {
   const _VendorInfo({required this.id, required this.name});
 }
 
+/// Groups the data and behavior required by the vendor review summary component.
 class _VendorReviewSummary {
   final _VendorInfo info;
   final List<ReviewModel> reviews;
@@ -169,6 +174,7 @@ class _VendorReviewSummary {
             reviews.length;
 }
 
+/// Renders the reusable vendor review card UI component.
 class _VendorReviewCard extends StatelessWidget {
   const _VendorReviewCard({required this.summary, required this.onTap});
 
@@ -242,7 +248,7 @@ class _VendorReviewCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 9),
                         const Text(
-                          '•',
+                          '|',
                           style: TextStyle(color: AdminAppColors.border),
                         ),
                         const SizedBox(width: 9),

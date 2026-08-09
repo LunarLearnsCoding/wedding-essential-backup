@@ -3,11 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../services/auth_service.dart';
 import '../customer/customer_dashboard_screen.dart';
 import '../auth/login_screen.dart';
 import '../vendor/vendor_dashboard_screen.dart';
 import '../vendor/vendor_pending_screen.dart';
 
+/// Displays the splash page and coordinates the actions available on it.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -15,6 +17,7 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
   late AnimationController _controller;
@@ -98,6 +101,8 @@ class _SplashScreenState extends State<SplashScreen>
         );
         return;
       }
+
+      await AuthService().finalizePendingRegistration();
 
       final userDoc = await FirebaseFirestore.instance
           .collection('users')

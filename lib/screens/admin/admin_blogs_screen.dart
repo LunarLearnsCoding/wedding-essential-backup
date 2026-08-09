@@ -1,8 +1,15 @@
+import 'dart:typed_data';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/admin_app_colors.dart';
+import '../../core/widgets/firebase_storage_image.dart';
+import '../../core/widgets/removable_image_preview.dart';
 import '../../models/admin_models.dart';
 import '../../services/admin_service.dart';
+import '../../services/storage_service.dart';
 import 'widgets/admin_empty_state.dart';
 import 'widgets/admin_formatters.dart';
 import 'widgets/admin_helpers.dart';
@@ -10,6 +17,7 @@ import 'widgets/admin_record_card.dart';
 import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
+/// Displays the admin blogs page and coordinates the actions available on it.
 class AdminBlogsScreen extends StatefulWidget {
   const AdminBlogsScreen({super.key, required this.service});
 
@@ -19,6 +27,7 @@ class AdminBlogsScreen extends StatefulWidget {
   State<AdminBlogsScreen> createState() => _AdminBlogsScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
   String _search = '';
   String _selectedStatus = 'published';
@@ -179,8 +188,7 @@ class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
                                       );
                                       if (!confirmed) return;
                                       try {
-                                        await widget.service.deleteDocument(
-                                          'blogs',
+                                        await widget.service.deleteBlog(
                                           item.id,
                                         );
                                         if (!mounted) return;
@@ -231,6 +239,7 @@ class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
     }
   }
 
+  /// Opens the blog editor interface for the user.
   Future<void> _showBlogEditor({AdminCollectionItem? item}) async {
     final result = await showModalBottomSheet<_BlogEditorResult>(
       context: context,
@@ -239,12 +248,37 @@ class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
       builder: (_) => _BlogEditorSheet(item: item),
     );
     if (!mounted || result == null) return;
+    String? uploadedImageUrl;
+    var blogSaved = false;
     try {
       final values = Map<String, dynamic>.from(result.values);
+      final existingImageUrl =
+          item?.stringValue(['imageUrl'], fallback: '') ?? '';
+      var imageUrl = result.removeExistingImage ? '' : existingImageUrl;
+      if (result.selectedImage != null) {
+        final admin = FirebaseAuth.instance.currentUser;
+        if (admin == null) {
+          throw StateError('Your admin session has expired.');
+        }
+        uploadedImageUrl = await StorageService().uploadBlogImage(
+          adminId: admin.uid,
+          image: result.selectedImage!,
+        );
+        imageUrl = uploadedImageUrl;
+      }
+      values['imageUrl'] = imageUrl;
       if (item == null) {
         await widget.service.createBlog(values);
       } else {
         await widget.service.updateBlog(item.id, values);
+      }
+      blogSaved = true;
+      if (existingImageUrl.isNotEmpty && existingImageUrl != imageUrl) {
+        try {
+          await widget.service.deleteBlogImage(existingImageUrl);
+        } catch (error) {
+          debugPrint('Could not delete replaced blog image: $error');
+        }
       }
       if (!mounted) return;
       AdminHelpers.showSnack(
@@ -252,12 +286,16 @@ class _AdminBlogsScreenState extends State<AdminBlogsScreen> {
         item == null ? 'Blog created' : 'Blog updated',
       );
     } catch (error) {
+      if (!blogSaved && uploadedImageUrl != null) {
+        await widget.service.deleteBlogImage(uploadedImageUrl);
+      }
       if (!mounted) return;
       AdminHelpers.showSnack(context, error.toString(), isError: true);
     }
   }
 }
 
+/// Renders the reusable blog status tabs UI component.
 class _BlogStatusTabs extends StatelessWidget {
   const _BlogStatusTabs({
     required this.selectedStatus,
@@ -305,6 +343,7 @@ class _BlogStatusTabs extends StatelessWidget {
   }
 }
 
+/// Renders the reusable blog status tab UI component.
 class _BlogStatusTab extends StatelessWidget {
   const _BlogStatusTab({
     required this.label,
@@ -343,12 +382,20 @@ class _BlogStatusTab extends StatelessWidget {
   }
 }
 
+/// Groups the data and behavior required by the blog editor result component.
 class _BlogEditorResult {
-  const _BlogEditorResult({required this.values});
+  const _BlogEditorResult({
+    required this.values,
+    required this.selectedImage,
+    required this.removeExistingImage,
+  });
 
   final Map<String, dynamic> values;
+  final XFile? selectedImage;
+  final bool removeExistingImage;
 }
 
+/// Renders the reusable blog editor sheet UI component.
 class _BlogEditorSheet extends StatefulWidget {
   final AdminCollectionItem? item;
 
@@ -358,6 +405,7 @@ class _BlogEditorSheet extends StatefulWidget {
   State<_BlogEditorSheet> createState() => _BlogEditorSheetState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _BlogEditorSheetState extends State<_BlogEditorSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _title;
@@ -365,6 +413,8 @@ class _BlogEditorSheetState extends State<_BlogEditorSheet> {
   late final TextEditingController _author;
   late final TextEditingController _content;
   late final String _existingImageUrl;
+  XFile? _selectedImage;
+  bool _removeExistingImage = false;
   late String _status;
 
   @override
@@ -401,21 +451,38 @@ class _BlogEditorSheetState extends State<_BlogEditorSheet> {
     super.dispose();
   }
 
+  /// Validates and saves the current save values.
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     Navigator.pop(
       context,
       _BlogEditorResult(
+        selectedImage: _selectedImage,
+        removeExistingImage: _removeExistingImage,
         values: <String, dynamic>{
           'title': _title.text.trim(),
           'category': _category.text.trim(),
           'authorName': _author.text.trim(),
-          'imageUrl': _existingImageUrl,
           'content': _content.text.trim(),
           'status': _status,
         },
       ),
     );
+  }
+
+  /// Lets the user choose the required value and stores the selection.
+  Future<void> _pickImage() async {
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      maxHeight: 900,
+      imageQuality: 55,
+    );
+    if (image == null || !mounted) return;
+    setState(() {
+      _selectedImage = image;
+      _removeExistingImage = true;
+    });
   }
 
   @override
@@ -487,6 +554,51 @@ class _BlogEditorSheetState extends State<_BlogEditorSheet> {
                 ],
               ),
               const SizedBox(height: 14),
+              const Text(
+                'Blog image (optional)',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _pickImage,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: Text(
+                    _selectedImage == null &&
+                            (_existingImageUrl.isEmpty || _removeExistingImage)
+                        ? 'Choose image'
+                        : 'Replace image',
+                  ),
+                ),
+              ),
+              if (_selectedImage != null) ...[
+                const SizedBox(height: 12),
+                FutureBuilder<Uint8List>(
+                  future: _selectedImage!.readAsBytes(),
+                  builder: (context, snapshot) => RemovableImagePreview(
+                    width: double.infinity,
+                    height: 180,
+                    image: snapshot.hasData
+                        ? Image.memory(snapshot.data!, fit: BoxFit.cover)
+                        : const Center(child: CircularProgressIndicator()),
+                    onRemove: () => setState(() => _selectedImage = null),
+                  ),
+                ),
+              ] else if (_existingImageUrl.isNotEmpty &&
+                  !_removeExistingImage) ...[
+                const SizedBox(height: 12),
+                RemovableImagePreview(
+                  width: double.infinity,
+                  height: 180,
+                  image: FirebaseStorageImage(
+                    source: _existingImageUrl,
+                    fit: BoxFit.cover,
+                  ),
+                  onRemove: () => setState(() => _removeExistingImage = true),
+                ),
+              ],
+              const SizedBox(height: 14),
               _BlogField(
                 controller: _content,
                 label: 'Full article content',
@@ -528,6 +640,7 @@ class _BlogEditorSheetState extends State<_BlogEditorSheet> {
   }
 }
 
+/// Renders the reusable blog field UI component.
 class _BlogField extends StatelessWidget {
   final TextEditingController controller;
   final String label;

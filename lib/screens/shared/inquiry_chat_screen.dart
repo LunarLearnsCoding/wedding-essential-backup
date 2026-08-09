@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../models/inquiry_message_model.dart';
 import '../../models/inquiry_model.dart';
 import '../../services/inquiry_service.dart';
 
+/// Displays the inquiry chat page and coordinates the actions available on it.
 class InquiryChatScreen extends StatefulWidget {
   final String inquiryId;
   final bool isVendor;
@@ -21,12 +23,12 @@ class InquiryChatScreen extends StatefulWidget {
   State<InquiryChatScreen> createState() => _InquiryChatScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _InquiryChatScreenState extends State<InquiryChatScreen> {
   final InquiryService _service = InquiryService();
   final TextEditingController _messageController = TextEditingController();
   bool _isSending = false;
   bool _isMarkingRead = false;
-
   @override
   void dispose() {
     _messageController.dispose();
@@ -116,25 +118,39 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
           backgroundColor: AppColors.background,
           appBar: AppBar(
             titleSpacing: 0,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            title: Row(
               children: [
-                Text(
-                  otherName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 17),
+                ProfileAvatar(
+                  userId: widget.isVendor
+                      ? inquiry.customerId
+                      : inquiry.vendorId,
+                  fallbackName: otherName,
+                  radius: 16,
                 ),
-                Text(
-                  otherEmail.isNotEmpty
-                      ? otherEmail
-                      : _value(inquiry.serviceName, 'Wedding service'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        otherName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 17),
+                      ),
+                      Text(
+                        otherEmail.isNotEmpty
+                            ? otherEmail
+                            : 'Vendor conversation',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -180,6 +196,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
   }
 }
 
+/// Renders the reusable conversation banner UI component.
 class _ConversationBanner extends StatelessWidget {
   final InquiryModel inquiry;
 
@@ -197,7 +214,7 @@ class _ConversationBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${_value(inquiry.serviceName, 'Wedding service')} • Conversation',
+              'Conversation',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -213,6 +230,7 @@ class _ConversationBanner extends StatelessWidget {
   }
 }
 
+/// Renders the reusable message history UI component.
 class _MessageHistory extends StatelessWidget {
   final InquiryModel inquiry;
   final List<InquiryMessageModel> messages;
@@ -249,6 +267,7 @@ class _MessageHistory extends StatelessWidget {
   }
 }
 
+/// Renders the reusable date divider UI component.
 class _DateDivider extends StatelessWidget {
   final DateTime date;
 
@@ -270,6 +289,7 @@ class _DateDivider extends StatelessWidget {
   }
 }
 
+/// Renders the reusable message bubble UI component.
 class _MessageBubble extends StatelessWidget {
   final InquiryMessageModel message;
   final bool isMine;
@@ -278,7 +298,14 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatar = _MessageAvatar(name: message.senderName, isMine: isMine);
+    final avatar = ProfileAvatar(
+      userId: message.senderId,
+      fallbackName: message.senderName,
+      radius: 15,
+      backgroundColor: isMine
+          ? AppColors.primary.withValues(alpha: 0.18)
+          : AppColors.selectedSurface,
+    );
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -309,6 +336,13 @@ class _MessageBubble extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (message.serviceName.trim().isNotEmpty) ...[
+                        _ServiceReferenceCard(
+                          serviceName: message.serviceName,
+                          isMine: isMine,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       Text(
                         message.text,
                         style: TextStyle(
@@ -340,34 +374,64 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-class _MessageAvatar extends StatelessWidget {
-  final String name;
-  final bool isMine;
+class _ServiceReferenceCard extends StatelessWidget {
+  const _ServiceReferenceCard({
+    required this.serviceName,
+    required this.isMine,
+  });
 
-  const _MessageAvatar({required this.name, required this.isMine});
+  final String serviceName;
+  final bool isMine;
 
   @override
   Widget build(BuildContext context) {
-    final cleanName = name.trim();
-    return CircleAvatar(
-      radius: 15,
-      backgroundColor: isMine
-          ? AppColors.primary.withValues(alpha: 0.18)
-          : AppColors.selectedSurface,
-      child: cleanName.isEmpty
-          ? const Icon(Icons.person_outline, size: 17, color: AppColors.primary)
-          : Text(
-              cleanName.substring(0, 1).toUpperCase(),
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-              ),
+    final foreground = isMine ? Colors.white : AppColors.primaryDark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isMine
+            ? Colors.white.withValues(alpha: 0.16)
+            : AppColors.selectedSurface,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.room_service_outlined, size: 17, color: foreground),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Inquiry about',
+                  style: TextStyle(
+                    color: foreground.withValues(alpha: 0.75),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  serviceName.trim(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
+          ),
+        ],
+      ),
     );
   }
 }
 
+/// Renders the reusable composer UI component.
 class _Composer extends StatelessWidget {
   final TextEditingController controller;
   final bool isSending;
@@ -436,6 +500,8 @@ List<InquiryMessageModel> _legacyMessages(InquiryModel inquiry) {
         senderName: inquiry.customerName,
         senderEmail: inquiry.customerEmail,
         text: inquiry.message.trim(),
+        serviceId: inquiry.serviceId,
+        serviceName: inquiry.serviceName,
         createdAt: inquiry.createdAt,
       ),
     );

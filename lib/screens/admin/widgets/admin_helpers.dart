@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/widgets/app_information_sheet.dart';
 
+/// Groups the data and behavior required by the admin helpers component.
 class AdminHelpers {
   AdminHelpers._();
 

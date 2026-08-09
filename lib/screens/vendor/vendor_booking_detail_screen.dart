@@ -6,6 +6,7 @@ import '../../models/app_enums.dart';
 import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
 
+/// Displays the vendor booking detail page and coordinates the actions available on it.
 class VendorBookingDetailScreen extends StatefulWidget {
   final String bookingId;
 
@@ -16,6 +17,7 @@ class VendorBookingDetailScreen extends StatefulWidget {
       _VendorBookingDetailScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
   final BookingService _bookingService = BookingService();
   late Future<BookingModel?> _bookingFuture;
@@ -27,12 +29,14 @@ class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
     _bookingFuture = _bookingService.getBooking(widget.bookingId);
   }
 
+  /// Loads booking and updates the visible state.
   void _loadBooking() {
     setState(() {
       _bookingFuture = _bookingService.getBooking(widget.bookingId);
     });
   }
 
+  /// Applies the requested status change and refreshes state.
   Future<void> _updateStatus(BookingStatus newStatus) async {
     if (_isUpdatingStatus) return;
 
@@ -190,6 +194,7 @@ class _VendorBookingDetailScreenState extends State<VendorBookingDetailScreen> {
   }
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _MessageState extends StatelessWidget {
   final String title;
   final String message;
@@ -257,6 +262,7 @@ class _MessageState extends StatelessWidget {
   }
 }
 
+/// Renders the reusable booking detail header UI component.
 class _BookingDetailHeader extends StatelessWidget {
   final String bookingId;
   final String status;
@@ -322,6 +328,7 @@ class _BookingDetailHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable booking info card UI component.
 class _BookingInfoCard extends StatelessWidget {
   final BookingModel booking;
 
@@ -443,6 +450,7 @@ class _BookingInfoCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable detail row UI component.
 class _DetailRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -499,6 +507,7 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
+/// Renders the reusable section header UI component.
 class _SectionHeader extends StatelessWidget {
   final String title;
 
@@ -517,6 +526,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+/// Renders the reusable status button UI component.
 class _StatusButton extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -564,6 +574,7 @@ class _StatusButton extends StatelessWidget {
   }
 }
 
+/// Renders the reusable next steps card UI component.
 class _NextStepsCard extends StatelessWidget {
   const _NextStepsCard();
 
@@ -587,6 +598,7 @@ class _NextStepsCard extends StatelessWidget {
   }
 }
 
+/// Renders the reusable todo row UI component.
 class _TodoRow extends StatelessWidget {
   final String text;
 
@@ -620,6 +632,7 @@ class _TodoRow extends StatelessWidget {
   }
 }
 
+/// Renders the reusable status badge UI component.
 class _StatusBadge extends StatelessWidget {
   final String status;
 

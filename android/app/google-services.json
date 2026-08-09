@@ -12,7 +12,20 @@
           "package_name": "com.example.wedding_essentialsapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "636351449021-l7pd09al76ol2012e0js91lbujlo209f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.wedding_essentialsapp",
+            "certificate_hash": "7e74309939490bb3da0b9d4caa2a914f6bec5756"
+          }
+        },
+        {
+          "client_id": "636351449021-6vehq6s3m9eebjitrav4u1skl04t7pil.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBT3PWyZKEur5fTrZVwSO5OF3YrkfBg5JI"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "636351449021-6vehq6s3m9eebjitrav4u1skl04t7pil.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

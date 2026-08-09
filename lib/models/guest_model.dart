@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/firestore_parsers.dart';
 
+/// Represents a guest record exchanged between Firestore and the app.
 class GuestModel {
   final String id;
   final String customerId;
@@ -8,8 +9,6 @@ class GuestModel {
   final String phone;
   final String relation;
   final int numberOfGuests;
-  final bool isInvited;
-  final bool isAttending;
   final DateTime createdAt;
 
   GuestModel({
@@ -19,8 +18,6 @@ class GuestModel {
     required this.phone,
     required this.relation,
     required this.numberOfGuests,
-    required this.isInvited,
-    required this.isAttending,
     required this.createdAt,
   });
 
@@ -32,12 +29,11 @@ class GuestModel {
       phone: map['phone'] ?? '',
       relation: map['relation'] ?? '',
       numberOfGuests: intFromFirestore(map['numberOfGuests'], fallback: 1),
-      isInvited: boolFromFirestore(map['isInvited']),
-      isAttending: boolFromFirestore(map['isAttending']),
       createdAt: dateTimeFromFirestoreOrNow(map['createdAt']),
     );
   }
 
+  /// Converts this instance into values that can be persisted.
   Map<String, dynamic> toMap() {
     return {
       'customerId': customerId,
@@ -45,8 +41,6 @@ class GuestModel {
       'phone': phone,
       'relation': relation,
       'numberOfGuests': numberOfGuests,
-      'isInvited': isInvited,
-      'isAttending': isAttending,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }

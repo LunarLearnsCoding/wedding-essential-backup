@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
+/// Renders the reusable firebase storage image UI component.
 class FirebaseStorageImage extends StatefulWidget {
   const FirebaseStorageImage({
     super.key,
@@ -22,6 +23,7 @@ class FirebaseStorageImage extends StatefulWidget {
   State<FirebaseStorageImage> createState() => _FirebaseStorageImageState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _FirebaseStorageImageState extends State<FirebaseStorageImage> {
   Future<Uint8List?>? _imageBytes;
 
@@ -37,6 +39,7 @@ class _FirebaseStorageImageState extends State<FirebaseStorageImage> {
     if (oldWidget.source != widget.source) _loadSource();
   }
 
+  /// Loads source and updates the visible state.
   void _loadSource() {
     final source = widget.source.trim();
     if (source.startsWith('gs://')) {
@@ -49,6 +52,26 @@ class _FirebaseStorageImageState extends State<FirebaseStorageImage> {
       final imageId = source.substring('firestore-image://'.length);
       _imageBytes = FirebaseFirestore.instance
           .collection('service_images')
+          .doc(imageId)
+          .get()
+          .then((snapshot) => snapshot.data()?['bytes'])
+          .then((value) => value is Blob ? value.bytes : null);
+      return;
+    }
+    if (source.startsWith('firestore-profile-image://')) {
+      final imageId = source.substring('firestore-profile-image://'.length);
+      _imageBytes = FirebaseFirestore.instance
+          .collection('profile_images')
+          .doc(imageId)
+          .get()
+          .then((snapshot) => snapshot.data()?['bytes'])
+          .then((value) => value is Blob ? value.bytes : null);
+      return;
+    }
+    if (source.startsWith('firestore-blog-image://')) {
+      final imageId = source.substring('firestore-blog-image://'.length);
+      _imageBytes = FirebaseFirestore.instance
+          .collection('blog_images')
           .doc(imageId)
           .get()
           .then((snapshot) => snapshot.data()?['bytes'])
@@ -73,10 +96,13 @@ class _FirebaseStorageImageState extends State<FirebaseStorageImage> {
     );
   }
 
+  /// Builds the image section of the interface.
   Widget _buildImage(BuildContext context) {
     final source = widget.source.trim();
     if (!source.startsWith('gs://') &&
-        !source.startsWith('firestore-image://')) {
+        !source.startsWith('firestore-image://') &&
+        !source.startsWith('firestore-profile-image://') &&
+        !source.startsWith('firestore-blog-image://')) {
       return Image.network(
         source,
         fit: widget.fit,
@@ -97,6 +123,7 @@ class _FirebaseStorageImageState extends State<FirebaseStorageImage> {
     );
   }
 
+  /// Opens the preview interface for the user.
   Future<void> _showPreview(BuildContext context) {
     return showDialog<void>(
       context: context,

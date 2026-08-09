@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/constants/firestore_collections.dart';
 
+/// Centralizes the Firebase operations used for vendor data.
 class VendorService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 

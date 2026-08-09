@@ -10,6 +10,7 @@ import 'widgets/admin_helpers.dart';
 import 'widgets/admin_search_bar.dart';
 import 'widgets/admin_status_chip.dart';
 
+/// Displays the admin services page and coordinates the actions available on it.
 class AdminServicesScreen extends StatefulWidget {
   const AdminServicesScreen({super.key, required this.service});
 
@@ -19,6 +20,7 @@ class AdminServicesScreen extends StatefulWidget {
   State<AdminServicesScreen> createState() => _AdminServicesScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AdminServicesScreenState extends State<AdminServicesScreen> {
   String _search = '';
 
@@ -103,7 +105,7 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
                     'vendorName',
                     'businessName',
                     'vendorId',
-                  ], fallback: '—');
+                  ], fallback: '-');
                   final category = item.stringValue([
                     'category',
                     'serviceCategory',
@@ -175,6 +177,7 @@ class _AdminServicesScreenState extends State<AdminServicesScreen> {
     }
   }
 
+  /// Removes the selected item after the required checks or confirmation.
   Future<void> _deleteService(String id) async {
     final confirmed = await AdminHelpers.confirm(
       context,

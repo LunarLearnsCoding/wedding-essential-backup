@@ -5,6 +5,7 @@ import '../../core/constants/admin_account.dart';
 import '../../services/admin_auth_service.dart';
 import 'admin_dashboard_screen.dart';
 
+/// Displays the admin login page and coordinates the actions available on it.
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
 
@@ -12,6 +13,7 @@ class AdminLoginScreen extends StatefulWidget {
   State<AdminLoginScreen> createState() => _AdminLoginScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _formKey = GlobalKey<FormState>();
 

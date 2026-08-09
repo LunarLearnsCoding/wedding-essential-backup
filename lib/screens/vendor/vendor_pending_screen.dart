@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../auth/login_screen.dart';
 import 'vendor_dashboard_screen.dart';
 
+/// Displays the vendor pending page and coordinates the actions available on it.
 class VendorPendingScreen extends StatefulWidget {
   const VendorPendingScreen({super.key});
 
@@ -13,6 +14,7 @@ class VendorPendingScreen extends StatefulWidget {
   State<VendorPendingScreen> createState() => _VendorPendingScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _VendorPendingScreenState extends State<VendorPendingScreen> {
   final FirebaseAuth auth = FirebaseAuth.instance;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -27,6 +29,7 @@ class _VendorPendingScreenState extends State<VendorPendingScreen> {
     _loadVendorStatus();
   }
 
+  /// Loads vendor status and updates the visible state.
   Future<void> _loadVendorStatus() async {
     final user = auth.currentUser;
 
@@ -54,9 +57,7 @@ class _VendorPendingScreenState extends State<VendorPendingScreen> {
             userData['rejectionReason']?.toString() ??
             '';
       });
-    } catch (_) {
-      
-    }
+    } catch (_) {}
   }
 
   Future<void> _checkStatus() async {
@@ -141,6 +142,7 @@ class _VendorPendingScreenState extends State<VendorPendingScreen> {
     _goToLogin();
   }
 
+  /// Navigates to the destination associated with this action.
   void _goToLogin() {
     Navigator.pushReplacement(
       context,
@@ -310,6 +312,7 @@ class _VendorPendingScreenState extends State<VendorPendingScreen> {
   }
 }
 
+/// Renders the reusable info row UI component.
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String title;

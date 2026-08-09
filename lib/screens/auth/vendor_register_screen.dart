@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/service_categories.dart';
+import '../../core/constants/vendor_locations.dart';
 import '../../core/utils/validators.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
@@ -12,6 +14,7 @@ import '../../providers/auth_provider.dart';
 import 'customer_register_screen.dart';
 import 'login_screen.dart';
 
+/// Displays the vendor register page and coordinates the actions available on it.
 class VendorRegisterScreen extends StatefulWidget {
   const VendorRegisterScreen({super.key});
 
@@ -19,12 +22,12 @@ class VendorRegisterScreen extends StatefulWidget {
   State<VendorRegisterScreen> createState() => _VendorRegisterScreenState();
 }
 
+/// Manages the mutable state, user actions, and UI composition for the related screen.
 class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final ownerNameController = TextEditingController();
   final businessNameController = TextEditingController();
-  final locationController = TextEditingController();
   final emailController = TextEditingController();
   final phoneController = TextEditingController();
   final passwordController = TextEditingController();
@@ -33,6 +36,7 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
   bool agreeToTerms = false;
 
   String selectedCategory = 'Photography';
+  String? selectedLocation;
 
   Future<void> _registerVendor() async {
     if (!_formKey.currentState!.validate()) return;
@@ -54,7 +58,7 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
         phone: normalizeNepaliPhoneNumber(phoneController.text),
         businessName: businessNameController.text.trim(),
         category: selectedCategory,
-        locations: [locationController.text.trim()],
+        location: selectedLocation!,
       );
 
       if (!mounted) return;
@@ -62,7 +66,7 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Vendor account created. Check your email and verify it before signing in.',
+            'Check your email and verify it to finish creating your vendor account.',
           ),
         ),
       );
@@ -71,13 +75,20 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_registrationErrorMessage(error))));
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
+  /// Navigates to the destination associated with this action.
   void _goToCustomerRegister() {
     Navigator.pushReplacement(
       context,
@@ -89,7 +100,6 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
   void dispose() {
     ownerNameController.dispose();
     businessNameController.dispose();
-    locationController.dispose();
     emailController.dispose();
     phoneController.dispose();
     passwordController.dispose();
@@ -249,16 +259,32 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
 
                 const SizedBox(height: 18),
 
-                CustomTextField(
-                  label: 'Location',
-                  hint: 'Kathmandu, Pokhara, etc.',
-                  controller: locationController,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Location is required';
-                    }
-                    return null;
-                  },
+                DropdownButtonFormField<String>(
+                  initialValue: selectedLocation,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Location',
+                    hintText: 'Choose a location',
+                    prefixIcon: const Icon(Icons.location_on_outlined),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                  items: locations
+                      .map(
+                        (location) => DropdownMenuItem(
+                          value: location,
+                          child: Text(location),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => selectedLocation = value),
+                  validator: (value) =>
+                      value == null ? 'Please choose a location.' : null,
                 ),
 
                 const SizedBox(height: 18),
@@ -268,29 +294,20 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
                   hint: 'business@example.com',
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Email is required';
-                    }
-
-                    if (!value.contains('@')) {
-                      return 'Enter a valid email';
-                    }
-
-                    return null;
-                  },
+                  validator: validateEmailAddress,
                 ),
 
                 const SizedBox(height: 18),
 
                 CustomTextField(
                   label: 'Phone Number',
-                  hint: '+977 98XXXXXXXX',
+                  hint: '98XXXXXXXX',
+                  prefixText: '+977 ',
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
-                    LengthLimitingTextInputFormatter(15),
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
                   ],
                   validator: validateNepaliPhoneNumber,
                 ),
@@ -383,6 +400,21 @@ class _VendorRegisterScreenState extends State<VendorRegisterScreen> {
   }
 }
 
+String _registrationErrorMessage(FirebaseAuthException error) {
+  return switch (error.code) {
+    'email-already-in-use' =>
+      'The email address is already in use by another account.',
+    'invalid-email' => 'Enter a valid email address.',
+    'weak-password' => 'Choose a stronger password and try again.',
+    'too-many-requests' =>
+      'Too many registration attempts. Please wait and try again.',
+    'network-request-failed' =>
+      'Could not connect. Check your internet connection and try again.',
+    _ => error.message ?? 'Could not create the account. Please try again.',
+  };
+}
+
+/// Renders the reusable logo mark UI component.
 class _LogoMark extends StatelessWidget {
   const _LogoMark();
 
@@ -400,6 +432,7 @@ class _LogoMark extends StatelessWidget {
   }
 }
 
+/// Renders the reusable role card UI component.
 class _RoleCard extends StatelessWidget {
   final String title;
   final String subtitle;

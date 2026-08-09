@@ -65,4 +65,5 @@ class DefaultFirebaseOptions {
     projectId: 'wedding-essentials-app-01',
     storageBucket: 'wedding-essentials-app-01.firebasestorage.app',
   );
+
 }
