@@ -64,14 +64,15 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
         .get();
     final customerName = _stringValue(customerDoc.data() ?? {}, 'name');
 
-    if (customerName.isNotEmpty) return customerName;
+    if (_isUsableCustomerName(customerName)) return customerName;
 
     final userDoc = await firestore
         .collection(FirestoreCollections.users)
         .doc(customerId)
         .get();
 
-    return _stringValue(userDoc.data() ?? {}, 'name');
+    final userName = _stringValue(userDoc.data() ?? {}, 'name');
+    return _isUsableCustomerName(userName) ? userName : '';
   }
 
   /// Opens the inquiry sheet interface for the user.
@@ -114,10 +115,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               try {
                 final profileName = await _loadCustomerName(user.uid);
                 if (!isSheetActive) return;
+                final displayName = user.displayName?.trim() ?? '';
                 final customerName = profileName.isNotEmpty
                     ? profileName
-                    : user.displayName?.trim().isNotEmpty == true
-                    ? user.displayName!.trim()
+                    : _isUsableCustomerName(displayName)
+                    ? displayName
                     : 'Customer';
 
                 createdInquiryId = await _inquiryService.createInquiry(
@@ -259,10 +261,11 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
               try {
                 final profileName = await _loadCustomerName(user.uid);
                 if (!isSheetActive) return;
+                final displayName = user.displayName?.trim() ?? '';
                 final customerName = profileName.isNotEmpty
                     ? profileName
-                    : user.displayName?.trim().isNotEmpty == true
-                    ? user.displayName!.trim()
+                    : _isUsableCustomerName(displayName)
+                    ? displayName
                     : 'Customer';
                 final customerPhone = await _loadCustomerPhone(user.uid);
                 if (!isSheetActive) return;
@@ -1169,6 +1172,13 @@ String _stringValue(
   if (text.isEmpty) return fallback;
 
   return text;
+}
+
+bool _isUsableCustomerName(String value) {
+  final normalized = value.trim().toLowerCase();
+  return normalized.isNotEmpty &&
+      normalized != 'customer' &&
+      !normalized.contains('@');
 }
 
 double _doubleValue(Map<String, dynamic> data, String key) {

@@ -478,7 +478,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               CustomTextField(
                 label: 'Password',
-                hint: 'Enter your password',
+                hint: '*********',
                 controller: passwordController,
                 obscureText: hidePassword,
                 autocorrect: false,

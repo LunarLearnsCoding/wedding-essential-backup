@@ -21,11 +21,13 @@ class BookingService {
       ...additionalData,
     });
 
+    final customerName = await _resolveCustomerName(booking);
+
     await _createNotificationSafely(
       userId: booking.vendorId,
       title: 'New booking request',
       message:
-          '${booking.customerName} requested a booking for ${booking.serviceName}.',
+          '$customerName requested a booking for ${booking.serviceName}.',
       type: 'booking',
     );
     await _createNotificationSafely(
@@ -308,13 +310,40 @@ class BookingService {
 
     if (!statusChanged || currentBooking == null) return;
 
+    final customerName = await _resolveCustomerName(currentBooking!);
+
     await _createNotificationSafely(
       userId: currentBooking!.vendorId,
       title: 'Booking cancelled',
-      message:
-          '${currentBooking!.customerName} cancelled ${currentBooking!.serviceName}.',
+      message: '$customerName cancelled ${currentBooking!.serviceName}.',
       type: 'booking',
     );
+  }
+
+  Future<String> _resolveCustomerName(BookingModel booking) async {
+    final savedName = booking.customerName.trim();
+    if (_isUsablePersonName(savedName)) return savedName;
+
+    if (booking.customerId.trim().isNotEmpty) {
+      for (final collection in [
+        FirestoreCollections.customers,
+        FirestoreCollections.users,
+      ]) {
+        try {
+          final snapshot = await _firestore
+              .collection(collection)
+              .doc(booking.customerId)
+              .get();
+          final profileName = snapshot.data()?['name']?.toString().trim() ?? '';
+          if (_isUsablePersonName(profileName)) return profileName;
+        } catch (error, stackTrace) {
+          debugPrint('Could not resolve booking customer name: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }
+    }
+
+    return 'Customer';
   }
 
   /// Creates a new item from the supplied or entered values.
@@ -338,6 +367,13 @@ class BookingService {
       debugPrintStack(stackTrace: stackTrace);
     }
   }
+}
+
+bool _isUsablePersonName(String value) {
+  final normalized = value.trim().toLowerCase();
+  return normalized.isNotEmpty &&
+      normalized != 'customer' &&
+      !normalized.contains('@');
 }
 
 DateTime _normalizeBookingDateTime(DateTime dateTime) {
