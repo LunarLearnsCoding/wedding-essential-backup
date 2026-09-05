@@ -159,7 +159,7 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
   Map<String, ReviewSummary> _reviewSummaries(List<ReviewModel> reviews) {
     final groupedReviews = <String, List<ReviewModel>>{};
     for (final review in reviews) {
-      if (review.vendorId.trim().isEmpty) continue;
+      if (!review.isVisible || review.vendorId.trim().isEmpty) continue;
       groupedReviews.putIfAbsent(review.vendorId, () => []).add(review);
     }
     return groupedReviews.map(
@@ -246,15 +246,12 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
                       categories: _categories,
                       selectedCategory: _selectedCategory,
                       sort: _serviceSort,
+                      sortOptions: const ['Price', 'Name'],
                       onCategoryChanged: (category) {
                         setState(() => _selectedCategory = category);
                       },
-                      onSort: () {
-                        setState(() {
-                          _serviceSort = _serviceSort == 'Price'
-                              ? 'Name'
-                              : 'Price';
-                        });
+                      onSortChanged: (sort) {
+                        setState(() => _serviceSort = sort);
                       },
                     )
                   : StreamBuilder<QuerySnapshot>(
@@ -300,12 +297,9 @@ class _BrowseServicesScreenState extends State<BrowseServicesScreen> {
                                 ),
                               ),
                               sort: _vendorSort,
-                              onSort: () {
-                                setState(() {
-                                  _vendorSort = _vendorSort == 'Top Rated'
-                                      ? 'Name'
-                                      : 'Top Rated';
-                                });
+                              sortOptions: const ['Top Rated', 'Name'],
+                              onSortChanged: (sort) {
+                                setState(() => _vendorSort = sort);
                               },
                             );
                           },
@@ -359,16 +353,18 @@ class _ServicesView extends StatelessWidget {
   final List<String> categories;
   final String selectedCategory;
   final String sort;
+  final List<String> sortOptions;
   final ValueChanged<String> onCategoryChanged;
-  final VoidCallback onSort;
+  final ValueChanged<String> onSortChanged;
 
   const _ServicesView({
     required this.services,
     required this.categories,
     required this.selectedCategory,
     required this.sort,
+    required this.sortOptions,
     required this.onCategoryChanged,
-    required this.onSort,
+    required this.onSortChanged,
   });
 
   @override
@@ -378,7 +374,8 @@ class _ServicesView extends StatelessWidget {
         _ResultsHeader(
           text: '${services.length} services found',
           sort: sort,
-          onSort: onSort,
+          sortOptions: sortOptions,
+          onSortChanged: onSortChanged,
         ),
         SizedBox(
           height: 44,
@@ -436,12 +433,14 @@ class _ServicesView extends StatelessWidget {
 class _VendorsView extends StatelessWidget {
   final List<VendorModel> vendors;
   final String sort;
-  final VoidCallback onSort;
+  final List<String> sortOptions;
+  final ValueChanged<String> onSortChanged;
 
   const _VendorsView({
     required this.vendors,
     required this.sort,
-    required this.onSort,
+    required this.sortOptions,
+    required this.onSortChanged,
   });
 
   @override
@@ -451,7 +450,8 @@ class _VendorsView extends StatelessWidget {
         _ResultsHeader(
           text: '${vendors.length} vendors found',
           sort: sort,
-          onSort: onSort,
+          sortOptions: sortOptions,
+          onSortChanged: onSortChanged,
         ),
         Expanded(
           child: vendors.isEmpty
@@ -483,12 +483,14 @@ class _VendorsView extends StatelessWidget {
 class _ResultsHeader extends StatelessWidget {
   final String text;
   final String sort;
-  final VoidCallback onSort;
+  final List<String> sortOptions;
+  final ValueChanged<String> onSortChanged;
 
   const _ResultsHeader({
     required this.text,
     required this.sort,
-    required this.onSort,
+    required this.sortOptions,
+    required this.onSortChanged,
   });
 
   @override
@@ -506,10 +508,24 @@ class _ResultsHeader extends StatelessWidget {
               ),
             ),
           ),
-          OutlinedButton.icon(
-            onPressed: onSort,
-            icon: const Icon(Icons.tune, size: 17),
-            label: Text('Sort: $sort'),
+          PopupMenuButton<String>(
+            initialValue: sort,
+            onSelected: onSortChanged,
+            itemBuilder: (context) => sortOptions
+                .map(
+                  (option) => PopupMenuItem<String>(
+                    value: option,
+                    child: Text(option),
+                  ),
+                )
+                .toList(),
+            child: IgnorePointer(
+              child: OutlinedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.tune, size: 17),
+                label: Text('Sort: $sort'),
+              ),
+            ),
           ),
         ],
       ),

@@ -14,13 +14,11 @@ class InquiryListCard extends StatelessWidget {
     required this.participantName,
     required this.unread,
     required this.onTap,
-    this.participantEmail = '',
   });
 
   final InquiryModel inquiry;
   final String participantId;
   final String participantName;
-  final String participantEmail;
   final bool unread;
   final VoidCallback onTap;
 
@@ -33,7 +31,6 @@ class InquiryListCard extends StatelessWidget {
     );
     final time =
         inquiry.lastMessageAt ?? inquiry.updatedAt ?? inquiry.createdAt;
-    final email = participantEmail.trim();
 
     return Material(
       color: AppColors.surface,
@@ -104,21 +101,9 @@ class InquiryListCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (email.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                    SizedBox(height: email.isEmpty ? 3 : 5),
+                    const SizedBox(height: 3),
                     Text(
-                      'Conversation',
+                      _value(inquiry.serviceName, 'Conversation'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

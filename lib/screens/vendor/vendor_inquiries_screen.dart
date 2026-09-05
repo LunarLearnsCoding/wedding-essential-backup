@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/chat_list_header.dart';
 import '../../core/widgets/content_message_state.dart';
 import '../../core/widgets/inquiry_list_card.dart';
 import '../../models/inquiry_model.dart';
@@ -65,7 +66,11 @@ class _VendorInquiriesScreenState extends State<VendorInquiriesScreen> {
 
           return Column(
             children: [
-              _Header(chatCount: allChats.length),
+              ChatListHeader(
+                accountLabel: 'Vendor Account',
+                title: 'Customer Chats',
+                chatCount: allChats.length,
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
                 child: Column(
@@ -111,7 +116,6 @@ class _VendorInquiriesScreenState extends State<VendorInquiriesScreen> {
                               chat.customerName,
                               'Customer',
                             ),
-                            participantEmail: chat.customerEmail,
                             unread: chat.unreadForVendor,
                             onTap: () => Navigator.push(
                               context,
@@ -129,72 +133,6 @@ class _VendorInquiriesScreenState extends State<VendorInquiriesScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// Renders the reusable header UI component.
-class _Header extends StatelessWidget {
-  final int chatCount;
-
-  const _Header({required this.chatCount});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 48, 18, 22),
-      decoration: const BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.maybePop(context),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha: 0.16),
-            ),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Vendor Panel',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                Text(
-                  'Customer Chats',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (chatCount > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Text(
-                '$chatCount chats',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

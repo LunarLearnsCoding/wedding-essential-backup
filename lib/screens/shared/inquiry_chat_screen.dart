@@ -112,7 +112,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
         final otherName = widget.isVendor
             ? _value(inquiry.customerName, 'Customer')
             : _value(inquiry.vendorName, 'Vendor');
-        final otherEmail = widget.isVendor ? inquiry.customerEmail.trim() : '';
+        final serviceName = _value(inquiry.serviceName, 'General inquiry');
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -139,9 +139,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                         style: const TextStyle(fontSize: 17),
                       ),
                       Text(
-                        otherEmail.isNotEmpty
-                            ? otherEmail
-                            : 'Vendor conversation',
+                        serviceName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -214,7 +212,7 @@ class _ConversationBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Conversation',
+              'Inquiry about ${_value(inquiry.serviceName, 'general services')}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
